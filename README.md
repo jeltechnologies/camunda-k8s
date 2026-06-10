@@ -25,22 +25,20 @@ Most local Camunda setups do not contain Web Modeler and Optimize or use Docker 
 
 - **Real URLs** — every component is accessible at a proper path on your domain, the same way a production deployment works
 - **Full platform** — Web Modeler and Optimize are included, which are often left out of local setups due to complexity
-- **Turn back time** - When used in Proxmox or VirtualBox you can use their snapshots and backup functions, so save a complete environment ("If I could turn back time....")
-- **Single command** — one script installs and configures everything end to end
+- **If I could turn back time** - Dare to make mistakes, or use restore functions after a demo. Use the Proxmox or VirtualBox snapshots and backup functions.
+- **Two script only** — run two scripts and one restart, taking max 30 minutes.
 - **Re-runnable** — running the install script again upgrades the existing installation, preserving your data
-- **AI-assisted modelling** — optional Ollama integration brings BPMN, FEEL, and Form AI copilot to Web Modeler
-- **Git sync** — optional GitLab integration for process model version control directly from Web Modeler
 
 ## Requirements
 
-This scripts have been tested in Proxmox virtual machines with very modest hardware (Intel i3 8100T). You will need to provision:
+This scripts have been tested in Proxmox virtual machines. I use very modest hardware, Intel i3 8100T. You will need to provision the following in Proxmox:
 - Ubuntu 26.04 Server or Desktop
 - Minimal 8 GB memory (16 GB recommended)
 - Minimum 4 vCPU.
-- 30 minutes time
+- 32 GB disk (64 GB recommemded)
 
 ### Network access to the web applications
-- For usage in your internal network, you an install this on Ubuntu Desktop and use a web browser inside the virtual machine. Alternatively you can change the hosts file of your machines, so the domain points chosen during installation points to the IP of your virtual machine. You will get warnings on self signed certificates, which is normal.
+- Install Camunda on Ubuntu Desktop and use a web browser inside the virtual machine, to reach the server from within your network. You may also change the hosts file of your machines, so the domain points chosen during installation points to the IP of your virtual machine. You will get warnings on self signed certificates, which is normal.
 - For exposure to the internet you should use a reverse proxy provided by solutions like Pangolin or Cloudflare. They will provide a real certifcate. You then must use a secure password during installation. 
 
 ## Installation
