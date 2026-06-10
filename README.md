@@ -70,7 +70,11 @@ Internet → nginx ingress (443)
 
 ## Custom connectors
 
-Drop connector JARs into `~/camunda-connectors` on the host. Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials they need, then run:
+Drop connector JARs into `~/camunda-connectors` on the host. 
+
+## Secrets
+
+Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials they need, then run:
 
 ```bash
 ./update-connector-secrets.sh
