@@ -1,0 +1,360 @@
+global:
+  documentStore:
+    activeStoreId: "local"
+    type:
+      aws:
+        enabled: false
+      gcp:
+        enabled: false
+      inmemory:
+        enabled: false
+      local:
+        enabled: true
+        storeId: "LOCAL"
+        class: "io.camunda.document.store.local.LocalDocumentStoreProvider"
+        basePath: "/camunda-docs"
+
+  identity:
+    keycloak:
+      url:
+        protocol: "http"
+        host: "camunda-keycloak"
+        port: "80"
+      contextPath: "/auth"
+      realm: "/realms/camunda-platform"
+      auth:
+        adminUser: admin
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-keycloak-admin-password"
+    auth:
+      enabled: true
+      publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+      issuerBackendUrl: "http://camunda-keycloak/auth/realms/camunda-platform"
+      authUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/auth"
+      tokenUrl: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/token"
+      jwksUrl: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/certs"
+      identity:
+        clientId: "camunda-identity"
+      webModeler:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/modeler"
+      console:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/console"
+      optimize:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/optimize"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-optimize-client-token"
+      orchestration:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-orchestration-client-token"
+      connectors:
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-connectors-client-token"
+
+  security:
+    authentication:
+      method: oidc
+
+  host: "${CAMUNDA_DOMAIN}"
+  ingress:
+    enabled: true
+    className: public
+    tls:
+      enabled: true
+      secretName: "tls-secret-${CAMUNDA_DOMAIN}"
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+      nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+
+identity:
+  contextPath: "/identity"
+  fullURL: "https://${CAMUNDA_DOMAIN}/identity"
+  enabled: true
+  firstUser:
+    secret:
+      existingSecret: "camunda-credentials"
+      existingSecretKey: "identity-firstuser-password"
+  env:
+    - name: KEYCLOAK_REALM
+      value: "camunda-platform"
+    - name: IDENTITY_CLIENTID
+      value: "camunda-identity"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+optimize:
+  enabled: true
+  contextPath: "/optimize"
+  database:
+    elasticsearch:
+      enabled: true
+      external: true
+      url:
+        protocol: "http"
+        host: "camunda-elasticsearch-master"
+        port: 9200
+  env:
+    - name: CAMUNDA_OPTIMIZE_ELASTICSEARCH_SETTINGS_INDEX_PREFIX
+      value: "optimize-dev"
+    - name: CAMUNDA_OPTIMIZE_ZEEBE_NAME
+      value: "dev-zeebe"
+    - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+      value: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+connectors:
+  enabled: true
+  security:
+    authentication:
+      method: oidc
+      oidc:
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-connectors-client-token"
+  contextPath: "/connectors"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+  env:
+    - name: LOADER_PATH
+      value: "/opt/custom/connectors"
+  extraVolumes:
+    - name: custom-connectors
+      persistentVolumeClaim:
+        claimName: camunda-connectors-custom
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: custom-connectors
+      mountPath: /opt/custom
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+webModeler:
+  enabled: true
+  contextPath: "/modeler"
+  restapi:
+    externalDatabase:
+      url: "jdbc:postgresql://camunda-postgresql:5432/web-modeler"
+      username: "webmodeler"
+      secret:
+        existingSecret: "camunda-credentials"
+        existingSecretKey: "webmodeler-postgresql-user-password"
+    mail:
+      fromAddress: noreply@example.com
+    clusters:
+      - id: "default-cluster"
+        name: "camunda-zeebe"
+        version: "${CAMUNDA_APP_VERSION}"
+        authentication: "BEARER_TOKEN"
+        authorizations:
+          enabled: false
+        url:
+          grpc: "grpc://camunda-zeebe-gateway.camunda.svc.cluster.local:26500"
+          rest: "http://camunda-zeebe-gateway.camunda.svc.cluster.local:8080/orchestration"
+          web-app: "https://${CAMUNDA_DOMAIN}"
+    env:
+      - name: CAMUNDA_MODELER_RESOURCE_IMPORT_ALLOW_PRIVATE_IP_ADDRESS
+        value: "true"
+      - name: FEATURE_AI_ENABLED
+        value: "${OLLAMA_ENABLED}"
+      - name: RESTAPI_BPMN_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_FEEL_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_FORM_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_COPILOT_OLLAMA_DEFAULT_MODEL_ID
+        value: "${OLLAMA_MODEL}"
+      - name: RESTAPI_COPILOT_OLLAMA_BASE_URL
+        value: "${OLLAMA_URL}"
+      - name: CAMUNDA_MODELER_GITSYNC_GITLAB_BASEURL
+        value: "${GITLAB_URL}"
+    configuration: |
+      camunda:
+        identity:
+          base-url: "http://camunda-identity:80/identity"
+          issuer: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+          issuerBackendUrl: "http://camunda-keycloak/auth/realms/camunda-platform"
+          type: "KEYCLOAK"
+
+        modeler:
+          feature:
+            play-enabled: "true"
+
+          security:
+            jwt:
+              issuer:
+                backend-url: "http://camunda-keycloak/auth/realms/camunda-platform"
+              audience:
+                internal-api: "web-modeler-api"
+                public-api: "web-modeler-public-api"
+
+          mail:
+            from-address: "noreply@example.com"
+            from-name: "Camunda 8"
+
+          oauth2:
+            client-id: "web-modeler"
+            token:
+              username-claim: "preferred_username"
+
+          server:
+            url: "https://${CAMUNDA_DOMAIN}/modeler"
+            https-only: "true"
+          clusters:
+            - authentication: BEARER_TOKEN
+              authorizations:
+                enabled: false
+              id: default-cluster
+              name: camunda-zeebe
+              url:
+                grpc: grpc://camunda-zeebe-gateway.camunda.svc.cluster.local:26500
+                rest: http://camunda-zeebe-gateway.camunda.svc.cluster.local:8080/orchestration
+                web-app: https://${CAMUNDA_DOMAIN}
+              version: ${CAMUNDA_APP_VERSION}
+
+      spring:
+        datasource:
+          url: "jdbc:postgresql://camunda-postgresql:5432/web-modeler"
+          username: "webmodeler"
+
+        mail:
+          host: ""
+          port: 587
+          properties:
+            mail.smtp.auth: false
+            mail.smtp.starttls.enable: true
+            mail.smtp.starttls.required: true
+
+        security:
+          oauth2:
+            resourceserver:
+              jwt:
+                issuer-uri: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+                jwk-set-uri: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/certs"
+
+        servlet:
+          multipart:
+            max-file-size: "10MB"
+            max-request-size: "10MB"
+
+      server:
+        servlet:
+          context-path: "/modeler"
+      management:
+        server:
+          base-path: "/modeler"
+
+      logging:
+        level:
+          io.camunda.modeler: INFO
+          io.grpc: INFO
+
+      zeebe:
+        client:
+          maxMetadataSize: 32768
+
+    extraVolumes:
+      - name: camunda-docs
+        persistentVolumeClaim:
+          claimName: camunda-docs-pvc
+    extraVolumeMounts:
+      - name: camunda-docs
+        mountPath: /camunda-docs
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+
+orchestration:
+  enabled: true
+  clusterSize: "1"
+  partitionCount: "1"
+  replicationFactor: "1"
+  contextPath: "/orchestration"
+  ingress:
+    grpc:
+      enabled: true
+      className: public
+      host: "${ZEEBE_DOMAIN}"
+      tls:
+        enabled: true
+        secretName: "tls-secret-${ZEEBE_DOMAIN}"
+  security:
+    authentication:
+      unprotectedApi: true
+      method: oidc
+      oidc:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
+        issuerUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-orchestration-client-token"
+    authorizations:
+      enabled: false
+  exporters:
+    camunda:
+      enabled: false
+    rdbms:
+      enabled: true
+  data:
+    secondaryStorage:
+      type: "rdbms"
+      rdbms:
+        url: "jdbc:postgresql://camunda-postgresql:5432/orchestration"
+        username: "orchestration"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "orchestration-postgresql-password"
+  index:
+    prefix: dev-camunda
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+console:
+  enabled: true
+  contextPath: "/console"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi

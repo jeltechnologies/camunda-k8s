@@ -1,0 +1,100 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: camunda-postgresql-data
+  namespace: camunda
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: camunda-postgresql-init
+  namespace: camunda
+data:
+  init-webmodeler-db.sh: |
+    #!/bin/bash
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
+      CREATE USER camunda WITH PASSWORD '${PASSWORD}';
+      CREATE DATABASE keycloak OWNER camunda;
+      GRANT ALL PRIVILEGES ON DATABASE keycloak TO camunda;
+      CREATE USER webmodeler WITH PASSWORD '${PASSWORD}';
+      CREATE DATABASE "web-modeler" OWNER webmodeler;
+      GRANT ALL PRIVILEGES ON DATABASE "web-modeler" TO webmodeler;
+      CREATE USER orchestration WITH PASSWORD '${PASSWORD}';
+      CREATE DATABASE orchestration OWNER orchestration;
+      GRANT ALL PRIVILEGES ON DATABASE orchestration TO orchestration;
+    EOSQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camunda-postgresql
+  namespace: camunda
+  labels:
+    app: camunda-postgresql
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: camunda-postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: camunda-postgresql
+  namespace: camunda
+  labels:
+    app: camunda-postgresql
+spec:
+  serviceName: camunda-postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: camunda-postgresql
+  template:
+    metadata:
+      labels:
+        app: camunda-postgresql
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres:${PG_VERSION}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "${PASSWORD}"
+            - name: POSTGRES_DB
+              value: "postgres"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: camunda-postgresql-data
+        - name: init-scripts
+          configMap:
+            name: camunda-postgresql-init
+            defaultMode: 0755

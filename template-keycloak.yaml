@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camunda-keycloak
+  namespace: camunda
+  labels:
+    app: camunda-keycloak
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app: camunda-keycloak
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: camunda-keycloak
+  namespace: camunda
+  labels:
+    app: camunda-keycloak
+spec:
+  serviceName: camunda-keycloak
+  replicas: 1
+  selector:
+    matchLabels:
+      app: camunda-keycloak
+  template:
+    metadata:
+      labels:
+        app: camunda-keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+          args: ["start"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KC_HOSTNAME
+              value: "https://${CAMUNDA_DOMAIN}/auth"
+            - name: KC_HTTP_RELATIVE_PATH
+              value: "/auth"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            - name: KC_PROXY_HEADERS
+              value: "xforwarded"
+            - name: KC_DB
+              value: "postgres"
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://camunda-postgresql:5432/keycloak"
+            - name: KC_DB_USERNAME
+              value: "camunda"
+            - name: KC_DB_PASSWORD
+              value: "${PASSWORD}"
+            - name: KEYCLOAK_ADMIN
+              value: "admin"
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: "${PASSWORD}"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              memory: "1536Mi"
+          readinessProbe:
+            httpGet:
+              path: /auth/realms/master
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            failureThreshold: 18
