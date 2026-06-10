@@ -38,8 +38,8 @@ This scripts have been tested in Proxmox virtual machines. I use very modest har
 - 32 GB disk (64 GB recommemded)
 
 ### Network access to the web applications
-- Install Camunda on Ubuntu Desktop and use a web browser inside the virtual machine, to reach the server from within your network. You may also change the hosts file of your machines, so the domain points chosen during installation points to the IP of your virtual machine. You will get warnings on self signed certificates, which is normal.
-- For exposure to the internet you should use a reverse proxy provided by solutions like Pangolin or Cloudflare. They will provide a real certifcate. You then must use a secure password during installation. 
+- The easiest way to reach the web application is by installing Camunda on Ubuntu Desktop. You can then use the web browser inside the virtual machine, or use Remote Desktop Connection. To reach the server from other machines in your network, you must change the hosts files of these machines. You will get warnings on self signed certificates, which is normal.
+- For exposure to the internet, you should use a reverse proxy. This is provided by solutions like Pangolin or Cloudflare. You will then also get a real certifcate. Make sure to not use a secure password during installation. 
 
 ## Installation
 
