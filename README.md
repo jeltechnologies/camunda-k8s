@@ -1,6 +1,6 @@
 # Camunda 8 Self Contained Installation
 
-A fully automated installation of Camunda 8 on a single Ubuntu VM using MicroK8s — with every component running and accessible via real URLs, no port forwarding required.
+A fully automated installation of Camunda 8 on a single Ubuntu VM, use snapshots and backups for full control.
 
 ## What you get
 
