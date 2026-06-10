@@ -1,6 +1,18 @@
 # Camunda 8 Self Contained Installation
 
-A fully automated installation of Camunda 8 on a single Ubuntu VM, use snapshots and backups for full control.
+A fully automated installation of Camunda 8 on a single Ubuntu VM for experimenting, learning and demos.
+
+**This cannot be used in production**, because this approach lacks the robustness, scale and high availbility and license needed in enterprise environments.
+
+## Why this exists
+
+Most local Camunda setups do not contain Web Modeler and Optimize or use Docker Compose with port forwarding — each component on a different port, no shared authentication, and no ingress. This project takes a different approach:
+
+- **Real URLs** — every component is accessible at a proper path on your domain, the same way a production deployment works
+- **Full platform** — Web Modeler and Optimize are included, which are often left out of local setups due to complexity
+- **If I could turn back time** - Dare to make mistakes, or use restore functions after a demo. Use the Proxmox or VirtualBox snapshots and backup functions.
+- **Two script only** — run two scripts and one restart, taking max 30 minutes.
+- **Re-runnable** — running the install script again upgrades the existing installation, preserving your data
 
 ## What you get
 
@@ -17,17 +29,6 @@ A complete Camunda 8 platform running on a single machine:
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 
 All components are secured with Keycloak OIDC authentication out of the box.
-
-
-## Why this exists
-
-Most local Camunda setups do not contain Web Modeler and Optimize or use Docker Compose with port forwarding — each component on a different port, no shared authentication, and no ingress. This project takes a different approach:
-
-- **Real URLs** — every component is accessible at a proper path on your domain, the same way a production deployment works
-- **Full platform** — Web Modeler and Optimize are included, which are often left out of local setups due to complexity
-- **If I could turn back time** - Dare to make mistakes, or use restore functions after a demo. Use the Proxmox or VirtualBox snapshots and backup functions.
-- **Two script only** — run two scripts and one restart, taking max 30 minutes.
-- **Re-runnable** — running the install script again upgrades the existing installation, preserving your data
 
 ## Requirements
 
