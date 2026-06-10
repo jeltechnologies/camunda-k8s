@@ -6,13 +6,13 @@ A fully automated installation of Camunda 8 on a single Ubuntu VM for experiment
 
 ## Why this exists
 
-Most local Camunda setups do not contain Web Modeler and Optimize or use Docker Compose with port forwarding — each component on a different port, no shared authentication, and no ingress. This project takes a different approach:
+This project takes a different approach:
 
-- **Real URLs** — every component is accessible at a proper path on your domain, the same way a production deployment works
-- **Full platform** — Web Modeler and Optimize are included, which are often left out of local setups due to complexity
-- **If I could turn back time** - Dare to make mistakes, or use restore functions after a demo. Use the Proxmox or VirtualBox snapshots and backup functions.
-- **Two script only** — run two scripts and one restart, taking max 30 minutes.
+- **If I could turn back time** - Dare to make mistakes, or restore the complete system to "before the demo". This is achieved by deploying on Proxmox or VirtualBox virtual machines and using their snapshots and backup functions.
+- **Full platform** — Includes Web Modeler and Optimize, which are often left out of local setups due to complexity.
+- **Real URLs** — every component is accessible at a proper path on your domain, the same way a production deployment works. Other local deployments use Docker Compose or NPM with port forwarding — each component on a different port, no shared authentication, and no ingress. 
 - **Re-runnable** — running the install script again upgrades the existing installation, preserving your data
+- **Two script only** — run two scripts and one restart, taking max 30 minutes.
 
 ## What you get
 
