@@ -81,9 +81,10 @@ microk8s kubectl create secret generic camunda-credentials \
 
 
 echo "******************************************************************"
-echo "Installation is starting
+echo "Installation is starting"
 echo ""
 echo "P L E A S E  W A I T - this may take up to 20 minutes"
+echo 
 echo "******************************************************************"
 
 echo "=================================================================="
@@ -150,7 +151,7 @@ echo "PVC camunda-connectors-custom created"
 
 echo ""
 echo "=================================================================="
-echo "Installing Camunda ${CAMUNDA_APP_VERSION}..."
+echo "Installing Camunda..."
 echo "=================================================================="
 helm install camunda camunda/camunda-platform \
   --version "${HELM_CHART_VERSION}" \
@@ -172,7 +173,7 @@ microk8s kubectl get pods -n camunda
 echo "=================================================================="
 echo ""
 echo "============================================================"
-echo "  Camunda 8.10 installation complete!"
+echo "  Camunda installation complete!"
 echo "============================================================"
 echo ""
 echo "  URL:      https://${CAMUNDA_DOMAIN}"

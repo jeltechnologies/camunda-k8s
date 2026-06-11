@@ -229,6 +229,18 @@ webModeler:
             token:
               username-claim: "preferred_username"
 
+          pusher:
+            host: "camunda-web-modeler-websockets"
+            port: "8060"
+            app-id: "web-modeler-app"
+            key: "web-modeler-app-key"
+            secret: "web-modeler-app-secret"
+            client:
+              host: "${CAMUNDA_DOMAIN}"
+              port: "443"
+              path: "/modeler-ws"
+              force-tls: "true"
+
           server:
             url: "https://${CAMUNDA_DOMAIN}/modeler"
             https-only: "true"
@@ -292,6 +304,13 @@ webModeler:
     extraVolumeMounts:
       - name: camunda-docs
         mountPath: /camunda-docs
+  websockets:
+    contextPath: "/modeler-ws"
+    pusher:
+      app-id: "web-modeler-app"
+      key: "web-modeler-app-key"
+      secret: "web-modeler-app-secret"
+
   resources:
     requests:
       cpu: 50m
@@ -350,6 +369,12 @@ orchestration:
   extraVolumeMounts:
     - name: camunda-docs
       mountPath: /camunda-docs
+  extraConfiguration:
+    - file: mcp-gateway.yaml
+      content: |
+        camunda:
+          mcp:
+            enabled: true
 
 console:
   enabled: true
