@@ -45,7 +45,7 @@ This scripts have been tested in Proxmox virtual machines. I use very modest har
 ## Installation
 
 ```bash
-# Step 1: install MicroK8s and Helm v4
+# Step 1: install Kubernetes
 ./1-install-microk8s.sh
 sudo reboot
 
@@ -53,7 +53,10 @@ sudo reboot
 ./2-install-camunda-microk8s.sh
 ```
 
-The second script will prompt for your domain, password, and optional Ollama/GitLab settings, then install everything automatically. Expect 15–20 minutes on first run.
+The second script will prompt for your Helm chart version. Choose one of the published versions from 
+[Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
+
+After this the script prompts for domain, password, and optional Ollama/GitLab settings, then install everything automatically. Expect 15–20 minutes on first run.
 
 ## Architecture
 
@@ -102,7 +105,7 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 | Component | Version |
 |---|---|
 | Camunda | 8.10 |
-| Helm chart | 15.x (requires Helm v4) |
+| Helm chart | 15.x |
 | Keycloak | 26.x |
 | Elasticsearch | 8.19.x |
 | PostgreSQL | 16 |
