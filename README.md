@@ -95,7 +95,7 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 | `template-elasticsearch.yaml` | Elasticsearch StatefulSet |
 | `template-volumes.yaml` | Persistent volumes for documents and connectors |
 | `update-connector-secrets.sh` | Deploys custom connector secrets |
-| `tail-connector-logs.sh` | Streams connector pod logs |
+| `tail-connector-logs.sh` | Tails connector logs in the terminal, handy for debugging and troubleshooting. |
 
 ## Versions
 
