@@ -2,7 +2,7 @@
 
 A fully automated installation of Camunda 8 on a single Ubuntu VM for experimenting, learning and demos.
 
-**This cannot be used in production**, because this approach lacks the robustness, scale and high availbility and license needed in enterprise environments.
+**This cannot be used in production**, because this approach lacks the robustness, scale, high availbility and license needed in enterprise environments.
 
 ## Why this exists
 
