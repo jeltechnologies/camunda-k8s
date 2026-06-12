@@ -1,6 +1,6 @@
 # Camunda 8 Self Contained Installation
 
-A fully automated installation of Camunda 8 on a single Ubuntu VM for experimenting, learning and demos.
+A fully automated installation of Camunda 8 on a single Ubuntu box  for experimenting, learning and demos.
 
 **This cannot be used in production**, because this approach lacks the robustness, scale, high availbility and license needed in enterprise environments.
 
