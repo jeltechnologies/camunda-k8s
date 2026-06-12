@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
-DEFAULT_PASSWORD=demo
+DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=15.0.0-alpha2
 DEFAULT_CAMUNDA_APP_VERSION=8.10.0
 
