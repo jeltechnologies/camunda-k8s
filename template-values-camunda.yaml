@@ -332,7 +332,7 @@ orchestration:
         secretName: "tls-secret-${ZEEBE_DOMAIN}"
   security:
     authentication:
-      unprotectedApi: true
+      unprotectedApi: false
       method: oidc
       oidc:
         redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
@@ -362,6 +362,9 @@ orchestration:
     requests:
       cpu: 200m
       memory: 1Gi
+  env:
+    - name: SPRINGDOC_SWAGGERUI_ENABLED
+      value: "${SWAGGER_ENABLED}"
   extraVolumes:
     - name: camunda-docs
       persistentVolumeClaim:

@@ -27,6 +27,7 @@ A complete Camunda 8 platform running on a single machine:
 | Identity | `https://<your-domain>/identity` |
 | Keycloak | `https://<your-domain>/auth` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
+| Swagger UI | `https://<your-domain>/orchestration/swagger` *(disabled by default)* |
 
 All components are secured with Keycloak OIDC authentication out of the box.
 
@@ -41,6 +42,10 @@ This scripts have been tested in Proxmox virtual machines. I use very modest har
 ### Network access to the web applications
 - The easiest way to reach the web application is by installing Camunda on Ubuntu Desktop. You can then use the web browser inside the virtual machine, or use Remote Desktop Connection. To reach the server from other machines in your network, you must change the hosts files of these machines. You will get warnings on self signed certificates, which is normal.
 - For exposure to the internet, you should use a reverse proxy. This is provided by solutions like Pangolin or Cloudflare. You will then also get a real certifcate. Make sure to not use a secure password during installation. 
+
+> **Reverse proxy tip:** During `./2-install-camunda-microk8s.sh` you will be asked whether the deployment is behind a reverse proxy (Cloudflare, Pangolin, etc.). Answer `true` if the public domain resolves externally. The installer will then skip adding the domain to `/etc/hosts`, preventing traffic from looping back instead of going through the proxy.
+
+> **Swagger UI:** Disabled by default (`SWAGGER_ENABLED=false`). Only enable it for local/dev setups — the Swagger UI exposes the full REST API surface without additional authentication and should never be turned on when the instance is reachable from the public internet.
 
 ## Installation
 

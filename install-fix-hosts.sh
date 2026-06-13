@@ -2,12 +2,23 @@
 
 source ./install-env.sh
 
-ENTRIES=(
-    "127.0.0.1 camunda.local"
-    "127.0.0.1 zeebe.camunda.local"
-	"127.0.0.1 ${CAMUNDA_DOMAIN}"
-	"127.0.0.1 ${ZEEBE_DOMAIN}"
-)
+# When behind a reverse proxy (Cloudflare, Pangolin, etc.) the public domain
+# resolves externally, so we must NOT add it to /etc/hosts or traffic will
+# loop back instead of going through the proxy.
+if [[ "${BEHIND_REVERSE_PROXY:-false}" == "true" ]]; then
+  ENTRIES=(
+      "127.0.0.1 camunda.local"
+      "127.0.0.1 zeebe.camunda.local"
+  )
+  echo "Behind reverse proxy — skipping /etc/hosts entries for ${CAMUNDA_DOMAIN} and ${ZEEBE_DOMAIN}."
+else
+  ENTRIES=(
+      "127.0.0.1 camunda.local"
+      "127.0.0.1 zeebe.camunda.local"
+      "127.0.0.1 ${CAMUNDA_DOMAIN}"
+      "127.0.0.1 ${ZEEBE_DOMAIN}"
+  )
+fi
 
 HOSTS_FILE="/etc/hosts"
 

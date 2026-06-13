@@ -83,8 +83,9 @@ microk8s kubectl create secret generic camunda-credentials \
 echo "******************************************************************"
 echo "Installation is starting"
 echo ""
-echo "P L E A S E  W A I T - this may take up to 20 minutes"
-echo 
+echo "P-L-E-A-S-E  W-A-I-T"
+echo ""
+echo "This may take up to 20 minutes"
 echo "******************************************************************"
 
 echo "=================================================================="
@@ -132,7 +133,7 @@ microk8s kubectl delete pv  camunda-connectors-pv           --ignore-not-found
 echo "=================================================================="
 echo Generating Helm values from template
 echo "=================================================================="
-envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL}' \
+envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}' \
   < template-values-camunda.yaml > values-camunda.yaml
 
 echo "=================================================================="
@@ -181,6 +182,7 @@ echo "  Keycloak: https://${CAMUNDA_DOMAIN}/auth"
 echo "  Identity: https://${CAMUNDA_DOMAIN}/identity"
 echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
 echo "  Optimize: https://${CAMUNDA_DOMAIN}/optimize"
+echo "  Swagger:  https://${CAMUNDA_DOMAIN}/orchestration/swagger"
 echo "  Zeebe:    grpc://${ZEEBE_DOMAIN}:26500"
 echo ""
 echo "  Watch pod status with:"

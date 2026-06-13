@@ -16,6 +16,9 @@ DEFAULT_OLLAMA_URL=http://my-ollama:11434
 DEFAULT_GITLAB_ENABLED=false
 DEFAULT_GITLAB_URL=https://my-gitlab/api/v4
 
+DEFAULT_BEHIND_REVERSE_PROXY=false
+DEFAULT_SWAGGER_ENABLED=false
+
 if [[ -f ./install-env.sh ]]; then
   echo ""
   echo "  Found existing install-env.sh — using previous values as defaults."
@@ -35,6 +38,9 @@ if [[ -f ./install-env.sh ]]; then
   else
     DEFAULT_GITLAB_ENABLED=false
   fi
+
+  DEFAULT_BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY:-false}"
+  DEFAULT_SWAGGER_ENABLED="${SWAGGER_ENABLED:-false}"
 fi
 
 echo "============================================================"
@@ -48,13 +54,17 @@ CAMUNDA_DOMAIN=${input_domain:-$DEFAULT_CAMUNDA_DOMAIN}
 read -p "Enter password (default: ${DEFAULT_PASSWORD}): " input_password
 PASSWORD=${input_password:-$DEFAULT_PASSWORD}
 
-read -p "Enter Helm chart version (default: ${DEFAULT_HELM_CHART_VERSION}): " input_helm_version
+read -p "Enter Helm chart version. See https://helm.camunda.io/camunda-platform/version-matrix/ (default: ${DEFAULT_HELM_CHART_VERSION}): " input_helm_version
 HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
 
 read -p "Enter Camunda application version (default: ${DEFAULT_CAMUNDA_APP_VERSION}): " input_app_version
 CAMUNDA_APP_VERSION=${input_app_version:-$DEFAULT_CAMUNDA_APP_VERSION}
 
 ZEEBE_DOMAIN="zeebe.${CAMUNDA_DOMAIN}"
+
+read -p "Exposed to internet, behind a reverse proxy? Choose false when you are not sure. (default: ${DEFAULT_BEHIND_REVERSE_PROXY}): " input_reverse_proxy
+BEHIND_REVERSE_PROXY=${input_reverse_proxy:-$DEFAULT_BEHIND_REVERSE_PROXY}
+
 
 echo ""
 echo "============================================================"
@@ -94,6 +104,17 @@ else
   GITLAB_URL=""
 fi
 
+echo ""
+echo "=========================================================================================================="
+echo " Optional: Enable Swagger"
+echo " Exposes the full REST API documentation publicly, which is a security risk when exposed to the internet"
+echo " Keep false (default) unless really needed."
+echo "=========================================================================================================="
+echo ""
+
+read -p "Enable Swagger UI? WARNING: do not enable on public internet. (default: ${DEFAULT_SWAGGER_ENABLED}): " input_swagger_enabled
+SWAGGER_ENABLED=${input_swagger_enabled:-$DEFAULT_SWAGGER_ENABLED}
+
 cat > install-env.sh <<ENVEOF
 #!/usr/bin/env bash
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
@@ -108,6 +129,8 @@ export OLLAMA_ENABLED="${OLLAMA_ENABLED}"
 export OLLAMA_MODEL="${OLLAMA_MODEL}"
 export OLLAMA_URL="${OLLAMA_URL}"
 export GITLAB_URL="${GITLAB_URL}"
+export BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY}"
+export SWAGGER_ENABLED="${SWAGGER_ENABLED}"
 ENVEOF
 
 echo ""
