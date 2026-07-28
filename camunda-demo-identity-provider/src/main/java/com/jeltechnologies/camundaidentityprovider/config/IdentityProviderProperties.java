@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.config;
+package com.jeltechnologies.camundaidentityprovider.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -7,8 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * build redirect URIs, the seeded first user, and the per-Camunda-component OAuth2 client
  * secrets/audiences (the client IDs themselves are fixed, see {@link OidcClientsConfig}).
  */
-@ConfigurationProperties(prefix = "idp")
-public record IdpProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
+@ConfigurationProperties(prefix = "identity-provider")
+public record IdentityProviderProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
 
     public record DemoUser(String username, String email, String password) {}
 

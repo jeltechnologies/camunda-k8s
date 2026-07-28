@@ -1,7 +1,7 @@
-package com.jeltechnologies.camundaidp.bootstrap;
+package com.jeltechnologies.camundaidentityprovider.bootstrap;
 
-import com.jeltechnologies.camundaidp.config.IdpProperties;
-import com.jeltechnologies.camundaidp.user.UserRepository;
+import com.jeltechnologies.camundaidentityprovider.config.IdentityProviderProperties;
+import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,12 +22,12 @@ public class DemoUserSeeder implements ApplicationRunner {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final IdpProperties idpProperties;
+    private final IdentityProviderProperties identityProviderProperties;
 
-    public DemoUserSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder, IdpProperties idpProperties) {
+    public DemoUserSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder, IdentityProviderProperties identityProviderProperties) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.idpProperties = idpProperties;
+        this.identityProviderProperties = identityProviderProperties;
     }
 
     @Override
@@ -35,7 +35,7 @@ public class DemoUserSeeder implements ApplicationRunner {
         if (userRepository.count() > 0) {
             return;
         }
-        IdpProperties.DemoUser demoUser = idpProperties.demoUser();
+        IdentityProviderProperties.DemoUser demoUser = identityProviderProperties.demoUser();
         userRepository.insert(demoUser.username(), demoUser.email(),
                 passwordEncoder.encode(demoUser.password()), true);
         log.info("Seeded first admin user \"{}\"", demoUser.username());

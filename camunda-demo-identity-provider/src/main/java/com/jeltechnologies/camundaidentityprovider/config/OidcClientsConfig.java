@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.config;
+package com.jeltechnologies.camundaidentityprovider.config;
 
 import java.time.Duration;
 
@@ -18,7 +18,7 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
  * Fixed, small set of first-party OAuth2 clients: one per Camunda component. There is no
  * client-management UI or database table for these on purpose - the set never changes without a
  * code change to this file (and the matching Camunda Helm values), so a config-driven in-memory
- * repository built at startup from {@link IdpProperties} is all that's needed.
+ * repository built at startup from {@link IdentityProviderProperties} is all that's needed.
  *
  * <p>Client IDs, redirect URI shapes and required scopes follow Camunda's documented "generic
  * OIDC provider" contract. Verify these against the pinned camunda-platform Helm chart version
@@ -31,9 +31,9 @@ public class OidcClientsConfig {
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofHours(12);
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository(IdpProperties props, PasswordEncoder passwordEncoder) {
+    public RegisteredClientRepository registeredClientRepository(IdentityProviderProperties props, PasswordEncoder passwordEncoder) {
         String domain = props.camundaDomain();
-        IdpProperties.Clients clients = props.clients();
+        IdentityProviderProperties.Clients clients = props.clients();
 
         RegisteredClient camundaIdentity = confidentialClient("camunda-identity", clients.identity().secret(),
                 passwordEncoder, "https://" + domain + "/identity/auth/login-callback", false);

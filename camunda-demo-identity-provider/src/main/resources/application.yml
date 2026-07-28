@@ -27,12 +27,12 @@ spring:
     jdbc:
       initialize-schema: always
 
-idp:
+identity-provider:
   camunda-domain: ${CAMUNDA_DOMAIN}
   # PEM-encoded PKCS8 RSA private key, shared across replicas and stable across restarts, so
   # already-issued tokens keep validating. If unset (local dev only), a fresh ephemeral key is
   # generated at startup - fine for one instance, wrong for anything with more than one replica.
-  jwt-signing-key-pem: ${IDP_JWT_SIGNING_KEY_PEM:}
+  jwt-signing-key-pem: ${IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM:}
   demo-user:
     username: ${DEMO_USERNAME:demo}
     email: ${DEMO_EMAIL:demo@example.com}

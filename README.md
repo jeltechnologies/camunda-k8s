@@ -34,7 +34,7 @@ identity provider (`camunda-demo-identity-provider/`, a small Spring Boot app �
 [README](camunda-demo-identity-provider/README.md)) rather than a full Keycloak instance. As the
 name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
 authenticate and issue tokens, not the security hardening, auditing, or compliance controls of an
-enterprise IdP.
+enterprise Identity Provider.
 
 ## Requirements
 
@@ -88,7 +88,7 @@ Internet → nginx ingress (443)
 Camunda's own `identity` component still manages authorization (roles/permissions in its own
 database) — only *authentication* moved from Keycloak to camunda-demo-identity-provider.
 Its container image is built by `.github/workflows/build-camunda-demo-identity-provider.yml` and
-published to GHCR; the install script pulls it by tag (`IDP_IMAGE`, prompted by `configure-env.sh`).
+published to GHCR; the install script pulls it by tag (`IDENTITY_PROVIDER_IMAGE`, a constant in `configure-env.sh`).
 
 ## Custom connectors
 
@@ -126,6 +126,6 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 |---|---|
 | Camunda | 8.10 |
 | Helm chart | 15.x |
-| Identity Provider | see `camunda-demo-identity-provider/pom.xml`, image tag set by `IDP_IMAGE` |
+| Identity Provider | see `camunda-demo-identity-provider/pom.xml`, image tag set by `IDENTITY_PROVIDER_IMAGE` |
 | Elasticsearch | 8.19.x |
 | PostgreSQL | 16 |

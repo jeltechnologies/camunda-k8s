@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.config;
+package com.jeltechnologies.camundaidentityprovider.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

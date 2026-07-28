@@ -15,7 +15,7 @@ code (Spring Boot, Maven build, GitHub Actions CI publishing to GHCR). It replac
 platform's OIDC provider. See its own `README.md` for how to build/run/test it.
 
 Target audience is demos, learning and experimenting — explicitly not production (see README).
-The identity provider is explicitly **demo-grade**, not an enterprise-security IdP: no MFA, no
+The identity provider is explicitly **demo-grade**, not an enterprise-security Identity Provider: no MFA, no
 audit logging, no key rotation, single in-memory JWT signing key regenerated on every restart. Do
 not present it as a production-hardened component.
 
@@ -31,7 +31,7 @@ not present it as a production-hardened component.
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
 | `camunda-demo-identity-provider/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
-| `.github/workflows/build-camunda-demo-identity-provider.yml` | Builds/pushes its image to GHCR on push to `main` or an `idp-v*` tag. |
+| `.github/workflows/build-camunda-demo-identity-provider.yml` | Builds/pushes its image to GHCR on push to `main` or an `identity-provider-v*` tag. |
 | `update-connector-secrets.sh` | Applies optional `connector-secrets.yaml`, patches the connectors Deployment with `envFrom`, restarts the pod. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
 
@@ -67,7 +67,7 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- camunda-demo-identity-provider: `${IDP_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}`
+- camunda-demo-identity-provider: `${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}`
 - camunda-demo-identity-provider-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}`
@@ -104,9 +104,11 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
 - Loud banner-style progress output (`echo ====...`) between phases — match the existing style.
 - Waits are explicit `kubectl rollout status`/`kubectl wait` with a timeout, never bare `sleep`.
 - Version pins live as constants at the top of `configure-env.sh`
-  (`ES_VERSION`, `PG_VERSION`) and as `DEFAULT_*` prompts for the Camunda Helm chart, app version,
-  and the identity-provider image (`IDP_IMAGE`). If you bump any of these, **update the Versions
-  table in `README.md` to match** — it is maintained by hand.
+  (`ES_VERSION`, `PG_VERSION`, `IDENTITY_PROVIDER_IMAGE`) and as `DEFAULT_*` prompts for the Camunda Helm chart
+  and app version. `IDENTITY_PROVIDER_IMAGE` is deliberately **not** prompted, unlike the Camunda-side versions
+  — the identity provider is expected to need no end-user tuning once it's running, so bumping it
+  is a code change (this constant), not something to surface in the wizard. If you bump any of
+  these, **update the Versions table in `README.md` to match** — it is maintained by hand.
 
 ## Architecture facts that are easy to get wrong
 
@@ -121,15 +123,15 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   PG data volume, so an existing install needs manual SQL.
 - **camunda-demo-identity-provider replaced Keycloak.** It's a Spring Boot Deployment
   (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`) with no volume of its own — all
-  state is either in Postgres or in the `camunda-idp-signing-key` Secret, specifically so it can
+  state is either in Postgres or in the `camunda-identity-provider-signing-key` Secret, specifically so it can
   run multiple replicas and survive restarts without logging everyone out:
   - **Users** live in the `camunda-demo-identity-provider` Postgres database (`users` table).
   - **HTTP sessions** and **issued tokens** (auth codes, access/refresh tokens) are also in that
     same database via `spring-session-jdbc` and `JdbcOAuth2AuthorizationService` — not the
     in-memory defaults — so a request doesn't need to land on the same pod that handled the
     previous one in the flow.
-  - **The RSA JWT signing key** comes from the `camunda-idp-signing-key` Secret
-    (`IDP_JWT_SIGNING_KEY_PEM`), generated once by `2-install-camunda-microk8s.sh` (idempotent —
+  - **The RSA JWT signing key** comes from the `camunda-identity-provider-signing-key` Secret
+    (`IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM`), generated once by `2-install-camunda-microk8s.sh` (idempotent —
     it checks whether the secret already exists before generating) rather than freshly per pod
     startup. Every replica must sign/validate with the *same* key, and a restart must not rotate
     it, or outstanding tokens stop validating. Local dev without that env var falls back to a
@@ -200,7 +202,7 @@ unasked. The `camunda-credentials` secret's keys (`identity-identity-client-toke
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
 `orchestration-postgresql-password`) are all set to the same `$PASSWORD` too, doing double duty as
 both database passwords and OAuth2 client secrets for `camunda-demo-identity-provider`. The
-**`camunda-idp-signing-key` Secret is deliberately separate** and handled differently: unlike
+**`camunda-identity-provider-signing-key` Secret is deliberately separate** and handled differently: unlike
 `camunda-credentials` (deleted and recreated on every install run, harmless since the value always
 comes from the same `$PASSWORD`), this one holds randomly generated key material with no external
 source of truth, so `2-install-camunda-microk8s.sh` only creates it if it doesn't already exist.

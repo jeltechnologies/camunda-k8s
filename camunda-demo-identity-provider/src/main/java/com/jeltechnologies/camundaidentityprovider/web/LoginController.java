@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.web;
+package com.jeltechnologies.camundaidentityprovider.web;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;

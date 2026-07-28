@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.user;
+package com.jeltechnologies.camundaidentityprovider.user;
 
 import java.time.Instant;
 import java.util.UUID;

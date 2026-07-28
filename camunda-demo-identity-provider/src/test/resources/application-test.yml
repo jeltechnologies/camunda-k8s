@@ -4,8 +4,8 @@ spring:
     username: sa
     password: ""
 
-idp:
-  camunda-domain: idp.example.com
+identity-provider:
+  camunda-domain: identity-provider.example.com
   demo-user:
     username: demo
     email: demo@example.com

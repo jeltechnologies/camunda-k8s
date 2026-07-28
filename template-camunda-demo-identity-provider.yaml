@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: camunda-demo-identity-provider
-          image: ${IDP_IMAGE}
+          image: ${IDENTITY_PROVIDER_IMAGE}
           ports:
             - containerPort: 8080
           env:
@@ -67,10 +67,10 @@ spec:
                 secretKeyRef:
                   name: camunda-credentials
                   key: identity-optimize-client-token
-            - name: IDP_JWT_SIGNING_KEY_PEM
+            - name: IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM
               valueFrom:
                 secretKeyRef:
-                  name: camunda-idp-signing-key
+                  name: camunda-identity-provider-signing-key
                   key: private-key.pem
           resources:
             requests:

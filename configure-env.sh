@@ -48,7 +48,7 @@ fi
 # can never clobber them.
 ES_VERSION=8.19.9
 PG_VERSION=16
-IDP_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
+IDENTITY_PROVIDER_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
 
 echo "============================================================"
 echo " Camunda configuration"
@@ -143,7 +143,7 @@ export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-export IDP_IMAGE="${IDP_IMAGE}"
+export IDENTITY_PROVIDER_IMAGE="${IDENTITY_PROVIDER_IMAGE}"
 export DEMO_USERNAME="${DEMO_USERNAME}"
 export DEMO_EMAIL="${DEMO_EMAIL}"
 export ES_VERSION="${ES_VERSION}"

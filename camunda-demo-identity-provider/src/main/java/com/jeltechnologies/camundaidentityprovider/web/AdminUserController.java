@@ -1,8 +1,8 @@
-package com.jeltechnologies.camundaidp.web;
+package com.jeltechnologies.camundaidentityprovider.web;
 
 import java.util.UUID;
 
-import com.jeltechnologies.camundaidp.user.UserRepository;
+import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;

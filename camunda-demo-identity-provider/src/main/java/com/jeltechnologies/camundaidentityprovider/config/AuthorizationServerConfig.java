@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.config;
+package com.jeltechnologies.camundaidentityprovider.config;
 
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -33,16 +33,16 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 @Configuration
 public class AuthorizationServerConfig {
 
-    private final IdpProperties idpProperties;
+    private final IdentityProviderProperties identityProviderProperties;
 
-    public AuthorizationServerConfig(IdpProperties idpProperties) {
-        this.idpProperties = idpProperties;
+    public AuthorizationServerConfig(IdentityProviderProperties identityProviderProperties) {
+        this.identityProviderProperties = identityProviderProperties;
     }
 
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder()
-                .issuer(idpProperties.publicIssuer())
+                .issuer(identityProviderProperties.publicIssuer())
                 .build();
     }
 
@@ -58,8 +58,8 @@ public class AuthorizationServerConfig {
     }
 
     /**
-     * Loads the RSA signing key from {@code idp.jwt-signing-key-pem} (a PKCS8 PEM, provided via
-     * the camunda-idp-signing-key Kubernetes Secret in the real cluster - see
+     * Loads the RSA signing key from {@code identity-provider.jwt-signing-key-pem} (a PKCS8 PEM, provided via
+     * the camunda-identity-provider-signing-key Kubernetes Secret in the real cluster - see
      * 2-install-camunda-microk8s.sh) so every replica signs/validates with the same key and a pod
      * restart doesn't invalidate outstanding tokens. Falls back to a freshly generated ephemeral
      * key when unset, which is fine for a single local-dev instance but wrong for anything with
@@ -67,9 +67,9 @@ public class AuthorizationServerConfig {
      */
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = idpProperties.jwtSigningKeyPem() == null || idpProperties.jwtSigningKeyPem().isBlank()
+        KeyPair keyPair = identityProviderProperties.jwtSigningKeyPem() == null || identityProviderProperties.jwtSigningKeyPem().isBlank()
                 ? generateEphemeralRsaKey()
-                : loadRsaKeyPair(idpProperties.jwtSigningKeyPem());
+                : loadRsaKeyPair(identityProviderProperties.jwtSigningKeyPem());
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
         RSAKey.Builder builder = new RSAKey.Builder(publicKey).privateKey(privateKey);
@@ -113,7 +113,7 @@ public class AuthorizationServerConfig {
      * against a second instance, which is exactly the scenario this DB-backed service exists for.
      */
     private java.util.List<String> audiencesFor(String clientId) {
-        IdpProperties.Clients clients = idpProperties.clients();
+        IdentityProviderProperties.Clients clients = identityProviderProperties.clients();
         return switch (clientId) {
             case "camunda-identity" -> new java.util.ArrayList<>(java.util.List.of(clients.identity().audience()));
             case "orchestration" -> new java.util.ArrayList<>(java.util.List.of(clients.orchestration().audience()));
@@ -152,7 +152,7 @@ public class AuthorizationServerConfig {
             return new KeyPair(publicKey, privateKey);
         } catch (NoSuchAlgorithmException | InvalidKeySpecException | ClassCastException e) {
             throw new IllegalStateException(
-                    "idp.jwt-signing-key-pem is not a valid PKCS8 RSA private key PEM", e);
+                    "identity-provider.jwt-signing-key-pem is not a valid PKCS8 RSA private key PEM", e);
         }
     }
 }

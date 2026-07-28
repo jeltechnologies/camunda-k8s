@@ -36,7 +36,7 @@ echo "Kubernetes namespace    : camunda"
 echo "Helm chart version      : ${HELM_CHART_VERSION}"
 echo "Elasticsearch version   : ${ES_VERSION}"
 echo "PostgreSQL version      : ${PG_VERSION}"
-echo "Identity Provider image : ${IDP_IMAGE}"
+echo "Identity Provider image : ${IDENTITY_PROVIDER_IMAGE}"
 
 echo "=================================================================="
 echo Configuring Zeebe gRPC TCP passthrough for nginx ingress
@@ -81,12 +81,12 @@ microk8s kubectl create secret generic camunda-credentials \
 echo "=================================================================="
 echo Generating the Identity Provider signing key, if it does not already exist
 echo "=================================================================="
-if microk8s kubectl get secret camunda-idp-signing-key -n camunda &>/dev/null; then
-  echo "camunda-idp-signing-key already exists - keeping it, so existing tokens stay valid."
+if microk8s kubectl get secret camunda-identity-provider-signing-key -n camunda &>/dev/null; then
+  echo "camunda-identity-provider-signing-key already exists - keeping it, so existing tokens stay valid."
 else
   echo "No existing signing key found, generating one..."
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-    | microk8s kubectl create secret generic camunda-idp-signing-key \
+    | microk8s kubectl create secret generic camunda-identity-provider-signing-key \
         --from-file=private-key.pem=/dev/stdin \
         -n camunda
 fi
@@ -122,9 +122,9 @@ microk8s kubectl rollout status statefulset/camunda-postgresql -n camunda --time
 echo "PostgreSQL installed. Service: camunda-postgresql:5432"
 
 echo "=================================================================="
-echo "Installing Identity Provider (${IDP_IMAGE})"
+echo "Installing Identity Provider (${IDENTITY_PROVIDER_IMAGE})"
 echo "=================================================================="
-envsubst '${IDP_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}' \
+envsubst '${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}' \
   < template-camunda-demo-identity-provider.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for the Identity Provider to be ready..."

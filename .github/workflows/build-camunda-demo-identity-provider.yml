@@ -7,7 +7,7 @@ on:
       - "camunda-demo-identity-provider/**"
       - ".github/workflows/build-camunda-demo-identity-provider.yml"
     tags:
-      - "idp-v*"
+      - "identity-provider-v*"
   workflow_dispatch:
 
 jobs:
@@ -30,8 +30,8 @@ jobs:
         id: image
         run: |
           echo "name=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/camunda-demo-identity-provider" >> "$GITHUB_OUTPUT"
-          if [[ "${GITHUB_REF}" == refs/tags/idp-v* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/idp-v}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/identity-provider-v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/identity-provider-v}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi

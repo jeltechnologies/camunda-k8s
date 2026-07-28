@@ -1,4 +1,4 @@
-package com.jeltechnologies.camundaidp.user;
+package com.jeltechnologies.camundaidentityprovider.user;
 
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.userdetails.UserDetails;
