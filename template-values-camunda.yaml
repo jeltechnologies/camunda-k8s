@@ -281,9 +281,20 @@ webModeler:
             max-file-size: "10MB"
             max-request-size: "10MB"
 
+      # --- FIX (8.9): Web Modeler restapi now runs on Tomcat instead of Undertow,
+      # and it also owns the browser-facing login/session flow that used to live
+      # in the removed "webapp" component. Tomcat does not trust X-Forwarded-Proto
+      # from the nginx ingress by default the way Undertow did, so with
+      # `https-only: true` above it kept generating https redirects on a request
+      # it believed was still plain HTTP -> redirect loop / ERR_TOO_MANY_REDIRECTS.
+      # `native` tells Spring Boot to let Tomcat's built-in RemoteIpValve read
+      # X-Forwarded-Proto/-Host/-Port/-For from the ingress and treat the
+      # connection as HTTPS correctly.
       server:
         servlet:
           context-path: "/modeler"
+        forward-headers-strategy: native
+
       management:
         server:
           base-path: "/modeler"
