@@ -23,7 +23,7 @@ metadata:
   labels:
     app: camunda-demo-identity-provider
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: camunda-demo-identity-provider
@@ -67,6 +67,11 @@ spec:
                 secretKeyRef:
                   name: camunda-credentials
                   key: identity-optimize-client-token
+            - name: IDP_JWT_SIGNING_KEY_PEM
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-idp-signing-key
+                  key: private-key.pem
           resources:
             requests:
               cpu: "50m"

@@ -119,13 +119,29 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   matching the image name), `web-modeler` (user `webmodeler`), `orchestration` (user
   `orchestration`). Adding a database means editing that init script — it only runs on a **fresh**
   PG data volume, so an existing install needs manual SQL.
-- **camunda-demo-identity-provider replaced Keycloak.** It's a stateless Spring Boot Deployment
-  (`template-camunda-demo-identity-provider.yaml`) — no volume of its own. The `users` table lives
-  in the `camunda-demo-identity-provider` Postgres database; the app itself holds no state, so
-  restarting the pod is harmless
-  *except* that it regenerates its RSA JWT signing key and clears in-memory HTTP sessions on every
-  restart, invalidating outstanding tokens and logging everyone out. Camunda is configured with
-  `global.identity.auth.type: "GENERIC"` (see the comment block at the top of that section in
+- **camunda-demo-identity-provider replaced Keycloak.** It's a Spring Boot Deployment
+  (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`) with no volume of its own — all
+  state is either in Postgres or in the `camunda-idp-signing-key` Secret, specifically so it can
+  run multiple replicas and survive restarts without logging everyone out:
+  - **Users** live in the `camunda-demo-identity-provider` Postgres database (`users` table).
+  - **HTTP sessions** and **issued tokens** (auth codes, access/refresh tokens) are also in that
+    same database via `spring-session-jdbc` and `JdbcOAuth2AuthorizationService` — not the
+    in-memory defaults — so a request doesn't need to land on the same pod that handled the
+    previous one in the flow.
+  - **The RSA JWT signing key** comes from the `camunda-idp-signing-key` Secret
+    (`IDP_JWT_SIGNING_KEY_PEM`), generated once by `2-install-camunda-microk8s.sh` (idempotent —
+    it checks whether the secret already exists before generating) rather than freshly per pod
+    startup. Every replica must sign/validate with the *same* key, and a restart must not rotate
+    it, or outstanding tokens stop validating. Local dev without that env var falls back to a
+    fresh ephemeral key, which is fine for exactly one instance.
+  - The JDBC schema for issued tokens is `oauth2-authorization-schema-postgresql.sql`, adapted by
+    hand from the schema shipped inside `spring-security-oauth2-authorization-server` (its
+    `blob`/`timestamp` columns don't work on Postgres — see the comment in that file — and
+    `TIMESTAMP WITH TIME ZONE` was used instead of Postgres's `timestamptz` shorthand so the same
+    file also works against H2 in tests).
+
+  Camunda is configured with `global.identity.auth.type: "GENERIC"` (see the comment block at the
+  top of that section in
   `template-values-camunda.yaml`) — a documented, supported Camunda 8.8+ mode for connecting to any
   standards-compliant external OIDC provider instead of the chart's bundled Keycloak. Camunda's own
   `identity` component still manages authorization/roles in its own DB; only *authentication*
@@ -183,7 +199,13 @@ unasked. The `camunda-credentials` secret's keys (`identity-identity-client-toke
 `identity-orchestration-client-token`, `identity-optimize-client-token`,
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
 `orchestration-postgresql-password`) are all set to the same `$PASSWORD` too, doing double duty as
-both database passwords and OAuth2 client secrets for `camunda-demo-identity-provider`.
+both database passwords and OAuth2 client secrets for `camunda-demo-identity-provider`. The
+**`camunda-idp-signing-key` Secret is deliberately separate** and handled differently: unlike
+`camunda-credentials` (deleted and recreated on every install run, harmless since the value always
+comes from the same `$PASSWORD`), this one holds randomly generated key material with no external
+source of truth, so `2-install-camunda-microk8s.sh` only creates it if it doesn't already exist.
+Never change that to an unconditional delete-and-recreate — it would silently invalidate every
+outstanding token on the next install run.
 
 **`.env` / `.env.example` convention.** Every place secrets live has a matching `.example` file
 committed alongside it, documenting the shape with placeholder values only:

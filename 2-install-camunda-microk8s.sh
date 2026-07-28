@@ -78,6 +78,19 @@ microk8s kubectl create secret generic camunda-credentials \
     --from-literal=orchestration-postgresql-password="${PASSWORD}" \
     -n camunda
 
+echo "=================================================================="
+echo Generating the Identity Provider signing key, if it does not already exist
+echo "=================================================================="
+if microk8s kubectl get secret camunda-idp-signing-key -n camunda &>/dev/null; then
+  echo "camunda-idp-signing-key already exists - keeping it, so existing tokens stay valid."
+else
+  echo "No existing signing key found, generating one..."
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
+    | microk8s kubectl create secret generic camunda-idp-signing-key \
+        --from-file=private-key.pem=/dev/stdin \
+        -n camunda
+fi
+
 
 echo "******************************************************************"
 echo "Installation is starting"

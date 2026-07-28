@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * secrets/audiences (the client IDs themselves are fixed, see {@link OidcClientsConfig}).
  */
 @ConfigurationProperties(prefix = "idp")
-public record IdpProperties(String camundaDomain, DemoUser demoUser, Clients clients) {
+public record IdpProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
 
     public record DemoUser(String username, String email, String password) {}
 

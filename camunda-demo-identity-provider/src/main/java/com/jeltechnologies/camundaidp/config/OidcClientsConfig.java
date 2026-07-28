@@ -86,6 +86,7 @@ public class OidcClientsConfig {
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)
+                .scope("offline_access")
                 .clientSettings(ClientSettings.builder()
                         .requireAuthorizationConsent(false)
                         .requireProofKey(true)
