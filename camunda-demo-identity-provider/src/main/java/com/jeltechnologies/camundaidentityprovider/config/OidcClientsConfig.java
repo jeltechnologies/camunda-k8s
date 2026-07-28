@@ -66,6 +66,7 @@ public class OidcClientsConfig {
                 .clientId(clientId)
                 .clientSecret(passwordEncoder.encode(secret))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri(redirectUri)
@@ -105,7 +106,12 @@ public class OidcClientsConfig {
         return RegisteredClient.withId(clientId)
                 .clientId(clientId)
                 .clientSecret(passwordEncoder.encode(secret))
+                // Camunda's own Java client SDK (used by orchestration for M2M and by
+                // Connectors) sends credentials as client_secret_post (in the token request
+                // body), not HTTP Basic - confirmed by testing both directly against this
+                // endpoint. Accept both rather than guess which any given caller uses.
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build())
                 .tokenSettings(tokenSettings())

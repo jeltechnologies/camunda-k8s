@@ -157,7 +157,11 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   `orchestration.security.authentication.oidc.issuer`, not `issuerUrl`). **Connectors is its own
   client, not a reuse of `orchestration`'s** — `helm template` was needed to find this, since
   neither the docs nor the values.yaml comments call it out: Identity's rendered
-  `camunda-connectors-configuration` ConfigMap hardcodes `client-id: "connectors"`.
+  `camunda-connectors-configuration` ConfigMap hardcodes `client-id: "connectors"`. **M2M clients
+  accept both `client_secret_basic` and `client_secret_post`** in `OidcClientsConfig.java` —
+  Camunda's Java client SDK sends credentials in the token request body, not an `Authorization`
+  header; confirmed by testing both directly against `/oauth2/token` when Connectors' M2M auth
+  kept failing with 401 despite the secret value being verified correct.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`
