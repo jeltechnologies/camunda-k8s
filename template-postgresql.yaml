@@ -29,6 +29,9 @@ data:
       CREATE USER orchestration WITH PASSWORD '${PASSWORD}';
       CREATE DATABASE orchestration OWNER orchestration;
       GRANT ALL PRIVILEGES ON DATABASE orchestration TO orchestration;
+      CREATE USER identity WITH PASSWORD '${PASSWORD}';
+      CREATE DATABASE identity OWNER identity;
+      GRANT ALL PRIVILEGES ON DATABASE identity TO identity;
     EOSQL
 ---
 apiVersion: v1

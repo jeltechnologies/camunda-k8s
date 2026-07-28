@@ -95,6 +95,20 @@ identity:
   # No `firstUser` block: users now live in camunda-demo-identity-provider, not in an Identity-managed Keycloak
   # realm. The first admin user is seeded by camunda-demo-identity-provider itself (DEMO_USERNAME/DEMO_EMAIL
   # /DEMO_PASSWORD in template-camunda-demo-identity-provider.yaml), not by this Helm chart.
+  # Identity needs its own relational database only in GENERIC OIDC mode (in Keycloak mode its
+  # authorization/mapping-rule data lived inside Keycloak's own realm instead) - confirmed by
+  # `helm template` against this exact chart version, since neither the docs nor the values.yaml
+  # comments call this out. Without it, Identity crashes on startup trying to build a JDBC
+  # connection from entirely blank host/port/database defaults.
+  externalDatabase:
+    enabled: true
+    host: "camunda-postgresql"
+    port: 5432
+    username: "identity"
+    database: "identity"
+    secret:
+      existingSecret: "camunda-credentials"
+      existingSecretKey: "identity-postgresql-password"
   env:
     - name: IDENTITY_CLIENTID
       value: "camunda-identity"

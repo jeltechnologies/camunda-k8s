@@ -17,6 +17,9 @@ identity-provider:
     orchestration:
       secret: test-secret
       audience: orchestration-api
+    connectors:
+      secret: test-secret
+      audience: orchestration-api
     optimize:
       secret: test-secret
       audience: optimize-api

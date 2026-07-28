@@ -116,11 +116,13 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   (`jdbc:postgresql://camunda-postgresql:5432/orchestration`, `exporters.rdbms.enabled: true`,
   `exporters.camunda.enabled: false`). Elasticsearch is there for **Optimize**. Don't assume the
   usual ES-backed Zeebe exporter setup.
-- **One PostgreSQL, three databases**, all created by the init ConfigMap in
+- **One PostgreSQL, four databases**, all created by the init ConfigMap in
   `template-postgresql.yaml`: `camunda-demo-identity-provider` (user `camunda-demo-identity-provider`,
   matching the image name), `web-modeler` (user `webmodeler`), `orchestration` (user
-  `orchestration`). Adding a database means editing that init script — it only runs on a **fresh**
-  PG data volume, so an existing install needs manual SQL.
+  `orchestration`), and `identity` (user `identity` — Management Identity's own JPA store,
+  needed only in GENERIC OIDC mode; see the note under `identity.externalDatabase` in
+  `template-values-camunda.yaml`). Adding a database means editing that init script — it only
+  runs on a **fresh** PG data volume, so an existing install needs manual SQL.
 - **camunda-demo-identity-provider replaced Keycloak.** It's a Spring Boot Deployment
   (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`) with no volume of its own — all
   state is either in Postgres or in the `camunda-identity-provider-signing-key` Secret, specifically so it can
@@ -147,12 +149,15 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   `template-values-camunda.yaml`) — a documented, supported Camunda 8.8+ mode for connecting to any
   standards-compliant external OIDC provider instead of the chart's bundled Keycloak. Camunda's own
   `identity` component still manages authorization/roles in its own DB; only *authentication*
-  moved. The OAuth2 client set (`camunda-identity`, `orchestration`, `optimize`, `web-modeler`,
-  `console`) is fixed in `camunda-demo-identity-provider/.../OidcClientsConfig.java` — adding a new
-  Camunda component means a code change there **and** a matching block in
+  moved. The OAuth2 client set (`camunda-identity`, `orchestration`, `connectors`, `optimize`,
+  `web-modeler`, `console`) is fixed in `camunda-demo-identity-provider/.../OidcClientsConfig.java`
+  — adding a new Camunda component means a code change there **and** a matching block in
   `template-values-camunda.yaml`, cross-checked against `helm show values camunda/camunda-platform
   --version <HELM_CHART_VERSION>` since field names have moved between chart versions (e.g.
-  `orchestration.security.authentication.oidc.issuer`, not `issuerUrl`).
+  `orchestration.security.authentication.oidc.issuer`, not `issuerUrl`). **Connectors is its own
+  client, not a reuse of `orchestration`'s** — `helm template` was needed to find this, since
+  neither the docs nor the values.yaml comments call it out: Identity's rendered
+  `camunda-connectors-configuration` ConfigMap hardcodes `client-id: "connectors"`.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`

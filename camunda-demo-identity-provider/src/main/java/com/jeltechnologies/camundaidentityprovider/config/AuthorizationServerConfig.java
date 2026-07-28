@@ -117,6 +117,7 @@ public class AuthorizationServerConfig {
         return switch (clientId) {
             case "camunda-identity" -> new java.util.ArrayList<>(java.util.List.of(clients.identity().audience()));
             case "orchestration" -> new java.util.ArrayList<>(java.util.List.of(clients.orchestration().audience()));
+            case "connectors" -> new java.util.ArrayList<>(java.util.List.of(clients.connectors().audience()));
             case "optimize" -> new java.util.ArrayList<>(java.util.List.of(clients.optimize().audience()));
             case "web-modeler" -> new java.util.ArrayList<>(java.util.List.of(
                     clients.webModeler().clientApiAudience(), clients.webModeler().publicApiAudience()));

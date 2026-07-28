@@ -50,8 +50,14 @@ public class OidcClientsConfig {
 
         RegisteredClient console = publicClient("console", "https://" + domain + "/console/");
 
+        // Pure M2M: Camunda's own Identity component provisions Connectors with its own client
+        // ID "connectors" (confirmed via `helm template`'s rendered camunda-connectors-configuration
+        // ConfigMap), NOT the "orchestration" client ID as originally assumed - Connectors never
+        // logs a human in, so no authorization_code/redirect URI is needed at all.
+        RegisteredClient connectors = m2mClient("connectors", clients.connectors().secret(), passwordEncoder);
+
         return new InMemoryRegisteredClientRepository(
-                camundaIdentity, orchestration, optimize, webModeler, console);
+                camundaIdentity, orchestration, optimize, webModeler, console, connectors);
     }
 
     private RegisteredClient confidentialClient(String clientId, String secret, PasswordEncoder passwordEncoder,
@@ -91,6 +97,17 @@ public class OidcClientsConfig {
                         .requireAuthorizationConsent(false)
                         .requireProofKey(true)
                         .build())
+                .tokenSettings(tokenSettings())
+                .build();
+    }
+
+    private RegisteredClient m2mClient(String clientId, String secret, PasswordEncoder passwordEncoder) {
+        return RegisteredClient.withId(clientId)
+                .clientId(clientId)
+                .clientSecret(passwordEncoder.encode(secret))
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build())
                 .tokenSettings(tokenSettings())
                 .build();
     }

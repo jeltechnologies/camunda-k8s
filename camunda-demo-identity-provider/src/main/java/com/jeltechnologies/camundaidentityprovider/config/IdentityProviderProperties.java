@@ -13,7 +13,7 @@ public record IdentityProviderProperties(String camundaDomain, DemoUser demoUser
     public record DemoUser(String username, String email, String password) {}
 
     public record Clients(ClientConfig identity, ClientConfig orchestration, ClientConfig optimize,
-            WebModelerAudiences webModeler) {}
+            ClientConfig connectors, WebModelerAudiences webModeler) {}
 
     public record ClientConfig(String secret, String audience) {}
 

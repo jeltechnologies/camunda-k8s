@@ -44,6 +44,9 @@ identity-provider:
     orchestration:
       secret: ${IDENTITY_ORCHESTRATION_CLIENT_TOKEN}
       audience: orchestration-api
+    connectors:
+      secret: ${IDENTITY_CONNECTORS_CLIENT_TOKEN}
+      audience: orchestration-api
     optimize:
       secret: ${IDENTITY_OPTIMIZE_CLIENT_TOKEN}
       audience: optimize-api

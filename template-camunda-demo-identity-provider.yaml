@@ -62,6 +62,11 @@ spec:
                 secretKeyRef:
                   name: camunda-credentials
                   key: identity-orchestration-client-token
+            - name: IDENTITY_CONNECTORS_CLIENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-credentials
+                  key: identity-connectors-client-token
             - name: IDENTITY_OPTIMIZE_CLIENT_TOKEN
               valueFrom:
                 secretKeyRef:

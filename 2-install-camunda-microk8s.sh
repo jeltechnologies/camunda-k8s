@@ -76,6 +76,7 @@ microk8s kubectl create secret generic camunda-credentials \
     --from-literal=identity-orchestration-client-token="${PASSWORD}" \
     --from-literal=webmodeler-postgresql-user-password="${PASSWORD}" \
     --from-literal=orchestration-postgresql-password="${PASSWORD}" \
+    --from-literal=identity-postgresql-password="${PASSWORD}" \
     -n camunda
 
 echo "=================================================================="
