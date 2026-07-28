@@ -115,12 +115,14 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   `exporters.camunda.enabled: false`). Elasticsearch is there for **Optimize**. Don't assume the
   usual ES-backed Zeebe exporter setup.
 - **One PostgreSQL, three databases**, all created by the init ConfigMap in
-  `template-postgresql.yaml`: `idp` (user `idp`), `web-modeler` (user `webmodeler`),
-  `orchestration` (user `orchestration`). Adding a database means editing that init script — it
-  only runs on a **fresh** PG data volume, so an existing install needs manual SQL.
+  `template-postgresql.yaml`: `camunda-demo-identity-provider` (user `camunda-demo-identity-provider`,
+  matching the image name), `web-modeler` (user `webmodeler`), `orchestration` (user
+  `orchestration`). Adding a database means editing that init script — it only runs on a **fresh**
+  PG data volume, so an existing install needs manual SQL.
 - **camunda-demo-identity-provider replaced Keycloak.** It's a stateless Spring Boot Deployment
   (`template-camunda-demo-identity-provider.yaml`) — no volume of its own. The `users` table lives
-  in the `idp` Postgres database; the app itself holds no state, so restarting the pod is harmless
+  in the `camunda-demo-identity-provider` Postgres database; the app itself holds no state, so
+  restarting the pod is harmless
   *except* that it regenerates its RSA JWT signing key and clears in-memory HTTP sessions on every
   restart, invalidating outstanding tokens and logging everyone out. Camunda is configured with
   `global.identity.auth.type: "GENERIC"` (see the comment block at the top of that section in

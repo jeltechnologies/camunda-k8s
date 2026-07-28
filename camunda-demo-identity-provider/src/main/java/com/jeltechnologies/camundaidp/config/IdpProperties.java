@@ -17,7 +17,7 @@ public record IdpProperties(String camundaDomain, DemoUser demoUser, Clients cli
 
     public record ClientConfig(String secret, String audience) {}
 
-    /** web-modeler is a public (PKCE) client on this IdP - it has no secret, only audiences. */
+    /** web-modeler is a public (PKCE) client on this Identity Provider - it has no secret, only audiences. */
     public record WebModelerAudiences(String clientApiAudience, String publicApiAudience) {}
 
     public String publicIssuer() {

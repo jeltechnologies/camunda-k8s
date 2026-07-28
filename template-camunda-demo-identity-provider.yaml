@@ -41,9 +41,9 @@ spec:
             - name: CAMUNDA_DOMAIN
               value: "${CAMUNDA_DOMAIN}"
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://camunda-postgresql:5432/idp"
+              value: "jdbc:postgresql://camunda-postgresql:5432/camunda-demo-identity-provider"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "idp"
+              value: "camunda-demo-identity-provider"
             - name: SPRING_DATASOURCE_PASSWORD
               value: "${PASSWORD}"
             - name: DEMO_USERNAME

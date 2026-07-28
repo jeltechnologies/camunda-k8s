@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:idp;MODE=PostgreSQL
+    url: jdbc:h2:mem:camunda-demo-identity-provider;MODE=PostgreSQL
     username: sa
     password: ""
 
