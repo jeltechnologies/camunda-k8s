@@ -4,9 +4,11 @@ DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
 DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=15.0.0-alpha2
 DEFAULT_CAMUNDA_APP_VERSION=8.10.0
+DEFAULT_IDP_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
+DEFAULT_DEMO_USERNAME=demo
+DEFAULT_DEMO_EMAIL=demo@example.com
 
 ES_VERSION=8.19.9
-KEYCLOAK_VERSION=26.2.5
 PG_VERSION=16
 
 DEFAULT_OLLAMA_ENABLED=false
@@ -28,6 +30,9 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
+  DEFAULT_IDP_IMAGE="${IDP_IMAGE}"
+  DEFAULT_DEMO_USERNAME="${DEMO_USERNAME}"
+  DEFAULT_DEMO_EMAIL="${DEMO_EMAIL}"
   DEFAULT_OLLAMA_ENABLED="${OLLAMA_ENABLED}"
   DEFAULT_OLLAMA_MODEL="${OLLAMA_MODEL}"
   DEFAULT_OLLAMA_URL="${OLLAMA_URL}"
@@ -60,10 +65,27 @@ HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
 read -p "Enter Camunda application version (default: ${DEFAULT_CAMUNDA_APP_VERSION}): " input_app_version
 CAMUNDA_APP_VERSION=${input_app_version:-$DEFAULT_CAMUNDA_APP_VERSION}
 
+read -p "Enter Identity Provider image (default: ${DEFAULT_IDP_IMAGE}): " input_idp_image
+IDP_IMAGE=${input_idp_image:-$DEFAULT_IDP_IMAGE}
+
 ZEEBE_DOMAIN="zeebe.${CAMUNDA_DOMAIN}"
 
 read -p "Exposed to internet, behind a reverse proxy? Choose false when you are not sure. (default: ${DEFAULT_BEHIND_REVERSE_PROXY}): " input_reverse_proxy
 BEHIND_REVERSE_PROXY=${input_reverse_proxy:-$DEFAULT_BEHIND_REVERSE_PROXY}
+
+echo ""
+echo "============================================================"
+echo " Identity Provider: first (admin) user"
+echo "============================================================"
+echo ""
+
+read -p "Enter the first user's username (default: ${DEFAULT_DEMO_USERNAME}): " input_demo_username
+DEMO_USERNAME=${input_demo_username:-$DEFAULT_DEMO_USERNAME}
+
+read -p "Enter the first user's email (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
+DEMO_EMAIL=${input_demo_email:-$DEFAULT_DEMO_EMAIL}
+
+echo "  (the first user's password is the password entered above)"
 
 
 echo ""
@@ -122,8 +144,10 @@ export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
+export IDP_IMAGE="${IDP_IMAGE}"
+export DEMO_USERNAME="${DEMO_USERNAME}"
+export DEMO_EMAIL="${DEMO_EMAIL}"
 export ES_VERSION="${ES_VERSION}"
-export KEYCLOAK_VERSION="${KEYCLOAK_VERSION}"
 export PG_VERSION="${PG_VERSION}"
 export OLLAMA_ENABLED="${OLLAMA_ENABLED}"
 export OLLAMA_MODEL="${OLLAMA_MODEL}"

@@ -25,11 +25,16 @@ A complete Camunda 8 platform running on a single machine:
 | Optimize | `https://<your-domain>/optimize` |
 | Console | `https://<your-domain>/console` |
 | Identity | `https://<your-domain>/identity` |
-| Keycloak | `https://<your-domain>/auth` |
+| Identity Provider (login) | `https://<your-domain>/auth` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 | Swagger UI | `https://<your-domain>/orchestration/swagger` *(disabled by default)* |
 
-All components are secured with Keycloak OIDC authentication out of the box.
+All components are secured with OIDC authentication, provided by a minimal purpose-built
+identity provider (`camunda-demo-identity-provider/`, a small Spring Boot app — see its own
+[README](camunda-demo-identity-provider/README.md)) rather than a full Keycloak instance. As the
+name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
+authenticate and issue tokens, not the security hardening, auditing, or compliance controls of an
+enterprise IdP.
 
 ## Requirements
 
@@ -65,17 +70,25 @@ After this the script prompts for domain, password, and optional Ollama/GitLab s
 
 ## Architecture
 
-All components run as Kubernetes workloads inside MicroK8s. External dependencies (Keycloak, PostgreSQL, Elasticsearch) are deployed as StatefulSets before the Camunda Helm chart is installed. The nginx ingress controller handles TLS termination and routes all traffic by path prefix — no NodePorts or port forwarding anywhere.
+All components run as Kubernetes workloads inside MicroK8s. External dependencies (the Identity
+Provider, PostgreSQL, Elasticsearch) are deployed before the Camunda Helm chart is installed. The
+nginx ingress controller handles TLS termination and routes all traffic by path prefix — no
+NodePorts or port forwarding anywhere.
 
 ```
 Internet → nginx ingress (443)
-             ├── /auth          → Keycloak
+             ├── /auth          → Identity Provider (login, OIDC)
              ├── /modeler       → Web Modeler
              ├── /orchestration → Zeebe / Operate / Tasklist
              ├── /optimize      → Optimize
-             ├── /identity      → Identity
+             ├── /identity      → Identity (authorization/roles, unrelated to login)
              └── /console       → Console
 ```
+
+Camunda's own `identity` component still manages authorization (roles/permissions in its own
+database) — only *authentication* moved from Keycloak to camunda-demo-identity-provider.
+Its container image is built by `.github/workflows/build-camunda-demo-identity-provider.yml` and
+published to GHCR; the install script pulls it by tag (`IDP_IMAGE`, prompted by `configure-env.sh`).
 
 ## Custom connectors
 
@@ -97,8 +110,9 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 | `2-install-camunda-microk8s.sh` | Installs Camunda and all dependencies |
 | `configure-env.sh` | Interactive configuration wizard |
 | `template-values-camunda.yaml` | Helm values template |
-| `template-keycloak.yaml` | Keycloak StatefulSet and Service |
-| `template-keycloak-ingress.yaml` | Keycloak ingress |
+| `camunda-demo-identity-provider/` | Source + Maven build for the custom OIDC Identity Provider |
+| `template-camunda-demo-identity-provider.yaml` | Identity Provider Deployment and Service |
+| `template-camunda-demo-identity-provider-ingress.yaml` | Identity Provider ingress |
 | `template-postgresql.yaml` | PostgreSQL StatefulSet |
 | `template-elasticsearch.yaml` | Elasticsearch StatefulSet |
 | `template-volumes.yaml` | Persistent volumes for documents and connectors |
@@ -111,6 +125,6 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 |---|---|
 | Camunda | 8.10 |
 | Helm chart | 15.x |
-| Keycloak | 26.x |
+| Identity Provider | see `camunda-demo-identity-provider/pom.xml`, image tag set by `IDP_IMAGE` |
 | Elasticsearch | 8.19.x |
 | PostgreSQL | 16 |

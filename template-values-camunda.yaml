@@ -15,42 +15,55 @@ global:
         basePath: "/camunda-docs"
 
   identity:
-    keycloak:
-      url:
-        protocol: "http"
-        host: "camunda-keycloak"
-        port: "80"
-      contextPath: "/auth"
-      realm: "/realms/camunda-platform"
-      auth:
-        adminUser: admin
-        secret:
-          existingSecret: "camunda-credentials"
-          existingSecretKey: "identity-keycloak-admin-password"
+    # GENERIC = talk to any standards-compliant OIDC provider instead of the bundled Keycloak.
+    # See https://docs.camunda.io/docs/self-managed/deployment/helm/configure/authentication-and-authorization/generic-oidc-provider/
+    # camunda-demo-identity-provider (template-camunda-demo-identity-provider.yaml) issues the tokens. Client IDs/audiences below
+    # were verified against `helm show values camunda/camunda-platform --version 14.7.0` - re-check
+    # if you bump HELM_CHART_VERSION, since field names have moved between chart versions before
+    # (e.g. orchestration.security.authentication.oidc.issuer, not "issuerUrl").
     auth:
       enabled: true
-      publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
-      issuerBackendUrl: "http://camunda-keycloak/auth/realms/camunda-platform"
-      authUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/protocol/openid-connect/auth"
-      tokenUrl: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/token"
-      jwksUrl: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/certs"
+      type: "GENERIC"
+      publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth"
+      issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+      authUrl: "https://${CAMUNDA_DOMAIN}/auth/oauth2/authorize"
+      tokenUrl: "http://camunda-demo-identity-provider/auth/oauth2/token"
+      jwksUrl: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
       identity:
         clientId: "camunda-identity"
+        audience: "camunda-identity-resource-server"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-identity-client-token"
+      # web-modeler is a public (PKCE) client on camunda-demo-identity-provider - the chart's own values schema has
+      # no client-secret field for it either, confirmed against the real camunda-platform 14.7.0
+      # chart defaults (`helm show values camunda/camunda-platform --version 14.7.0`).
       webModeler:
+        clientId: "web-modeler"
         redirectUrl: "https://${CAMUNDA_DOMAIN}/modeler"
+        clientApiAudience: "web-modeler-api"
+        publicApiAudience: "web-modeler-public-api"
       console:
+        clientId: "console"
+        audience: "console-api"
         redirectUrl: "https://${CAMUNDA_DOMAIN}/console"
       optimize:
+        clientId: "optimize"
         redirectUrl: "https://${CAMUNDA_DOMAIN}/optimize"
+        audience: "optimize-api"
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-optimize-client-token"
       orchestration:
+        clientId: "orchestration"
         redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
+        audience: "orchestration-api"
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-orchestration-client-token"
       connectors:
+        clientId: "orchestration"
+        audience: "orchestration-api"
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-connectors-client-token"
@@ -79,13 +92,10 @@ identity:
   contextPath: "/identity"
   fullURL: "https://${CAMUNDA_DOMAIN}/identity"
   enabled: true
-  firstUser:
-    secret:
-      existingSecret: "camunda-credentials"
-      existingSecretKey: "identity-firstuser-password"
+  # No `firstUser` block: users now live in camunda-demo-identity-provider, not in an Identity-managed Keycloak
+  # realm. The first admin user is seeded by camunda-demo-identity-provider itself (DEMO_USERNAME/DEMO_EMAIL
+  # /DEMO_PASSWORD in template-camunda-demo-identity-provider.yaml), not by this Helm chart.
   env:
-    - name: KEYCLOAK_REALM
-      value: "camunda-platform"
     - name: IDENTITY_CLIENTID
       value: "camunda-identity"
   resources:
@@ -117,7 +127,7 @@ optimize:
     - name: CAMUNDA_OPTIMIZE_ZEEBE_NAME
       value: "dev-zeebe"
     - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-      value: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+      value: "https://${CAMUNDA_DOMAIN}/auth"
   resources:
     requests:
       cpu: 50m
@@ -201,12 +211,15 @@ webModeler:
       - name: CAMUNDA_MODELER_GITSYNC_GITLAB_BASEURL
         value: "${GITLAB_URL}"
     configuration: |
+      # This block is Web Modeler's own internal Spring config, passed straight through. No
+      # client-secret is set here on purpose: camunda-demo-identity-provider registers "web-modeler" as a public
+      # (PKCE) client, matching the chart's own values schema, which has no secret field for it.
       camunda:
         identity:
           base-url: "http://camunda-identity:80/identity"
-          issuer: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
-          issuerBackendUrl: "http://camunda-keycloak/auth/realms/camunda-platform"
-          type: "KEYCLOAK"
+          issuer: "https://${CAMUNDA_DOMAIN}/auth"
+          issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+          type: "GENERIC"
 
         modeler:
           feature:
@@ -215,7 +228,7 @@ webModeler:
           security:
             jwt:
               issuer:
-                backend-url: "http://camunda-keycloak/auth/realms/camunda-platform"
+                backend-url: "http://camunda-demo-identity-provider/auth"
               audience:
                 internal-api: "web-modeler-api"
                 public-api: "web-modeler-public-api"
@@ -273,8 +286,8 @@ webModeler:
           oauth2:
             resourceserver:
               jwt:
-                issuer-uri: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
-                jwk-set-uri: "http://camunda-keycloak/auth/realms/camunda-platform/protocol/openid-connect/certs"
+                issuer-uri: "https://${CAMUNDA_DOMAIN}/auth"
+                jwk-set-uri: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
 
         servlet:
           multipart:
@@ -347,7 +360,7 @@ orchestration:
       method: oidc
       oidc:
         redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
-        issuerUrl: "https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform"
+        issuer: "https://${CAMUNDA_DOMAIN}/auth"
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-orchestration-client-token"

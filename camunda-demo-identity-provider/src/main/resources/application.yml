@@ -1,0 +1,40 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /auth
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: camunda-demo-identity-provider
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  sql:
+    init:
+      mode: always
+
+idp:
+  camunda-domain: ${CAMUNDA_DOMAIN}
+  demo-user:
+    username: ${DEMO_USERNAME:demo}
+    email: ${DEMO_EMAIL:demo@example.com}
+    password: ${DEMO_PASSWORD:demo}
+  clients:
+    identity:
+      secret: ${IDENTITY_IDENTITY_CLIENT_TOKEN}
+      audience: camunda-identity-resource-server
+    orchestration:
+      secret: ${IDENTITY_ORCHESTRATION_CLIENT_TOKEN}
+      audience: orchestration-api
+    optimize:
+      secret: ${IDENTITY_OPTIMIZE_CLIENT_TOKEN}
+      audience: optimize-api
+    web-modeler:
+      client-api-audience: web-modeler-api
+      public-api-audience: web-modeler-public-api
+
+logging:
+  level:
+    org.springframework.security: INFO

@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:idp;MODE=PostgreSQL
+    username: sa
+    password: ""
+
+idp:
+  camunda-domain: idp.example.com
+  demo-user:
+    username: demo
+    email: demo@example.com
+    password: demo
+  clients:
+    identity:
+      secret: test-secret
+      audience: camunda-identity-resource-server
+    orchestration:
+      secret: test-secret
+      audience: orchestration-api
+    optimize:
+      secret: test-secret
+      audience: optimize-api
+    web-modeler:
+      client-api-audience: web-modeler-api
+      public-api-audience: web-modeler-public-api

@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camunda-demo-identity-provider
+  namespace: camunda
+  labels:
+    app: camunda-demo-identity-provider
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  selector:
+    app: camunda-demo-identity-provider
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: camunda-demo-identity-provider
+  namespace: camunda
+  labels:
+    app: camunda-demo-identity-provider
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: camunda-demo-identity-provider
+  template:
+    metadata:
+      labels:
+        app: camunda-demo-identity-provider
+    spec:
+      containers:
+        - name: camunda-demo-identity-provider
+          image: ${IDP_IMAGE}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CAMUNDA_DOMAIN
+              value: "${CAMUNDA_DOMAIN}"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://camunda-postgresql:5432/idp"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "idp"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "${PASSWORD}"
+            - name: DEMO_USERNAME
+              value: "${DEMO_USERNAME}"
+            - name: DEMO_EMAIL
+              value: "${DEMO_EMAIL}"
+            - name: DEMO_PASSWORD
+              value: "${PASSWORD}"
+            - name: IDENTITY_IDENTITY_CLIENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-credentials
+                  key: identity-identity-client-token
+            - name: IDENTITY_ORCHESTRATION_CLIENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-credentials
+                  key: identity-orchestration-client-token
+            - name: IDENTITY_OPTIMIZE_CLIENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-credentials
+                  key: identity-optimize-client-token
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "384Mi"
+            limits:
+              memory: "768Mi"
+          readinessProbe:
+            httpGet:
+              path: /auth/login
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 12

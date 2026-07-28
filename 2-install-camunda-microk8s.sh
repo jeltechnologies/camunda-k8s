@@ -36,7 +36,7 @@ echo "Kubernetes namespace    : camunda"
 echo "Helm chart version      : ${HELM_CHART_VERSION}"
 echo "Elasticsearch version   : ${ES_VERSION}"
 echo "PostgreSQL version      : ${PG_VERSION}"
-echo "Keycloak version        : ${KEYCLOAK_VERSION}"
+echo "Identity Provider image : ${IDP_IMAGE}"
 
 echo "=================================================================="
 echo Configuring Zeebe gRPC TCP passthrough for nginx ingress
@@ -70,8 +70,7 @@ echo Setting passwords for the cluster
 echo "=================================================================="
 microk8s kubectl delete secret camunda-credentials -n camunda --ignore-not-found
 microk8s kubectl create secret generic camunda-credentials \
-    --from-literal=identity-keycloak-admin-password="${PASSWORD}" \
-    --from-literal=identity-firstuser-password="${PASSWORD}" \
+    --from-literal=identity-identity-client-token="${PASSWORD}" \
     --from-literal=identity-connectors-client-token="${PASSWORD}" \
     --from-literal=identity-optimize-client-token="${PASSWORD}" \
     --from-literal=identity-orchestration-client-token="${PASSWORD}" \
@@ -110,17 +109,17 @@ microk8s kubectl rollout status statefulset/camunda-postgresql -n camunda --time
 echo "PostgreSQL installed. Service: camunda-postgresql:5432"
 
 echo "=================================================================="
-echo "Installing Keycloak ${KEYCLOAK_VERSION}"
+echo "Installing Identity Provider (${IDP_IMAGE})"
 echo "=================================================================="
-envsubst '${KEYCLOAK_VERSION} ${CAMUNDA_DOMAIN} ${PASSWORD}' \
-  < template-keycloak.yaml | microk8s kubectl apply -f -
+envsubst '${IDP_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}' \
+  < template-camunda-demo-identity-provider.yaml | microk8s kubectl apply -f -
 
-echo "Waiting for Keycloak to be ready..."
-microk8s kubectl rollout status statefulset/camunda-keycloak -n camunda --timeout=5m
-echo "Keycloak installed. Service: camunda-keycloak:80/auth"
+echo "Waiting for the Identity Provider to be ready..."
+microk8s kubectl rollout status deployment/camunda-demo-identity-provider -n camunda --timeout=5m
+echo "Identity Provider installed. Service: camunda-demo-identity-provider:80/auth"
 
 envsubst '${CAMUNDA_DOMAIN}' \
-  < template-keycloak-ingress.yaml | microk8s kubectl apply -f -
+  < template-camunda-demo-identity-provider-ingress.yaml | microk8s kubectl apply -f -
 
 echo "=================================================================="
 echo Uninstalling previous Camunda installation if present
@@ -178,7 +177,7 @@ echo "  Camunda installation complete!"
 echo "============================================================"
 echo ""
 echo "  URL:      https://${CAMUNDA_DOMAIN}"
-echo "  Keycloak: https://${CAMUNDA_DOMAIN}/auth"
+echo "  Auth:     https://${CAMUNDA_DOMAIN}/auth"
 echo "  Identity: https://${CAMUNDA_DOMAIN}/identity"
 echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
 echo "  Optimize: https://${CAMUNDA_DOMAIN}/optimize"
@@ -188,7 +187,8 @@ echo ""
 echo "  Watch pod status with:"
 echo "  microk8s kubectl get pods -n camunda -w"
 echo ""
-echo "  Username: demo"
+echo "  Username: ${DEMO_USERNAME}"
+echo "  Email:    ${DEMO_EMAIL}"
 echo "  Password: ${PASSWORD}"
 echo ""
 echo "  Document storage : ~/camunda-docs"
