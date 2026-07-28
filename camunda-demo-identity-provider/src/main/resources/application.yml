@@ -20,7 +20,6 @@ spring:
       # directly, because the packaged schema uses "blob"/"timestamp", which the schema file's
       # own comment says to change to "text"/"timestamptz" for PostgreSQL.
       schema-locations:
-        - classpath:users-migration-postgresql.sql
         - classpath:schema.sql
         - classpath:oauth2-authorization-schema-postgresql.sql
   session:
