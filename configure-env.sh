@@ -4,12 +4,8 @@ DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
 DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=15.0.0-alpha2
 DEFAULT_CAMUNDA_APP_VERSION=8.10.0
-DEFAULT_IDP_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
 DEFAULT_DEMO_USERNAME=demo
 DEFAULT_DEMO_EMAIL=demo@example.com
-
-ES_VERSION=8.19.9
-PG_VERSION=16
 
 DEFAULT_OLLAMA_ENABLED=false
 DEFAULT_OLLAMA_MODEL=my-model
@@ -30,7 +26,6 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-  DEFAULT_IDP_IMAGE="${IDP_IMAGE:-$DEFAULT_IDP_IMAGE}"
   DEFAULT_DEMO_USERNAME="${DEMO_USERNAME:-$DEFAULT_DEMO_USERNAME}"
   DEFAULT_DEMO_EMAIL="${DEMO_EMAIL:-$DEFAULT_DEMO_EMAIL}"
   DEFAULT_OLLAMA_ENABLED="${OLLAMA_ENABLED}"
@@ -48,6 +43,13 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_SWAGGER_ENABLED="${SWAGGER_ENABLED:-false}"
 fi
 
+# Hardcoded constants, not remembered from a previous install-env.sh - set after the reuse
+# block above so an old install-env.sh (which may predate one of these, or hold a stale value)
+# can never clobber them.
+ES_VERSION=8.19.9
+PG_VERSION=16
+IDP_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
+
 echo "============================================================"
 echo " Camunda configuration"
 echo "============================================================"
@@ -64,9 +66,6 @@ HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
 
 read -p "Enter Camunda application version (default: ${DEFAULT_CAMUNDA_APP_VERSION}): " input_app_version
 CAMUNDA_APP_VERSION=${input_app_version:-$DEFAULT_CAMUNDA_APP_VERSION}
-
-read -p "Enter Identity Provider image (default: ${DEFAULT_IDP_IMAGE}): " input_idp_image
-IDP_IMAGE=${input_idp_image:-$DEFAULT_IDP_IMAGE}
 
 ZEEBE_DOMAIN="zeebe.${CAMUNDA_DOMAIN}"
 
