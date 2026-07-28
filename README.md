@@ -109,6 +109,7 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 | `1-install-microk8s.sh` | Installs MicroK8s and Helm v4 |
 | `2-install-camunda-microk8s.sh` | Installs Camunda and all dependencies |
 | `configure-env.sh` | Interactive configuration wizard |
+| `.env.example` | Reference for what secrets/config this repo needs — copy nothing, just run `configure-env.sh` |
 | `template-values-camunda.yaml` | Helm values template |
 | `camunda-demo-identity-provider/` | Source + Maven build for the custom OIDC Identity Provider |
 | `template-camunda-demo-identity-provider.yaml` | Identity Provider Deployment and Service |

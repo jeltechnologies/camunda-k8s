@@ -26,6 +26,7 @@ not present it as a production-hardened component.
 | `1-install-microk8s.sh` | Host prep: apt upgrade, swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4. Run once, then reboot. |
 | `2-install-camunda-microk8s.sh` | The main orchestrator. Everything else is called from here. |
 | `configure-env.sh` | Interactive wizard; **writes `install-env.sh`** (the generated config). |
+| `.env.example` | Documents the shape of `install-env.sh` with placeholder values — reference only, not consumed by any script. |
 | `install-fix-hosts.sh` | Adds `/etc/hosts` entries (skipped when behind a reverse proxy). Needs root. |
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
@@ -181,3 +182,14 @@ unasked. The `camunda-credentials` secret's keys (`identity-identity-client-toke
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
 `orchestration-postgresql-password`) are all set to the same `$PASSWORD` too, doing double duty as
 both database passwords and OAuth2 client secrets for `camunda-demo-identity-provider`.
+
+**`.env` / `.env.example` convention.** Every place secrets live has a matching `.example` file
+committed alongside it, documenting the shape with placeholder values only:
+- `.env.example` (root) mirrors `install-env.sh` — reference only; `configure-env.sh` is still
+  the actual way to produce `install-env.sh`, nobody should hand-write it from the example.
+- `camunda-demo-identity-provider/.env.example` mirrors the `.env` a developer creates for local
+  `mvn spring-boot:run` (see that subproject's README).
+
+Both real `.env` files are gitignored. When adding a new secret-bearing variable anywhere, add it
+to the relevant `.example` file in the same change — an `.example` file that's drifted out of sync
+with what the scripts/app actually read is worse than no example at all.

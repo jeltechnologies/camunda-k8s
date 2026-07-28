@@ -26,18 +26,17 @@ component only replaces *authentication*.
 Requires Java 21 and Maven 3.9+, plus a Postgres instance (or point `SPRING_DATASOURCE_URL` at
 one).
 
-```bash
-export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/idp
-export SPRING_DATASOURCE_USERNAME=idp
-export SPRING_DATASOURCE_PASSWORD=idp
-export CAMUNDA_DOMAIN=localhost
-export DEMO_USERNAME=demo
-export DEMO_EMAIL=demo@example.com
-export DEMO_PASSWORD=demo
-export IDENTITY_IDENTITY_CLIENT_TOKEN=changeme
-export IDENTITY_ORCHESTRATION_CLIENT_TOKEN=changeme
-export IDENTITY_OPTIMIZE_CLIENT_TOKEN=changeme
+Secrets are kept in a gitignored `.env` file, never committed. Copy the template and edit it:
 
+```bash
+cp .env.example .env
+$EDITOR .env
+```
+
+Then load it into your shell and run the app:
+
+```bash
+set -a && source .env && set +a
 mvn spring-boot:run
 ```
 
