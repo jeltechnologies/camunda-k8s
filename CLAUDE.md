@@ -67,7 +67,7 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- camunda-demo-identity-provider: `${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}`
+- camunda-demo-identity-provider: `${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
 - camunda-demo-identity-provider-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}`
@@ -123,11 +123,28 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   needed only in GENERIC OIDC mode; see the note under `identity.externalDatabase` in
   `template-values-camunda.yaml`). Adding a database means editing that init script — it only
   runs on a **fresh** PG data volume, so an existing install needs manual SQL.
-- **camunda-demo-identity-provider replaced Keycloak.** It's a Spring Boot Deployment
-  (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`) with no volume of its own — all
-  state is either in Postgres or in the `camunda-identity-provider-signing-key` Secret, specifically so it can
-  run multiple replicas and survive restarts without logging everyone out:
+- **camunda-demo-identity-provider replaced Keycloak, and lives in its own `jeltechnologies`
+  namespace, not `camunda`** — it's an external component this stack depends on, not part of the
+  Camunda platform itself. That means every reference to it from `camunda`-namespace components
+  is cross-namespace DNS (`camunda-demo-identity-provider.jeltechnologies`, not the short form),
+  and it can't directly reference the `camunda-credentials` Secret (Secrets are namespace-scoped)
+  — it has its own `identity-provider-credentials` Secret in `jeltechnologies` instead, populated
+  with the same values by `2-install-camunda-microk8s.sh`. Its own Postgres connection is
+  therefore also cross-namespace (`camunda-postgresql.camunda`), even though the identity
+  provider's tables live in the same shared Postgres instance. Its Ingress and TLS secret are
+  duplicated into `jeltechnologies` too, since an Ingress can only reference a Secret in its own
+  namespace.
+
+  It's a Spring Boot Deployment (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`)
+  with no volume of its own — all state is either in Postgres or in the
+  `camunda-identity-provider-signing-key` Secret, specifically so it can run multiple replicas and
+  survive restarts without logging everyone out:
   - **Users** live in the `camunda-demo-identity-provider` Postgres database (`users` table).
+    **Email is the unique login identifier; `name` is free text and not unique.** Users log in
+    with email + password. The `preferred_username` claim carries the email (Camunda's own RBAC
+    keys off this — see `orchestration.security.initialization` in
+    `template-values-camunda.yaml`); a separate `name` claim carries the free-text display name,
+    looked up fresh per token so admin-screen edits show up without a new login.
   - **HTTP sessions** and **issued tokens** (auth codes, access/refresh tokens) are also in that
     same database via `spring-session-jdbc` and `JdbcOAuth2AuthorizationService` — not the
     in-memory defaults — so a request doesn't need to land on the same pod that handled the

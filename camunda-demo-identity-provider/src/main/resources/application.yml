@@ -20,6 +20,7 @@ spring:
       # directly, because the packaged schema uses "blob"/"timestamp", which the schema file's
       # own comment says to change to "text"/"timestamptz" for PostgreSQL.
       schema-locations:
+        - classpath:users-migration-postgresql.sql
         - classpath:schema.sql
         - classpath:oauth2-authorization-schema-postgresql.sql
   session:
@@ -34,7 +35,7 @@ identity-provider:
   # generated at startup - fine for one instance, wrong for anything with more than one replica.
   jwt-signing-key-pem: ${IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM:}
   demo-user:
-    username: ${DEMO_USERNAME:demo}
+    name: ${DEMO_NAME:Demo User}
     email: ${DEMO_EMAIL:demo@example.com}
     password: ${DEMO_PASSWORD:demo}
   clients:

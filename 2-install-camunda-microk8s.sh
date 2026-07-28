@@ -32,7 +32,7 @@ echo "Camunda domain          : ${CAMUNDA_DOMAIN}"
 echo "Password                : ${PASSWORD}"
 echo "------------------------------------------------------------------"
 echo "Workflow engine domain  : ${ZEEBE_DOMAIN}"
-echo "Kubernetes namespace    : camunda"
+echo "Kubernetes namespace    : camunda (Identity Provider: jeltechnologies)"
 echo "Helm chart version      : ${HELM_CHART_VERSION}"
 echo "Elasticsearch version   : ${ES_VERSION}"
 echo "PostgreSQL version      : ${PG_VERSION}"
@@ -56,14 +56,22 @@ microk8s kubectl wait --namespace ingress \
   --timeout=120s
 
 echo "=================================================================="
-echo Creating namespace, TLS certificates and passwords
+echo Creating namespaces, TLS certificates and passwords
 echo "=================================================================="
 if ! microk8s kubectl get namespace camunda &>/dev/null; then
     microk8s kubectl create namespace camunda
 fi
+# camunda-demo-identity-provider is deliberately not part of the "camunda" namespace - it's an
+# external component this stack depends on, not part of the Camunda platform itself.
+if ! microk8s kubectl get namespace jeltechnologies &>/dev/null; then
+    microk8s kubectl create namespace jeltechnologies
+fi
 
 ./create-certifcate.sh "${CAMUNDA_DOMAIN}" -n camunda
 ./create-certifcate.sh "${ZEEBE_DOMAIN}"   -n camunda
+# Its own Ingress lives in jeltechnologies, and an Ingress can only reference a TLS secret in its
+# own namespace, so this needs a second copy of the same domain's certificate.
+./create-certifcate.sh "${CAMUNDA_DOMAIN}" -n jeltechnologies
 
 echo "=================================================================="
 echo Setting passwords for the cluster
@@ -79,17 +87,30 @@ microk8s kubectl create secret generic camunda-credentials \
     --from-literal=identity-postgresql-password="${PASSWORD}" \
     -n camunda
 
+# A Kubernetes Secret can only be referenced by pods in its own namespace, so
+# camunda-demo-identity-provider (namespace: jeltechnologies) needs its own copy of the client
+# secrets it shares with the "camunda" namespace's components, plus its own Postgres password.
+# Same $PASSWORD, same values as camunda-credentials above - just a separate Secret object.
+microk8s kubectl delete secret identity-provider-credentials -n jeltechnologies --ignore-not-found
+microk8s kubectl create secret generic identity-provider-credentials \
+    --from-literal=identity-identity-client-token="${PASSWORD}" \
+    --from-literal=identity-orchestration-client-token="${PASSWORD}" \
+    --from-literal=identity-connectors-client-token="${PASSWORD}" \
+    --from-literal=identity-optimize-client-token="${PASSWORD}" \
+    --from-literal=postgresql-password="${PASSWORD}" \
+    -n jeltechnologies
+
 echo "=================================================================="
 echo Generating the Identity Provider signing key, if it does not already exist
 echo "=================================================================="
-if microk8s kubectl get secret camunda-identity-provider-signing-key -n camunda &>/dev/null; then
+if microk8s kubectl get secret camunda-identity-provider-signing-key -n jeltechnologies &>/dev/null; then
   echo "camunda-identity-provider-signing-key already exists - keeping it, so existing tokens stay valid."
 else
   echo "No existing signing key found, generating one..."
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
     | microk8s kubectl create secret generic camunda-identity-provider-signing-key \
         --from-file=private-key.pem=/dev/stdin \
-        -n camunda
+        -n jeltechnologies
 fi
 
 
@@ -125,12 +146,12 @@ echo "PostgreSQL installed. Service: camunda-postgresql:5432"
 echo "=================================================================="
 echo "Installing Identity Provider (${IDENTITY_PROVIDER_IMAGE})"
 echo "=================================================================="
-envsubst '${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_USERNAME} ${DEMO_EMAIL}' \
+envsubst '${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-camunda-demo-identity-provider.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for the Identity Provider to be ready..."
-microk8s kubectl rollout status deployment/camunda-demo-identity-provider -n camunda --timeout=5m
-echo "Identity Provider installed. Service: camunda-demo-identity-provider:80/auth"
+microk8s kubectl rollout status deployment/camunda-demo-identity-provider -n jeltechnologies --timeout=5m
+echo "Identity Provider installed. Service: camunda-demo-identity-provider.jeltechnologies:80/auth"
 
 envsubst '${CAMUNDA_DOMAIN}' \
   < template-camunda-demo-identity-provider-ingress.yaml | microk8s kubectl apply -f -
@@ -146,7 +167,7 @@ microk8s kubectl delete pv  camunda-connectors-pv           --ignore-not-found
 echo "=================================================================="
 echo Generating Helm values from template
 echo "=================================================================="
-envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}' \
+envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}' \
   < template-values-camunda.yaml > values-camunda.yaml
 
 echo "=================================================================="
@@ -184,6 +205,7 @@ echo "=================================================================="
 echo "Camunda started successfully!"
 echo ""
 microk8s kubectl get pods -n camunda
+microk8s kubectl get pods -n jeltechnologies
 echo "=================================================================="
 echo ""
 echo "============================================================"
@@ -200,10 +222,11 @@ echo "  Zeebe:    grpc://${ZEEBE_DOMAIN}:26500"
 echo ""
 echo "  Watch pod status with:"
 echo "  microk8s kubectl get pods -n camunda -w"
+echo "  microk8s kubectl get pods -n jeltechnologies -w"
 echo ""
-echo "  Username: ${DEMO_USERNAME}"
-echo "  Email:    ${DEMO_EMAIL}"
-echo "  Password: ${PASSWORD}"
+echo "  Name:              ${DEMO_NAME}"
+echo "  Log in with email: ${DEMO_EMAIL}"
+echo "  Password:          ${PASSWORD}"
 echo ""
 echo "  Document storage : ~/camunda-docs"
 echo "  Custom connectors: ~/camunda-connectors"

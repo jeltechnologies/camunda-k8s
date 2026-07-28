@@ -21,6 +21,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcOperations;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
@@ -30,13 +31,17 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
+import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
+
 @Configuration
 public class AuthorizationServerConfig {
 
     private final IdentityProviderProperties identityProviderProperties;
+    private final UserRepository userRepository;
 
-    public AuthorizationServerConfig(IdentityProviderProperties identityProviderProperties) {
+    public AuthorizationServerConfig(IdentityProviderProperties identityProviderProperties, UserRepository userRepository) {
         this.identityProviderProperties = identityProviderProperties;
+        this.userRepository = userRepository;
     }
 
     @Bean
@@ -87,8 +92,12 @@ public class AuthorizationServerConfig {
     }
 
     /**
-     * Camunda validates tokens by expected `aud` and reads the username from
+     * Camunda validates tokens by expected `aud` and reads the login identifier from
      * `preferred_username` - neither is inferred automatically, so stamp both here.
+     * `preferred_username` is the user's email (the actual unique identifier - see
+     * AppUserDetailsService) for human logins, or the client ID for M2M tokens. The free-text
+     * display `name` is a separate claim, looked up fresh so admin-screen edits show up
+     * immediately without needing a new login.
      */
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
@@ -97,7 +106,14 @@ public class AuthorizationServerConfig {
             context.getClaims().audience(audiencesFor(clientId));
 
             if (context.getPrincipal() != null && context.getPrincipal().getName() != null) {
-                context.getClaims().claim("preferred_username", context.getPrincipal().getName());
+                String principalName = context.getPrincipal().getName();
+                context.getClaims().claim("preferred_username", principalName);
+
+                boolean isUserToken = !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType());
+                if (isUserToken) {
+                    userRepository.findByEmail(principalName)
+                            .ifPresent(user -> context.getClaims().claim("name", user.name()));
+                }
             }
         };
     }

@@ -4,28 +4,70 @@
     <meta charset="UTF-8"/>
     <title>Sign in - Camunda Identity Provider</title>
     <style>
-        body { font-family: system-ui, sans-serif; background: #f4f5f7; display: flex;
-               justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 2rem 2.5rem; border-radius: 8px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.15); width: 320px; }
-        h1 { font-size: 1.25rem; margin-bottom: 1.25rem; }
-        label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #333; }
-        input { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box;
-                border: 1px solid #ccc; border-radius: 4px; }
-        button { width: 100%; padding: 0.6rem; background: #333; color: white; border: none;
-                 border-radius: 4px; cursor: pointer; }
-        .error { color: #b00020; font-size: 0.875rem; margin-bottom: 1rem; }
+        :root {
+            --camunda-orange: #FF6428;
+            --camunda-ink: #1A1E29;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+            background: var(--camunda-ink);
+            background-image: radial-gradient(circle at 15% 15%, rgba(255,100,40,0.18), transparent 45%);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; margin: 0;
+        }
+        .card {
+            background: #ffffff; padding: 2.5rem; border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35); width: 340px;
+        }
+        .brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.75rem; }
+        .brand-mark {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: linear-gradient(135deg, var(--camunda-orange), #ff8c5a);
+            flex-shrink: 0;
+        }
+        .brand-text { line-height: 1.1; }
+        .brand-text .product { font-weight: 700; font-size: 1.1rem; color: var(--camunda-ink); letter-spacing: -0.02em; }
+        .brand-text .tagline { font-size: 0.72rem; color: #8a8f9c; text-transform: uppercase; letter-spacing: 0.06em; }
+        h1 { font-size: 1.05rem; margin: 0 0 1.25rem; color: var(--camunda-ink); font-weight: 600; }
+        label { display: block; margin-bottom: 0.3rem; font-size: 0.8rem; font-weight: 500; color: #4a4f5c; }
+        input {
+            width: 100%; padding: 0.6rem 0.7rem; margin-bottom: 1.1rem;
+            border: 1px solid #d8dbe2; border-radius: 6px; font-size: 0.9rem;
+            transition: border-color 0.15s ease;
+        }
+        input:focus {
+            outline: none; border-color: var(--camunda-orange);
+            box-shadow: 0 0 0 3px rgba(255,100,40,0.15);
+        }
+        button {
+            width: 100%; padding: 0.7rem; background: var(--camunda-orange); color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+            transition: background 0.15s ease;
+        }
+        button:hover { background: #e8551d; }
+        .error {
+            color: #b00020; background: #fdecea; border-radius: 6px; padding: 0.6rem 0.8rem;
+            font-size: 0.8rem; margin-bottom: 1.1rem;
+        }
     </style>
 </head>
 <body>
     <div class="card">
+        <div class="brand">
+            <div class="brand-mark"></div>
+            <div class="brand-text">
+                <div class="product">Camunda</div>
+                <div class="tagline">Identity Provider</div>
+            </div>
+        </div>
         <h1>Sign in</h1>
-        <p class="error" th:if="${param.error}">Invalid username or password.</p>
+        <p class="error" th:if="${param.error}">Invalid email or password.</p>
         <form method="post" th:action="@{/login}">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" autofocus="autofocus"/>
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" autofocus="autofocus" autocomplete="email"/>
             <label for="password">Password</label>
-            <input type="password" id="password" name="password"/>
+            <input type="password" id="password" name="password" autocomplete="current-password"/>
             <button type="submit">Sign in</button>
         </form>
     </div>

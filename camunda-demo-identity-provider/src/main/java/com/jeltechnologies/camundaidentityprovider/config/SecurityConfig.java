@@ -44,7 +44,9 @@ public class SecurityConfig {
                 .requestMatchers("/login", "/error").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated());
-        http.formLogin(form -> form.loginPage("/login").permitAll());
+        // Users authenticate with email + password, not a separate username - see
+        // AppUserDetailsService for why the "username" parameter is bound to email.
+        http.formLogin(form -> form.loginPage("/login").usernameParameter("email").permitAll());
         return http.build();
     }
 

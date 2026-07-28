@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: camunda-demo-identity-provider
-  namespace: camunda
+  namespace: jeltechnologies
   labels:
     app: camunda-demo-identity-provider
 spec:
@@ -19,7 +19,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: camunda-demo-identity-provider
-  namespace: camunda
+  namespace: jeltechnologies
   labels:
     app: camunda-demo-identity-provider
 spec:
@@ -40,37 +40,49 @@ spec:
           env:
             - name: CAMUNDA_DOMAIN
               value: "${CAMUNDA_DOMAIN}"
+            # camunda-postgresql lives in the "camunda" namespace - this component is external to
+            # it, so it's a cross-namespace reference (<service>.<namespace>), not the short form.
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:postgresql://camunda-postgresql:5432/camunda-demo-identity-provider"
+              value: "jdbc:postgresql://camunda-postgresql.camunda:5432/camunda-demo-identity-provider"
             - name: SPRING_DATASOURCE_USERNAME
               value: "camunda-demo-identity-provider"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "${PASSWORD}"
-            - name: DEMO_USERNAME
-              value: "${DEMO_USERNAME}"
+              valueFrom:
+                secretKeyRef:
+                  name: identity-provider-credentials
+                  key: postgresql-password
+            - name: DEMO_NAME
+              value: "${DEMO_NAME}"
             - name: DEMO_EMAIL
               value: "${DEMO_EMAIL}"
             - name: DEMO_PASSWORD
-              value: "${PASSWORD}"
+              valueFrom:
+                secretKeyRef:
+                  name: identity-provider-credentials
+                  key: postgresql-password
+            # A Secret can only be referenced by a pod in its own namespace, so this component
+            # gets its own "identity-provider-credentials" Secret (jeltechnologies namespace)
+            # instead of directly referencing "camunda-credentials" (camunda namespace) - both
+            # are populated from the same $PASSWORD by 2-install-camunda-microk8s.sh.
             - name: IDENTITY_IDENTITY_CLIENT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: camunda-credentials
+                  name: identity-provider-credentials
                   key: identity-identity-client-token
             - name: IDENTITY_ORCHESTRATION_CLIENT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: camunda-credentials
+                  name: identity-provider-credentials
                   key: identity-orchestration-client-token
             - name: IDENTITY_CONNECTORS_CLIENT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: camunda-credentials
+                  name: identity-provider-credentials
                   key: identity-connectors-client-token
             - name: IDENTITY_OPTIMIZE_CLIENT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: camunda-credentials
+                  name: identity-provider-credentials
                   key: identity-optimize-client-token
             - name: IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM
               valueFrom:

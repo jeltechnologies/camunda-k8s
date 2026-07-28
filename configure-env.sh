@@ -4,7 +4,7 @@ DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
 DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=15.0.0-alpha2
 DEFAULT_CAMUNDA_APP_VERSION=8.10.0
-DEFAULT_DEMO_USERNAME=demo
+DEFAULT_DEMO_NAME="Demo User"
 DEFAULT_DEMO_EMAIL=demo@example.com
 
 DEFAULT_OLLAMA_ENABLED=false
@@ -26,7 +26,7 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-  DEFAULT_DEMO_USERNAME="${DEMO_USERNAME:-$DEFAULT_DEMO_USERNAME}"
+  DEFAULT_DEMO_NAME="${DEMO_NAME:-$DEFAULT_DEMO_NAME}"
   DEFAULT_DEMO_EMAIL="${DEMO_EMAIL:-$DEFAULT_DEMO_EMAIL}"
   DEFAULT_OLLAMA_ENABLED="${OLLAMA_ENABLED}"
   DEFAULT_OLLAMA_MODEL="${OLLAMA_MODEL}"
@@ -78,10 +78,10 @@ echo " Identity Provider: first (admin) user"
 echo "============================================================"
 echo ""
 
-read -p "Enter the first user's username (default: ${DEFAULT_DEMO_USERNAME}): " input_demo_username
-DEMO_USERNAME=${input_demo_username:-$DEFAULT_DEMO_USERNAME}
+read -p "Enter the first user's name (default: ${DEFAULT_DEMO_NAME}): " input_demo_name
+DEMO_NAME=${input_demo_name:-$DEFAULT_DEMO_NAME}
 
-read -p "Enter the first user's email (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
+read -p "Enter the first user's email - this is what they log in with (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
 DEMO_EMAIL=${input_demo_email:-$DEFAULT_DEMO_EMAIL}
 
 echo "  (the first user's password is the password entered above)"
@@ -144,7 +144,7 @@ export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
 export IDENTITY_PROVIDER_IMAGE="${IDENTITY_PROVIDER_IMAGE}"
-export DEMO_USERNAME="${DEMO_USERNAME}"
+export DEMO_NAME="${DEMO_NAME}"
 export DEMO_EMAIL="${DEMO_EMAIL}"
 export ES_VERSION="${ES_VERSION}"
 export PG_VERSION="${PG_VERSION}"

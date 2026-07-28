@@ -24,12 +24,12 @@ public class UserRepository {
     }
 
     public List<User> findAll() {
-        return jdbcClient.sql("SELECT * FROM users ORDER BY username").query(ROW_MAPPER).list();
+        return jdbcClient.sql("SELECT * FROM users ORDER BY email").query(ROW_MAPPER).list();
     }
 
-    public Optional<User> findByUsername(String username) {
-        return jdbcClient.sql("SELECT * FROM users WHERE username = :username")
-                .param("username", username)
+    public Optional<User> findByEmail(String email) {
+        return jdbcClient.sql("SELECT * FROM users WHERE email = :email")
+                .param("email", email)
                 .query(ROW_MAPPER)
                 .optional();
     }
@@ -41,14 +41,14 @@ public class UserRepository {
                 .optional();
     }
 
-    public User insert(String username, String email, String passwordHash, boolean admin) {
-        User user = new User(UUID.randomUUID(), username, email, passwordHash, admin, true, Instant.now());
+    public User insert(String name, String email, String passwordHash, boolean admin) {
+        User user = new User(UUID.randomUUID(), name, email, passwordHash, admin, true, Instant.now());
         jdbcClient.sql("""
-                INSERT INTO users (id, username, email, password_hash, is_admin, enabled, created_at)
-                VALUES (:id, :username, :email, :passwordHash, :admin, :enabled, :createdAt)
+                INSERT INTO users (id, name, email, password_hash, is_admin, enabled, created_at)
+                VALUES (:id, :name, :email, :passwordHash, :admin, :enabled, :createdAt)
                 """)
                 .param("id", user.id())
-                .param("username", user.username())
+                .param("name", user.name())
                 .param("email", user.email())
                 .param("passwordHash", user.passwordHash())
                 .param("admin", user.admin())
@@ -74,7 +74,7 @@ public class UserRepository {
         public User mapRow(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
             return new User(
                     UUID.fromString(rs.getString("id")),
-                    rs.getString("username"),
+                    rs.getString("name"),
                     rs.getString("email"),
                     rs.getString("password_hash"),
                     rs.getBoolean("is_admin"),

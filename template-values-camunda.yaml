@@ -25,10 +25,10 @@ global:
       enabled: true
       type: "GENERIC"
       publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth"
-      issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+      issuerBackendUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth"
       authUrl: "https://${CAMUNDA_DOMAIN}/auth/oauth2/authorize"
-      tokenUrl: "http://camunda-demo-identity-provider/auth/oauth2/token"
-      jwksUrl: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
+      tokenUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/token"
+      jwksUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/jwks"
       identity:
         clientId: "camunda-identity"
         audience: "camunda-identity-resource-server"
@@ -93,7 +93,7 @@ identity:
   fullURL: "https://${CAMUNDA_DOMAIN}/identity"
   enabled: true
   # No `firstUser` block: users now live in camunda-demo-identity-provider, not in an Identity-managed Keycloak
-  # realm. The first admin user is seeded by camunda-demo-identity-provider itself (DEMO_USERNAME/DEMO_EMAIL
+  # realm. The first admin user is seeded by camunda-demo-identity-provider itself (DEMO_NAME/DEMO_EMAIL
   # /DEMO_PASSWORD in template-camunda-demo-identity-provider.yaml), not by this Helm chart.
   # Identity needs its own relational database only in GENERIC OIDC mode (in Keycloak mode its
   # authorization/mapping-rule data lived inside Keycloak's own realm instead) - confirmed by
@@ -232,7 +232,7 @@ webModeler:
         identity:
           base-url: "http://camunda-identity:80/identity"
           issuer: "https://${CAMUNDA_DOMAIN}/auth"
-          issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+          issuerBackendUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth"
           type: "GENERIC"
 
         modeler:
@@ -242,7 +242,7 @@ webModeler:
           security:
             jwt:
               issuer:
-                backend-url: "http://camunda-demo-identity-provider/auth"
+                backend-url: "http://camunda-demo-identity-provider.jeltechnologies/auth"
               audience:
                 internal-api: "web-modeler-api"
                 public-api: "web-modeler-public-api"
@@ -301,7 +301,7 @@ webModeler:
             resourceserver:
               jwt:
                 issuer-uri: "https://${CAMUNDA_DOMAIN}/auth"
-                jwk-set-uri: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
+                jwk-set-uri: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/jwks"
 
         servlet:
           multipart:
@@ -380,6 +380,33 @@ orchestration:
           existingSecretKey: "identity-orchestration-client-token"
     authorizations:
       enabled: false
+    # Camunda's own RBAC keys initial-admin assignment off orchestration.security.authentication
+    # .usernameClaim (default: preferred_username). Our identity provider puts the user's email
+    # there (see AuthorizationServerConfig's token customizer) - "demo"/"demo@demo.com" from the
+    # chart's own defaults would never match a real login, so it's overridden here to line up
+    # with the actual seeded admin (DEMO_EMAIL/DEMO_NAME/PASSWORD). Currently moot in practice
+    # since authorizations.enabled is false above (no role checks are enforced yet), but wiring
+    # it correctly now avoids a silent mismatch if that's ever turned on. The "connectors" user
+    # and client entries are chart defaults, left as-is.
+    initialization:
+      users:
+        - username: connectors
+          password: connector
+          name: Connector User
+          email: connector@demo.com
+        - username: "${DEMO_EMAIL}"
+          password: "${PASSWORD}"
+          name: "${DEMO_NAME}"
+          email: "${DEMO_EMAIL}"
+      defaultRoles:
+        admin:
+          users:
+            - "${DEMO_EMAIL}"
+        connectors:
+          users:
+            - connectors
+          clients:
+            - connectors
   exporters:
     camunda:
       enabled: false

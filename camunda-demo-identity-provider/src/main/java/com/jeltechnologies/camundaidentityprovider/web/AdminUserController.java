@@ -32,11 +32,11 @@ public class AdminUserController {
     }
 
     @PostMapping("/admin/users")
-    public String add(@RequestParam String username, @RequestParam String email,
+    public String add(@RequestParam String name, @RequestParam String email,
             @RequestParam String password, @RequestParam(defaultValue = "false") boolean admin,
             RedirectAttributes redirectAttributes) {
-        userRepository.insert(username, email, passwordEncoder.encode(password), admin);
-        redirectAttributes.addFlashAttribute("message", "User \"" + username + "\" created.");
+        userRepository.insert(name, email, passwordEncoder.encode(password), admin);
+        redirectAttributes.addFlashAttribute("message", "User \"" + name + "\" created.");
         return "redirect:/admin/users";
     }
 
@@ -52,12 +52,12 @@ public class AdminUserController {
     public String delete(@PathVariable UUID id, Authentication authentication,
             RedirectAttributes redirectAttributes) {
         userRepository.findById(id).ifPresent(user -> {
-            if (user.username().equals(authentication.getName())) {
+            if (user.email().equals(authentication.getName())) {
                 redirectAttributes.addFlashAttribute("error", "You cannot remove your own account.");
                 return;
             }
             userRepository.deleteById(id);
-            redirectAttributes.addFlashAttribute("message", "User \"" + user.username() + "\" removed.");
+            redirectAttributes.addFlashAttribute("message", "User \"" + user.name() + "\" removed.");
         });
         return "redirect:/admin/users";
     }

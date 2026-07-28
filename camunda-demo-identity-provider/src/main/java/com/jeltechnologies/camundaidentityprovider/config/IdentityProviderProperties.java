@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "identity-provider")
 public record IdentityProviderProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
 
-    public record DemoUser(String username, String email, String password) {}
+    public record DemoUser(String name, String email, String password) {}
 
     public record Clients(ClientConfig identity, ClientConfig orchestration, ClientConfig optimize,
             ClientConfig connectors, WebModelerAudiences webModeler) {}

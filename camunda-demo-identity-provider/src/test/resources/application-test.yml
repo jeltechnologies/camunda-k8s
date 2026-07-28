@@ -3,11 +3,18 @@ spring:
     url: jdbc:h2:mem:camunda-demo-identity-provider;MODE=PostgreSQL
     username: sa
     password: ""
+  sql:
+    init:
+      # Excludes users-migration-postgresql.sql: PL/pgSQL DO blocks aren't valid H2 syntax, and
+      # a fresh H2 test database never has the old pre-migration schema to migrate away from.
+      schema-locations:
+        - classpath:schema.sql
+        - classpath:oauth2-authorization-schema-postgresql.sql
 
 identity-provider:
   camunda-domain: identity-provider.example.com
   demo-user:
-    username: demo
+    name: Demo User
     email: demo@example.com
     password: demo
   clients:
