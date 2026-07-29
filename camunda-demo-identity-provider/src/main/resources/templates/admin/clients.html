@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Camunda - Clients</title>
+    <title>Camunda Demo Identity Provider</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
@@ -31,7 +31,10 @@
             table-layout: fixed;
         }
         .col-name, .col-client-id {
-            width: 26%;
+            width: 15%;
+        }
+        .col-actions {
+            width: 60px;
         }
         td.col-name, td.col-client-id {
             white-space: nowrap;
@@ -44,15 +47,16 @@
         .audience-list li {
             font-family: "IBM Plex Mono", ui-monospace, monospace;
             font-size: 13px;
+            white-space: nowrap;
         }
     </style>
 </head>
 <body>
     <div class="top-bar">
-        <div class="logo">
+        <a class="logo" th:href="@{/admin/users}">
             <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
             <span class="app-name">Demo Identity provider</span>
-        </div>
+        </a>
         <nav>
             <a th:href="@{/admin/users}">Users</a>
             <a href="#" class="active">Clients</a>
@@ -74,7 +78,7 @@
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th class="col-name">Name</th><th class="col-client-id">Client ID</th><th>Audience</th><th></th></tr>
+                    <tr><th class="col-name">Name</th><th class="col-client-id">Client ID</th><th>Audience</th><th class="col-actions"></th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="client : ${clients}">

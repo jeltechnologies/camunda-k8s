@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Camunda - Edit user</title>
+    <title>Camunda Demo Identity Provider</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
@@ -40,10 +40,10 @@
 </head>
 <body>
     <div class="top-bar">
-        <div class="logo">
+        <a class="logo" th:href="@{/admin/users}">
             <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
             <span class="app-name">Demo Identity provider</span>
-        </div>
+        </a>
         <nav>
             <a th:href="@{/admin/users}" class="active">Users</a>
             <a th:href="@{/admin/clients}">Clients</a>
