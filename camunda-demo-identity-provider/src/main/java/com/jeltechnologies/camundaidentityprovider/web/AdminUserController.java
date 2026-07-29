@@ -2,6 +2,7 @@ package com.jeltechnologies.camundaidentityprovider.web;
 
 import java.util.UUID;
 
+import com.jeltechnologies.camundaidentityprovider.config.IdentityProviderProperties;
 import com.jeltechnologies.camundaidentityprovider.user.User;
 import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
 
@@ -22,15 +23,21 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final IdentityProviderProperties identityProviderProperties;
 
-    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder,
+            IdentityProviderProperties identityProviderProperties) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.identityProviderProperties = identityProviderProperties;
     }
 
     @GetMapping("/admin/users")
     public String list(Model model) {
         model.addAttribute("users", userRepository.findAll());
+        // Reached only while already authenticated (this whole path requires ROLE_ADMIN), so
+        // "back to Camunda" goes straight to Console rather than through /login again.
+        model.addAttribute("consoleUrl", "https://" + identityProviderProperties.camundaDomain() + "/console");
         return "admin/users";
     }
 

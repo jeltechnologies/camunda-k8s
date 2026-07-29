@@ -35,7 +35,6 @@
             <a href="#" class="active">Users</a>
         </nav>
         <div class="right">
-            <a class="btn-secondary" th:href="@{/login}">Camunda Login</a>
             <form method="post" th:action="@{/logout}">
                 <button type="submit" class="btn-secondary">Logout</button>
             </form>
@@ -63,6 +62,7 @@
                     </tr>
                 </tbody>
             </table>
+            <a class="btn-secondary" style="margin-top: 1.5rem;" th:href="${consoleUrl}">Back to Camunda</a>
         </div>
     </div>
 </body>
