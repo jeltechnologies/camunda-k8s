@@ -3,6 +3,8 @@ package com.jeltechnologies.camundaidentityprovider.web;
 import java.io.IOException;
 import java.time.Duration;
 
+import com.jeltechnologies.camundaidentityprovider.config.IdentityProviderProperties;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -27,16 +29,18 @@ public class RememberEmailAuthenticationSuccessHandler implements Authentication
     private static final String COOKIE_NAME = "last_email";
     private static final Duration MAX_AGE = Duration.ofDays(180);
 
-    private final AuthenticationSuccessHandler delegate = createDelegate();
+    private final AuthenticationSuccessHandler delegate;
 
-    private static AuthenticationSuccessHandler createDelegate() {
+    public RememberEmailAuthenticationSuccessHandler(IdentityProviderProperties identityProviderProperties) {
         SavedRequestAwareAuthenticationSuccessHandler handler = new SavedRequestAwareAuthenticationSuccessHandler();
         // Only used when there's no saved request to bounce back to - i.e. someone logged in by
         // navigating straight to /login rather than being redirected here mid OIDC-authorize flow.
-        // The app has no page at "/" (context root), so the framework default of redirecting there
-        // 404'd. /admin/users is the only real destination this app has.
-        handler.setDefaultTargetUrl("/admin/users");
-        return handler;
+        // The app has no page of its own worth landing on, so send them into the actual platform
+        // (Console's contextPath is "/console" - see the "console:" block in
+        // template-values-camunda.yaml) rather than the framework default of "/" (bare context
+        // root, /auth/, which has no handler and 404'd).
+        handler.setDefaultTargetUrl("https://" + identityProviderProperties.camundaDomain() + "/console");
+        this.delegate = handler;
     }
 
     @Override
