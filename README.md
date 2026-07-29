@@ -130,8 +130,8 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 
 | Component | Version |
 |---|---|
-| Camunda | 8.10 |
-| Helm chart | 15.x |
+| Camunda | 8.9.12 |
+| Helm chart | 14.7.0 |
 | Identity Provider | see `camunda-demo-identity-provider/pom.xml`, image tag set by `IDENTITY_PROVIDER_IMAGE` |
 | Elasticsearch | 8.19.x |
 | PostgreSQL | 16 |
