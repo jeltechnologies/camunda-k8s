@@ -31,8 +31,19 @@ A complete Camunda 8 platform running on a single machine:
 
 All components are secured with OIDC authentication, provided by a minimal purpose-built
 identity provider (`camunda-demo-identity-provider/`, a small Spring Boot app — see its own
-[README](camunda-demo-identity-provider/README.md)) rather than a full Keycloak instance. As the
-name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
+[README](camunda-demo-identity-provider/README.md)) rather than a full Keycloak instance. Keycloak
+is a solid choice for production, but its realms, clients and role screens are a lot to navigate
+for a demo box where all you want is "add a user" or "add an integration". This identity provider
+trades that generality for two focused admin pages at `/auth/admin`:
+
+- **Users** — human accounts: email, password, an admin flag.
+- **Clients** — OAuth2 client-credentials applications, the same concept Camunda's own Console
+  renamed from "M2M" to "Clients" in 8.9 (default from 8.10 on). Creating one generates its ID and
+  secret for you, lets you pick which Camunda API(s) it's authorized for from checkboxes instead of
+  typing exact audience strings, and — since this is a demo, not production — keeps the secret
+  visible afterward rather than a one-time reveal.
+
+As the name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
 authenticate and issue tokens, not the security hardening, auditing, or compliance controls of an
 enterprise Identity Provider.
 
