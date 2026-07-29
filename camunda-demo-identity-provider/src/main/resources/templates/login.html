@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Demo Identity provider | Sign in</title>
+    <title th:text="${manageUsersFlow} ? 'Demo Identity provider | User Management' : 'Demo Identity provider | Sign in'">Demo Identity provider | Sign in</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
@@ -47,7 +47,7 @@
 
     <div class="login-content">
         <div class="login-card">
-            <h1>Welcome to Camunda</h1>
+            <h1 th:text="${manageUsersFlow} ? 'User Management' : 'Welcome to Camunda'">Welcome to Camunda</h1>
             <p class="error" th:if="${param.error}">Invalid email or password.</p>
             <form method="post" th:action="@{/login}">
                 <label for="email">Email</label>
