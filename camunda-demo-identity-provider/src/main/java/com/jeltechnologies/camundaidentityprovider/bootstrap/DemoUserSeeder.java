@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 /**
  * Replaces Keycloak's {@code identity.firstUser} bootstrap: on a brand-new install the users
  * table is empty, so seed the demo admin user from the install script's DEMO_NAME / DEMO_EMAIL /
- * DEMO_PASSWORD env vars. No-op on every later startup.
+ * DEMO_PASSWORD env vars. Only inserts once, but reconciles the is_default_admin flag on every
+ * startup - see {@link com.jeltechnologies.camundaidentityprovider.user.UserRepository#markAsDefaultAdmin}.
  */
 @Component
 public class DemoUserSeeder implements ApplicationRunner {
@@ -32,12 +33,16 @@ public class DemoUserSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (userRepository.count() > 0) {
+        IdentityProviderProperties.DemoUser demoUser = identityProviderProperties.demoUser();
+        if (userRepository.count() == 0) {
+            userRepository.insertDefaultAdmin(demoUser.name(), demoUser.email(),
+                    passwordEncoder.encode(demoUser.password()));
+            log.info("Seeded first admin user \"{}\" <{}>", demoUser.name(), demoUser.email());
             return;
         }
-        IdentityProviderProperties.DemoUser demoUser = identityProviderProperties.demoUser();
-        userRepository.insert(demoUser.name(), demoUser.email(),
-                passwordEncoder.encode(demoUser.password()), true);
-        log.info("Seeded first admin user \"{}\" <{}>", demoUser.name(), demoUser.email());
+        // Runs on every later startup too (not just the first-ever seed): a database that already
+        // had its demo user created before is_default_admin existed needs this row flagged too, and
+        // insertDefaultAdmin() above only ever runs once.
+        userRepository.markAsDefaultAdmin(demoUser.email());
     }
 }

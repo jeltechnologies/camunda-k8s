@@ -42,10 +42,19 @@ public class UserRepository {
     }
 
     public User insert(String name, String email, String passwordHash, boolean admin) {
-        User user = new User(UUID.randomUUID(), name, email, passwordHash, admin, true, Instant.now());
+        return insert(name, email, passwordHash, admin, false);
+    }
+
+    /** Used only by DemoUserSeeder to create the one protected, install-seeded admin user. */
+    public User insertDefaultAdmin(String name, String email, String passwordHash) {
+        return insert(name, email, passwordHash, true, true);
+    }
+
+    private User insert(String name, String email, String passwordHash, boolean admin, boolean defaultAdmin) {
+        User user = new User(UUID.randomUUID(), name, email, passwordHash, admin, true, defaultAdmin, Instant.now());
         jdbcClient.sql("""
-                INSERT INTO users (id, name, email, password_hash, is_admin, enabled, created_at)
-                VALUES (:id, :name, :email, :passwordHash, :admin, :enabled, :createdAt)
+                INSERT INTO users (id, name, email, password_hash, is_admin, enabled, is_default_admin, created_at)
+                VALUES (:id, :name, :email, :passwordHash, :admin, :enabled, :defaultAdmin, :createdAt)
                 """)
                 .param("id", user.id())
                 .param("name", user.name())
@@ -53,9 +62,30 @@ public class UserRepository {
                 .param("passwordHash", user.passwordHash())
                 .param("admin", user.admin())
                 .param("enabled", user.enabled())
+                .param("defaultAdmin", user.defaultAdmin())
                 .param("createdAt", java.sql.Timestamp.from(user.createdAt()))
                 .update();
         return user;
+    }
+
+    /**
+     * Marks the row matching {@code email} as the protected default admin. Runs on every startup
+     * (not just first-ever seed) so an install upgrading to this feature - or this live database,
+     * which already had its demo user created before is_default_admin existed - still ends up with
+     * the right row flagged.
+     */
+    public void markAsDefaultAdmin(String email) {
+        jdbcClient.sql("UPDATE users SET is_default_admin = true WHERE email = :email")
+                .param("email", email)
+                .update();
+    }
+
+    public void updateNameAndEmail(UUID id, String name, String email) {
+        jdbcClient.sql("UPDATE users SET name = :name, email = :email WHERE id = :id")
+                .param("name", name)
+                .param("email", email)
+                .param("id", id)
+                .update();
     }
 
     public void updatePassword(UUID id, String passwordHash) {
@@ -79,6 +109,7 @@ public class UserRepository {
                     rs.getString("password_hash"),
                     rs.getBoolean("is_admin"),
                     rs.getBoolean("enabled"),
+                    rs.getBoolean("is_default_admin"),
                     rs.getTimestamp("created_at").toInstant());
         }
     }

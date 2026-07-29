@@ -5,6 +5,26 @@
     <title>Demo Identity provider | Users</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
+    <style>
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+        .panel-header h1 {
+            margin: 0;
+        }
+        .edit-link {
+            margin-left: 0.75rem;
+            font-size: 13px;
+            color: var(--blue-60);
+            text-decoration: none;
+        }
+        .edit-link:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
     <div class="top-bar">
@@ -19,43 +39,27 @@
 
     <div class="content">
         <div class="panel">
-            <h1>Users</h1>
+            <div class="panel-header">
+                <h1>Users</h1>
+                <a class="btn" th:href="@{/admin/users/new}">Add user</a>
+            </div>
             <p class="message" th:if="${message}" th:text="${message}"></p>
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Email</th><th>Admin</th><th>Reset password</th><th></th></tr>
+                    <tr><th>Name</th><th>Email</th><th>Role</th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="user : ${users}">
-                        <td th:text="${user.name}"></td>
+                        <td>
+                            <span th:text="${user.name}"></span>
+                            <a class="edit-link" th:href="@{/admin/users/{id}/edit(id=${user.id})}">Edit</a>
+                        </td>
                         <td th:text="${user.email}"></td>
-                        <td th:text="${user.admin} ? 'yes' : 'no'"></td>
-                        <td>
-                            <form class="inline" method="post" th:action="@{/admin/users/{id}/reset-password(id=${user.id})}">
-                                <input type="password" name="password" placeholder="new password" required="required"/>
-                                <button type="submit">Set</button>
-                            </form>
-                        </td>
-                        <td>
-                            <form class="inline" method="post" th:action="@{/admin/users/{id}/delete(id=${user.id})}">
-                                <button type="submit" class="danger">Remove</button>
-                            </form>
-                        </td>
+                        <td th:text="${user.admin} ? 'Admin' : 'User'"></td>
                     </tr>
                 </tbody>
             </table>
-        </div>
-
-        <div class="panel">
-            <h2>Add user</h2>
-            <form class="add-form" method="post" th:action="@{/admin/users}">
-                <input type="text" name="name" placeholder="name" required="required"/>
-                <input type="email" name="email" placeholder="email" required="required"/>
-                <input type="password" name="password" placeholder="password" required="required"/>
-                <label><input type="checkbox" name="admin" value="true"/> admin</label>
-                <button type="submit">Add</button>
-            </form>
         </div>
     </div>
 </body>

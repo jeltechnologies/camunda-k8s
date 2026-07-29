@@ -45,5 +45,12 @@ public class UsersTableMigration implements ApplicationRunner {
                     END IF;
                 END $$;
                 """).update();
+
+        // Plain ALTER, no DO block needed - IF NOT EXISTS on ADD COLUMN is directly supported and
+        // is a single statement, so Spring's script-splitting problem (see class Javadoc) doesn't
+        // apply here.
+        jdbcClient.sql("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS is_default_admin BOOLEAN NOT NULL DEFAULT FALSE
+                """).update();
     }
 }

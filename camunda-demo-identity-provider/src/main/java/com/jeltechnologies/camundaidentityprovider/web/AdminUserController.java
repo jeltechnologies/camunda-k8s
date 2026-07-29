@@ -2,12 +2,15 @@ package com.jeltechnologies.camundaidentityprovider.web;
 
 import java.util.UUID;
 
+import com.jeltechnologies.camundaidentityprovider.user.User;
 import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,34 +34,78 @@ public class AdminUserController {
         return "admin/users";
     }
 
+    @GetMapping("/admin/users/new")
+    public String newUserForm() {
+        return "admin/add-user";
+    }
+
     @PostMapping("/admin/users")
     public String add(@RequestParam String name, @RequestParam String email,
             @RequestParam String password, @RequestParam(defaultValue = "false") boolean admin,
             RedirectAttributes redirectAttributes) {
-        userRepository.insert(name, email, passwordEncoder.encode(password), admin);
+        try {
+            userRepository.insert(name, email, passwordEncoder.encode(password), admin);
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "A user with email \"" + email + "\" already exists.");
+            return "redirect:/admin/users/new";
+        }
         redirectAttributes.addFlashAttribute("message", "User \"" + name + "\" created.");
         return "redirect:/admin/users";
     }
 
-    @PostMapping("/admin/users/{id}/reset-password")
-    public String resetPassword(@PathVariable UUID id, @RequestParam String password,
-            RedirectAttributes redirectAttributes) {
-        userRepository.updatePassword(id, passwordEncoder.encode(password));
-        redirectAttributes.addFlashAttribute("message", "Password updated.");
+    @GetMapping("/admin/users/{id}/edit")
+    public String editUserForm(@PathVariable UUID id, Model model, RedirectAttributes redirectAttributes) {
+        return userRepository.findById(id)
+                .map(user -> {
+                    model.addAttribute("user", user);
+                    return "admin/edit-user";
+                })
+                .orElseGet(() -> {
+                    redirectAttributes.addFlashAttribute("error", "User not found.");
+                    return "redirect:/admin/users";
+                });
+    }
+
+    @PostMapping("/admin/users/{id}/edit")
+    public String edit(@PathVariable UUID id, @RequestParam String name, @RequestParam String email,
+            @RequestParam(required = false) String newPassword, RedirectAttributes redirectAttributes) {
+        User user = userRepository.findById(id).orElse(null);
+        if (user == null) {
+            redirectAttributes.addFlashAttribute("error", "User not found.");
+            return "redirect:/admin/users";
+        }
+        if (StringUtils.hasText(newPassword)) {
+            if (user.defaultAdmin()) {
+                redirectAttributes.addFlashAttribute("error", "The default admin user's password cannot be changed here.");
+                return "redirect:/admin/users/" + id + "/edit";
+            }
+            userRepository.updatePassword(id, passwordEncoder.encode(newPassword));
+        }
+        try {
+            userRepository.updateNameAndEmail(id, name, email);
+        } catch (DataIntegrityViolationException e) {
+            redirectAttributes.addFlashAttribute("error", "A user with email \"" + email + "\" already exists.");
+            return "redirect:/admin/users/" + id + "/edit";
+        }
+        redirectAttributes.addFlashAttribute("message", "User \"" + name + "\" updated.");
         return "redirect:/admin/users";
     }
 
     @PostMapping("/admin/users/{id}/delete")
     public String delete(@PathVariable UUID id, Authentication authentication,
             RedirectAttributes redirectAttributes) {
-        userRepository.findById(id).ifPresent(user -> {
+        userRepository.findById(id).ifPresentOrElse(user -> {
+            if (user.defaultAdmin()) {
+                redirectAttributes.addFlashAttribute("error", "The default admin user cannot be removed.");
+                return;
+            }
             if (user.email().equals(authentication.getName())) {
                 redirectAttributes.addFlashAttribute("error", "You cannot remove your own account.");
                 return;
             }
             userRepository.deleteById(id);
             redirectAttributes.addFlashAttribute("message", "User \"" + user.name() + "\" removed.");
-        });
+        }, () -> redirectAttributes.addFlashAttribute("error", "User not found."));
         return "redirect:/admin/users";
     }
 }
