@@ -198,6 +198,17 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   `AdminClientController` separately rejects the fixed clients' IDs at creation time so one can't
   be created un-reachable. This app only issues the client's token; granting it roles/permissions
   is done in Camunda Identity, same as for human users.
+
+  Each such client has its own `audience` column, editable at `/admin/clients/{id}/edit`, which
+  `AuthorizationServerConfig.dynamicClientAudiences` stamps into that client's tokens as `aud` —
+  without it, a client created here only ever gets its own client ID as audience, and every
+  resource server (Orchestration's REST API included) rejects the token as wrong-audience. Set it
+  to `orchestration-api` for a client that needs to call Orchestration, matching what the fixed
+  `orchestration`/`connectors` clients get from `identity-provider.clients.orchestration.audience`.
+  Also unlike user passwords, a client's plaintext secret **is** kept (the `secret` column,
+  alongside `secret_hash`) and stays visible on the clients list/edit page indefinitely — a
+  deliberate demo-grade choice, since these secrets need to be pasted into whatever external system
+  authenticates as that client.
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
   .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"

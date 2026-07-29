@@ -63,23 +63,23 @@ public class AdminClientController {
     }
 
     @PostMapping("/admin/clients")
-    public String add(@RequestParam String clientId, @RequestParam String name, Model model,
-            RedirectAttributes redirectAttributes) {
+    public String add(@RequestParam String clientId, @RequestParam String name,
+            @RequestParam String audience, RedirectAttributes redirectAttributes) {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
             redirectAttributes.addFlashAttribute("error",
                     "Client ID \"" + clientId + "\" is reserved or invalid. Use letters, digits, \".\", \"_\" or \"-\".");
             return "redirect:/admin/clients/new";
         }
         String secret = generateSecret();
+        Client client;
         try {
-            clientRepository.insert(clientId, name, passwordEncoder.encode(secret));
+            client = clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A client with client ID \"" + clientId + "\" already exists.");
             return "redirect:/admin/clients/new";
         }
-        model.addAttribute("clientId", clientId);
-        model.addAttribute("secret", secret);
-        return "admin/client-created";
+        redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" created.");
+        return "redirect:/admin/clients/" + client.id() + "/edit";
     }
 
     @GetMapping("/admin/clients/{id}/edit")
@@ -96,28 +96,28 @@ public class AdminClientController {
     }
 
     @PostMapping("/admin/clients/{id}/edit")
-    public String edit(@PathVariable UUID id, @RequestParam String name, RedirectAttributes redirectAttributes) {
+    public String edit(@PathVariable UUID id, @RequestParam String name, @RequestParam String audience,
+            RedirectAttributes redirectAttributes) {
         if (clientRepository.findById(id).isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
         }
-        clientRepository.updateName(id, name);
+        clientRepository.updateNameAndAudience(id, name, audience);
         redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" updated.");
-        return "redirect:/admin/clients";
+        return "redirect:/admin/clients/" + id + "/edit";
     }
 
     @PostMapping("/admin/clients/{id}/regenerate-secret")
-    public String regenerateSecret(@PathVariable UUID id, Model model, RedirectAttributes redirectAttributes) {
+    public String regenerateSecret(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
         Client client = clientRepository.findById(id).orElse(null);
         if (client == null) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
         }
         String secret = generateSecret();
-        clientRepository.updateSecret(id, passwordEncoder.encode(secret));
-        model.addAttribute("clientId", client.clientId());
-        model.addAttribute("secret", secret);
-        return "admin/client-created";
+        clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
+        redirectAttributes.addFlashAttribute("message", "Secret regenerated for \"" + client.name() + "\".");
+        return "redirect:/admin/clients/" + id + "/edit";
     }
 
     @PostMapping("/admin/clients/{id}/delete")

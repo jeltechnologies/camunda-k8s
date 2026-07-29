@@ -64,6 +64,13 @@
                     What other systems authenticate as - letters, digits, ".", "_" or "-". Cannot be changed later.
                 </p>
 
+                <label for="audience">Audience</label>
+                <input type="text" id="audience" name="audience" value="orchestration-api" required="required"/>
+                <p class="note">
+                    The resource server this client's tokens are valid for, e.g. "orchestration-api" to call
+                    Orchestration's REST API. Space/comma-separated for more than one.
+                </p>
+
                 <div class="button-row">
                     <button type="submit">OK</button>
                     <a class="btn-cancel" th:href="@{/admin/clients}">Cancel</a>

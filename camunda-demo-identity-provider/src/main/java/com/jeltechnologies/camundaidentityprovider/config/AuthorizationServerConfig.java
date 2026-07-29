@@ -32,6 +32,7 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
+import com.jeltechnologies.camundaidentityprovider.client.ClientRepository;
 import com.jeltechnologies.camundaidentityprovider.user.UserRepository;
 
 @Configuration
@@ -39,10 +40,13 @@ public class AuthorizationServerConfig {
 
     private final IdentityProviderProperties identityProviderProperties;
     private final UserRepository userRepository;
+    private final ClientRepository clientRepository;
 
-    public AuthorizationServerConfig(IdentityProviderProperties identityProviderProperties, UserRepository userRepository) {
+    public AuthorizationServerConfig(IdentityProviderProperties identityProviderProperties,
+            UserRepository userRepository, ClientRepository clientRepository) {
         this.identityProviderProperties = identityProviderProperties;
         this.userRepository = userRepository;
+        this.clientRepository = clientRepository;
     }
 
     @Bean
@@ -161,8 +165,26 @@ public class AuthorizationServerConfig {
             case "web-modeler" -> new java.util.ArrayList<>(java.util.List.of(
                     clients.webModeler().clientApiAudience(), clients.webModeler().publicApiAudience()));
             case "console" -> new java.util.ArrayList<>(java.util.List.of(CONSOLE_AUDIENCE));
-            default -> new java.util.ArrayList<>(java.util.List.of(clientId));
+            default -> dynamicClientAudiences(clientId);
         };
+    }
+
+    /**
+     * Admin-managed clients (see the {@code client} package) aren't in the switch above - each one
+     * carries its own {@code audience} column, set via /admin/clients, precisely so a client can be
+     * authorized against a real resource server (e.g. "orchestration-api", to call Orchestration's
+     * REST API) instead of always getting its own client ID as audience. Falls back to the client
+     * ID when unset, which was this method's unconditional behavior before the audience column
+     * existed - a client created earlier and never edited keeps working exactly as before.
+     */
+    private java.util.List<String> dynamicClientAudiences(String clientId) {
+        String audience = clientRepository.findByClientId(clientId)
+                .map(com.jeltechnologies.camundaidentityprovider.client.Client::audience)
+                .orElse(null);
+        if (audience == null || audience.isBlank()) {
+            return new java.util.ArrayList<>(java.util.List.of(clientId));
+        }
+        return new java.util.ArrayList<>(java.util.List.of(audience.trim().split("[,\\s]+")));
     }
 
     private static KeyPair generateEphemeralRsaKey() {

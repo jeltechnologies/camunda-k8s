@@ -36,6 +36,16 @@
             display: inline-flex;
             align-items: center;
         }
+        .secret-value {
+            display: block;
+            width: 100%;
+            padding: 0.55rem 0.65rem;
+            border: 1px solid var(--gray-20);
+            background: var(--gray-10);
+            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-size: 13px;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -53,6 +63,7 @@
     <div class="content">
         <div class="panel form-panel">
             <h1>Edit client</h1>
+            <p class="message" th:if="${message}" th:text="${message}"></p>
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <form method="post" th:action="@{/admin/clients/{id}/edit(id=${client.id})}">
                 <label for="name">Name</label>
@@ -61,6 +72,20 @@
                 <label for="clientId">Client ID</label>
                 <input type="text" id="clientId" th:value="${client.clientId}" readonly="readonly"/>
                 <p class="note">The client ID cannot be changed after creation.</p>
+
+                <label for="audience">Audience</label>
+                <input type="text" id="audience" name="audience" th:value="${client.audience}" required="required"/>
+                <p class="note">
+                    The resource server this client's tokens are valid for, e.g. "orchestration-api" to call
+                    Orchestration's REST API. Space/comma-separated for more than one.
+                </p>
+
+                <label>Secret</label>
+                <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
+                <p class="note" th:unless="${client.secret}">
+                    This client was created before secrets were stored in recoverable form. Use "Regenerate secret"
+                    to get one you can view here.
+                </p>
 
                 <div class="button-row">
                     <button type="submit">OK</button>

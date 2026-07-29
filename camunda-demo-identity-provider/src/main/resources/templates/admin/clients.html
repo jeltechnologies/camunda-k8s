@@ -56,12 +56,17 @@
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Client ID</th><th></th></tr>
+                    <tr><th>Name</th><th>Client ID</th><th>Audience</th><th>Secret</th><th></th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="client : ${clients}">
                         <td th:text="${client.name}"></td>
                         <td><code th:text="${client.clientId}"></code></td>
+                        <td><code th:text="${client.audience}"></code></td>
+                        <td>
+                            <code th:if="${client.secret}" th:text="${client.secret}"></code>
+                            <span th:unless="${client.secret}">-</span>
+                        </td>
                         <td><a class="edit-link" th:href="@{/admin/clients/{id}/edit(id=${client.id})}">Edit</a></td>
                     </tr>
                 </tbody>

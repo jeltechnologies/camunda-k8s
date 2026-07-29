@@ -37,30 +37,34 @@ public class ClientRepository {
                 .optional();
     }
 
-    public Client insert(String clientId, String name, String secretHash) {
-        Client client = new Client(UUID.randomUUID(), clientId, name, secretHash, Instant.now());
+    public Client insert(String clientId, String name, String secret, String secretHash, String audience) {
+        Client client = new Client(UUID.randomUUID(), clientId, name, secret, secretHash, audience, Instant.now());
         jdbcClient.sql("""
-                INSERT INTO oauth_clients (id, client_id, name, secret_hash, created_at)
-                VALUES (:id, :clientId, :name, :secretHash, :createdAt)
+                INSERT INTO oauth_clients (id, client_id, name, secret, secret_hash, audience, created_at)
+                VALUES (:id, :clientId, :name, :secret, :secretHash, :audience, :createdAt)
                 """)
                 .param("id", client.id())
                 .param("clientId", client.clientId())
                 .param("name", client.name())
+                .param("secret", client.secret())
                 .param("secretHash", client.secretHash())
+                .param("audience", client.audience())
                 .param("createdAt", java.sql.Timestamp.from(client.createdAt()))
                 .update();
         return client;
     }
 
-    public void updateName(UUID id, String name) {
-        jdbcClient.sql("UPDATE oauth_clients SET name = :name WHERE id = :id")
+    public void updateNameAndAudience(UUID id, String name, String audience) {
+        jdbcClient.sql("UPDATE oauth_clients SET name = :name, audience = :audience WHERE id = :id")
                 .param("name", name)
+                .param("audience", audience)
                 .param("id", id)
                 .update();
     }
 
-    public void updateSecret(UUID id, String secretHash) {
-        jdbcClient.sql("UPDATE oauth_clients SET secret_hash = :secretHash WHERE id = :id")
+    public void updateSecret(UUID id, String secret, String secretHash) {
+        jdbcClient.sql("UPDATE oauth_clients SET secret = :secret, secret_hash = :secretHash WHERE id = :id")
+                .param("secret", secret)
                 .param("secretHash", secretHash)
                 .param("id", id)
                 .update();
@@ -77,7 +81,9 @@ public class ClientRepository {
                     UUID.fromString(rs.getString("id")),
                     rs.getString("client_id"),
                     rs.getString("name"),
+                    rs.getString("secret"),
                     rs.getString("secret_hash"),
+                    rs.getString("audience"),
                     rs.getTimestamp("created_at").toInstant());
         }
     }
