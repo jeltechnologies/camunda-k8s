@@ -38,10 +38,11 @@ trades that generality for two focused admin pages at `/auth/admin`:
 
 - **Users** — human accounts: email, password, an admin flag.
 - **Clients** — OAuth2 client-credentials applications, the same concept Camunda's own Console
-  renamed from "M2M" to "Clients" in 8.9 (default from 8.10 on). Creating one generates its ID and
-  secret for you, lets you pick which Camunda API(s) it's authorized for from checkboxes instead of
-  typing exact audience strings, and — since this is a demo, not production — keeps the secret
-  visible afterward rather than a one-time reveal.
+  renamed from "M2M" to "Clients" in 8.9 (default from 8.10 on) — support this identity provider
+  already has, ahead of that switch. Creating one generates its ID and secret for you, lets you
+  pick which Camunda API(s) it's authorized for from checkboxes instead of typing exact audience
+  strings, and — since this is a demo, not production — keeps the secret visible afterward rather
+  than a one-time reveal.
 
 As the name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
 authenticate and issue tokens, not the security hardening, auditing, or compliance controls of an
