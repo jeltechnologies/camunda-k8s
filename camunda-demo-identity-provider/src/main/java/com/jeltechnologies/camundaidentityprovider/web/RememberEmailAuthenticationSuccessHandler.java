@@ -36,10 +36,11 @@ public class RememberEmailAuthenticationSuccessHandler implements Authentication
         // Only used when there's no saved request to bounce back to - i.e. someone logged in by
         // navigating straight to /login rather than being redirected here mid OIDC-authorize flow.
         // The app has no page of its own worth landing on, so send them into the actual platform
-        // (Console's contextPath is "/console" - see the "console:" block in
+        // (Web Modeler's contextPath is "/modeler" - see the "webModeler:" block in
         // template-values-camunda.yaml) rather than the framework default of "/" (bare context
-        // root, /auth/, which has no handler and 404'd).
-        handler.setDefaultTargetUrl("https://" + identityProviderProperties.camundaDomain() + "/console");
+        // root, /auth/, which has no handler and 404'd). Was Console; changed to Web Modeler as
+        // the more useful default landing spot.
+        handler.setDefaultTargetUrl("https://" + identityProviderProperties.camundaDomain() + "/modeler");
         this.delegate = handler;
     }
 
