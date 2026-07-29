@@ -123,20 +123,26 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   needed only in GENERIC OIDC mode; see the note under `identity.externalDatabase` in
   `template-values-camunda.yaml`). Adding a database means editing that init script — it only
   runs on a **fresh** PG data volume, so an existing install needs manual SQL.
-- **camunda-demo-identity-provider replaced Keycloak, and lives in its own `jeltechnologies`
-  namespace, not `camunda`** — it's an external component this stack depends on, not part of the
-  Camunda platform itself. That means every reference to it from `camunda`-namespace components
-  is cross-namespace DNS (`camunda-demo-identity-provider.jeltechnologies`, not the short form),
-  and it can't directly reference the `camunda-credentials` Secret (Secrets are namespace-scoped)
-  — it has its own `identity-provider-credentials` Secret in `jeltechnologies` instead, populated
-  with the same values by `2-install-camunda-microk8s.sh`. Its own Postgres connection is
-  therefore also cross-namespace (`camunda-postgresql.camunda`), even though the identity
-  provider's tables live in the same shared Postgres instance. Its Ingress and TLS secret are
-  duplicated into `jeltechnologies` too, since an Ingress can only reference a Secret in its own
-  namespace.
+- **camunda-demo-identity-provider replaced Keycloak, and runs in the `camunda` namespace**
+  alongside the rest of the platform, as a plain `kubectl apply`-ed Deployment/Service (not part
+  of the Helm release — `helm uninstall camunda` never touches it). It was originally split into
+  its own `jeltechnologies` namespace to model "external component this stack depends on", but
+  that bought cross-namespace DNS footguns (a component reaching it internally has to remember the
+  `.jeltechnologies` suffix everywhere) for no real benefit in a single-box demo, and it caused a
+  real bug: Web Modeler's backend fetching JWKS over cluster DNS threw `UnknownHostException`.
+  Co-locating it in `camunda` means the short Service name (`camunda-demo-identity-provider`)
+  resolves correctly everywhere, it reads client secrets straight from `camunda-credentials`
+  (including its own Postgres password, key `identity-provider-postgresql-password`) instead of a
+  duplicate `identity-provider-credentials` Secret, and its Ingress reuses the same
+  `tls-secret-${CAMUNDA_DOMAIN}` instead of a second copy of the cert.
 
-  It's a Spring Boot Deployment (`template-camunda-demo-identity-provider.yaml`, `replicas: 2`)
-  with no volume of its own — all state is either in Postgres or in the
+  It runs as a single replica now (`template-camunda-demo-identity-provider.yaml`, `replicas: 1`)
+  — the multi-replica setup was for testing future multi-node deployments, not a current need.
+  The JDBC-backed session/token store described below still matters even at replicas: 1: it's what
+  makes a pod restart (redeploy, node reschedule) not silently log everyone out, since sessions
+  and tokens survive in Postgres rather than in-process memory.
+
+  It has no volume of its own — all state is either in Postgres or in the
   `camunda-identity-provider-signing-key` Secret, specifically so it can run multiple replicas and
   survive restarts without logging everyone out:
   - **Users** live in the `camunda-demo-identity-provider` Postgres database (`users` table).
@@ -226,8 +232,9 @@ terminal during install — that's existing behaviour for a single-user demo box
 unasked. The `camunda-credentials` secret's keys (`identity-identity-client-token`,
 `identity-orchestration-client-token`, `identity-optimize-client-token`,
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
-`orchestration-postgresql-password`) are all set to the same `$PASSWORD` too, doing double duty as
-both database passwords and OAuth2 client secrets for `camunda-demo-identity-provider`. The
+`orchestration-postgresql-password`, `identity-provider-postgresql-password`) are all set to the
+same `$PASSWORD` too, doing double duty as both database passwords and OAuth2 client secrets for
+`camunda-demo-identity-provider`. The
 **`camunda-identity-provider-signing-key` Secret is deliberately separate** and handled differently: unlike
 `camunda-credentials` (deleted and recreated on every install run, harmless since the value always
 comes from the same `$PASSWORD`), this one holds randomly generated key material with no external

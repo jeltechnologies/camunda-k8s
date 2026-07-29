@@ -25,16 +25,26 @@ global:
       enabled: true
       type: "GENERIC"
       publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth"
-      issuerBackendUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth"
+      issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
       authUrl: "https://${CAMUNDA_DOMAIN}/auth/oauth2/authorize"
-      tokenUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/token"
-      jwksUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/jwks"
+      tokenUrl: "http://camunda-demo-identity-provider/auth/oauth2/token"
+      jwksUrl: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
       identity:
         clientId: "camunda-identity"
         audience: "camunda-identity-resource-server"
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-identity-client-token"
+        # Without this, Management Identity's own authorization DB never bootstraps an admin - its
+        # default initialClaimName is "oid" (Microsoft Entra's claim), which our tokens never carry,
+        # so no user ever matches and nobody gets any role/permission in Identity's own store. This
+        # is what Web Modeler actually checks via its `identity.base-url` call below (separate from
+        # orchestration.security.initialization, which only bootstraps Orchestration/Zeebe's own
+        # RBAC store) - without it, Web Modeler shows "Access denied to organization ..." /
+        # "Could not fetch your shared resources" for every user, forever. Mirrors the chart's own
+        # commented example for generic OIDC providers (`helm show values`, "Microsoft Entra example").
+        initialClaimName: "preferred_username"
+        initialClaimValue: "${DEMO_EMAIL}"
       # web-modeler is a public (PKCE) client on camunda-demo-identity-provider - the chart's own values schema has
       # no client-secret field for it either, confirmed against the real camunda-platform 14.7.0
       # chart defaults (`helm show values camunda/camunda-platform --version 14.7.0`).
@@ -232,7 +242,7 @@ webModeler:
         identity:
           base-url: "http://camunda-identity:80/identity"
           issuer: "https://${CAMUNDA_DOMAIN}/auth"
-          issuerBackendUrl: "http://camunda-demo-identity-provider.jeltechnologies/auth"
+          issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
           type: "GENERIC"
 
         modeler:
@@ -242,7 +252,7 @@ webModeler:
           security:
             jwt:
               issuer:
-                backend-url: "http://camunda-demo-identity-provider.jeltechnologies/auth"
+                backend-url: "http://camunda-demo-identity-provider/auth"
               audience:
                 internal-api: "web-modeler-api"
                 public-api: "web-modeler-public-api"
@@ -301,7 +311,7 @@ webModeler:
             resourceserver:
               jwt:
                 issuer-uri: "https://${CAMUNDA_DOMAIN}/auth"
-                jwk-set-uri: "http://camunda-demo-identity-provider.jeltechnologies/auth/oauth2/jwks"
+                jwk-set-uri: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
 
         servlet:
           multipart:

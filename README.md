@@ -75,10 +75,11 @@ Provider, PostgreSQL, Elasticsearch) are deployed before the Camunda Helm chart 
 nginx ingress controller handles TLS termination and routes all traffic by path prefix — no
 NodePorts or port forwarding anywhere.
 
-The Identity Provider runs in its own `jeltechnologies` namespace, separate from `camunda` — it's
-an external component this stack depends on, not part of the Camunda platform itself. Both
-namespaces are on the same domain, routed by nginx via separate Ingress objects (one per
-namespace, since an Ingress can only reference a Service/TLS Secret in its own namespace).
+The Identity Provider runs in the `camunda` namespace alongside the rest of the platform, as a
+plain `kubectl apply`-ed Deployment/Service — it's not part of the Helm release, since it's an
+external component this stack depends on, not part of the Camunda platform itself. It gets its
+own Ingress object (routed by nginx on the `/auth` path prefix, same domain, same TLS cert as
+everything else).
 
 ```
 Internet → nginx ingress (443)
