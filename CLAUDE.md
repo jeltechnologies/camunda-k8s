@@ -34,6 +34,7 @@ not present it as a production-hardened component.
 | `.github/workflows/build-camunda-demo-identity-provider.yml` | Builds/pushes its image to GHCR on push to `main` or an `identity-provider-v*` tag. |
 | `update-connector-secrets.sh` | Applies optional `connector-secrets.yaml`, patches the connectors Deployment with `envFrom`, restarts the pod. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
+| `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via camunda-demo-identity-provider's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
 
 ## The templating model — most important thing to know
@@ -224,6 +225,23 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   every human login specifically so this rule has something constant to match — granting baseline
   Web Modeler/Console/Optimize/Orchestration roles to any user, not just the bootstrap admin. Runs
   after `helm install` in `2-install-camunda-microk8s.sh`; idempotent, safe to re-run.
+
+  **Same gap, but for M2M clients.** Identity's "Applications" concept only covers the fixed,
+  Helm-configured client set (`camunda-identity`, `orchestration`, `connectors`, `optimize`,
+  `web-modeler`, `console`) — it has no awareness of clients created via
+  camunda-demo-identity-provider's own `/admin/clients` (see the `client` package and
+  `CompositeRegisteredClientRepository`), so such a client can never be found or granted a role
+  through Identity's own console UI. The fix is the same claim-matching mapping-rule mechanism as
+  above: `grant-webmodeler-public-api-access.sh <client-id>` creates a "Web Modeler Public API"
+  role (CRUD permissions on the `web-modeler-public-api` audience — the actual external REST API,
+  not `web-modeler-api`, which is only the internal one the Web Modeler SPA itself uses and has no
+  CRUD-level permissions defined at all) and a mapping rule keyed on `preferred_username` equal to
+  the client ID, since `AuthorizationServerConfig`'s token customizer stamps that claim on M2M
+  tokens too (client ID standing in for the human email). Also requires that client's own
+  `audience` (set via `/admin/clients`) to include `web-modeler-public-api`, or its tokens won't
+  carry the right `aud` and Web Modeler rejects them regardless of this grant — found by querying
+  Identity's own Postgres `permissions`/`roles_permissions` tables directly, since there's no UI
+  for a client Identity doesn't know about.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`
