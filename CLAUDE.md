@@ -187,6 +187,17 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   Camunda's Java client SDK sends credentials in the token request body, not an `Authorization`
   header; confirmed by testing both directly against `/oauth2/token` when Connectors' M2M auth
   kept failing with 401 despite the secret value being verified correct.
+  **That fixed set is separate from user-managed "Clients"** — client-credentials-only OAuth2
+  clients an admin creates/deletes at `/admin/clients` (`camunda-demo-identity-provider/.../client/`
+  and `web/AdminClientController.java`), stored in the `oauth_clients` table, for external
+  automation talking to Camunda's APIs — the equivalent of what Camunda's own Console calls
+  "Clients" from 8.9 onward (formerly "M2M"). `CompositeRegisteredClientRepository` is the actual
+  `RegisteredClientRepository` bean; it checks the fixed set first (renamed to the
+  `fixedRegisteredClientRepository` bean in `OidcClientsConfig`) and falls through to the database
+  for anything else, so a user-managed client can never shadow a fixed one, and
+  `AdminClientController` separately rejects the fixed clients' IDs at creation time so one can't
+  be created un-reachable. This app only issues the client's token; granting it roles/permissions
+  is done in Camunda Identity, same as for human users.
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
   .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"

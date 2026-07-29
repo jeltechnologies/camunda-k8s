@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Camunda - Users</title>
+    <title>Camunda - Clients</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
@@ -23,6 +23,10 @@
         .edit-link:hover {
             text-decoration: underline;
         }
+        code {
+            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -32,8 +36,8 @@
             <span class="app-name">Demo Identity provider</span>
         </div>
         <nav>
-            <a href="#" class="active">Users</a>
-            <a th:href="@{/admin/clients}">Clients</a>
+            <a th:href="@{/admin/users}">Users</a>
+            <a href="#" class="active">Clients</a>
         </nav>
         <div class="right">
             <form method="post" th:action="@{/logout}">
@@ -45,21 +49,20 @@
     <div class="content">
         <div class="panel">
             <div class="panel-header">
-                <h1>Users</h1>
-                <a class="btn" th:href="@{/admin/users/new}">Add user</a>
+                <h1>Clients</h1>
+                <a class="btn" th:href="@{/admin/clients/new}">Add client</a>
             </div>
             <p class="message" th:if="${message}" th:text="${message}"></p>
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
+                    <tr><th>Name</th><th>Client ID</th><th></th></tr>
                 </thead>
                 <tbody>
-                    <tr th:each="user : ${users}">
-                        <td th:text="${user.name}"></td>
-                        <td th:text="${user.email}"></td>
-                        <td th:text="${user.admin} ? 'Admin' : 'User'"></td>
-                        <td><a class="edit-link" th:href="@{/admin/users/{id}/edit(id=${user.id})}">Edit</a></td>
+                    <tr th:each="client : ${clients}">
+                        <td th:text="${client.name}"></td>
+                        <td><code th:text="${client.clientId}"></code></td>
+                        <td><a class="edit-link" th:href="@{/admin/clients/{id}/edit(id=${client.id})}">Edit</a></td>
                     </tr>
                 </tbody>
             </table>

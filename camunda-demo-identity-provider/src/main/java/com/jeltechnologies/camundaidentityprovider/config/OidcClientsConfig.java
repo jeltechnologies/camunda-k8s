@@ -16,9 +16,14 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 
 /**
  * Fixed, small set of first-party OAuth2 clients: one per Camunda component. There is no
- * client-management UI or database table for these on purpose - the set never changes without a
- * code change to this file (and the matching Camunda Helm values), so a config-driven in-memory
- * repository built at startup from {@link IdentityProviderProperties} is all that's needed.
+ * admin UI or database table for *these* on purpose - the set never changes without a code
+ * change to this file (and the matching Camunda Helm values), so a config-driven in-memory
+ * repository built at startup from {@link IdentityProviderProperties} is all that's needed. It's
+ * exposed as the {@code fixedRegisteredClientRepository} bean and wrapped by {@link
+ * com.jeltechnologies.camundaidentityprovider.client.CompositeRegisteredClientRepository}, which
+ * is the actual {@code RegisteredClientRepository} the rest of the app sees - it falls through to
+ * the admin-managed, database-backed "Clients" feature (see that package) for any client ID not
+ * defined here.
  *
  * <p>Client IDs, redirect URI shapes and required scopes follow Camunda's documented "generic
  * OIDC provider" contract. Verify these against the pinned camunda-platform Helm chart version
@@ -31,7 +36,7 @@ public class OidcClientsConfig {
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofHours(12);
 
     @Bean
-    public RegisteredClientRepository registeredClientRepository(IdentityProviderProperties props, PasswordEncoder passwordEncoder) {
+    public RegisteredClientRepository fixedRegisteredClientRepository(IdentityProviderProperties props, PasswordEncoder passwordEncoder) {
         String domain = props.camundaDomain();
         IdentityProviderProperties.Clients clients = props.clients();
 
@@ -140,6 +145,15 @@ public class OidcClientsConfig {
     }
 
     private TokenSettings tokenSettings() {
+        return m2mTokenSettings();
+    }
+
+    /**
+     * Same access/refresh TTLs as the fixed clients above, reused by {@link
+     * com.jeltechnologies.camundaidentityprovider.client.CompositeRegisteredClientRepository} for
+     * admin-managed clients so both sets of client-credentials clients behave identically.
+     */
+    public static TokenSettings m2mTokenSettings() {
         return TokenSettings.builder()
                 .accessTokenTimeToLive(ACCESS_TOKEN_TTL)
                 .refreshTokenTimeToLive(REFRESH_TOKEN_TTL)

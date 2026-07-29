@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Camunda - Edit user</title>
+    <title>Camunda - Edit client</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
@@ -45,40 +45,31 @@
             <span class="app-name">Demo Identity provider</span>
         </div>
         <nav>
-            <a th:href="@{/admin/users}" class="active">Users</a>
-            <a th:href="@{/admin/clients}">Clients</a>
+            <a th:href="@{/admin/users}">Users</a>
+            <a th:href="@{/admin/clients}" class="active">Clients</a>
         </nav>
     </div>
 
     <div class="content">
         <div class="panel form-panel">
-            <h1>Edit user</h1>
+            <h1>Edit client</h1>
             <p class="error" th:if="${error}" th:text="${error}"></p>
-            <form method="post" th:action="@{/admin/users/{id}/edit(id=${user.id})}">
+            <form method="post" th:action="@{/admin/clients/{id}/edit(id=${client.id})}">
                 <label for="name">Name</label>
-                <input type="text" id="name" name="name" th:value="${user.name}" required="required" autofocus="autofocus"/>
+                <input type="text" id="name" name="name" th:value="${client.name}" required="required" autofocus="autofocus"/>
 
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" th:value="${user.email}" required="required"
-                       th:readonly="${user.defaultAdmin}"/>
-                <p class="note" th:if="${user.defaultAdmin}">
-                    This is the default admin user created during installation - its email is the login identity
-                    other Camunda components (Web Modeler included) key on, so it cannot be changed here.
-                </p>
-
-                <label for="newPassword">New password</label>
-                <input type="password" id="newPassword" name="newPassword"
-                       placeholder="leave blank to keep current password"/>
+                <label for="clientId">Client ID</label>
+                <input type="text" id="clientId" th:value="${client.clientId}" readonly="readonly"/>
+                <p class="note">The client ID cannot be changed after creation.</p>
 
                 <div class="button-row">
                     <button type="submit">OK</button>
-                    <button type="submit" class="danger" th:unless="${user.defaultAdmin}"
-                            th:formaction="@{/admin/users/{id}/delete(id=${user.id})}">Remove</button>
-                    <a class="btn-cancel" th:href="@{/admin/users}">Cancel</a>
+                    <button type="submit" class="danger" th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Regenerate secret</button>
                 </div>
-                <p class="note" th:if="${user.defaultAdmin}">
-                    The default admin user cannot be removed.
-                </p>
+                <div class="button-row">
+                    <button type="submit" class="danger" th:formaction="@{/admin/clients/{id}/delete(id=${client.id})}">Remove</button>
+                    <a class="btn-cancel" th:href="@{/admin/clients}">Cancel</a>
+                </div>
             </form>
         </div>
     </div>
