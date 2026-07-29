@@ -33,6 +33,7 @@ not present it as a production-hardened component.
 | `camunda-demo-identity-provider/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
 | `.github/workflows/build-camunda-demo-identity-provider.yml` | Builds/pushes its image to GHCR on push to `main` or an `identity-provider-v*` tag. |
 | `update-connector-secrets.sh` | Applies optional `connector-secrets.yaml`, patches the connectors Deployment with `envFrom`, restarts the pod. |
+| `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
 
 ## The templating model — most important thing to know
@@ -90,6 +91,7 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 9. `helm uninstall camunda || true`, delete the connectors PV/PVC, regenerate values, recreate
    host dirs + PVs, `helm install camunda camunda/camunda-platform --wait --timeout 20m`
 10. `./update-connector-secrets.sh`
+11. `./seed-identity-mapping-rules.sh`
 
 Re-running is the supported upgrade path: only the Helm release is torn down. The Elasticsearch,
 PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed in place, so
@@ -185,6 +187,21 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   Camunda's Java client SDK sends credentials in the token request body, not an `Authorization`
   header; confirmed by testing both directly against `/oauth2/token` when Connectors' M2M auth
   kept failing with 401 despite the secret value being verified correct.
+- **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
+  .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
+  `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"
+  mapping rule for the one seeded admin — without it, Identity's own `mapping_rules` table stays
+  empty forever (its default `initialClaimName` is `"oid"`, a Microsoft Entra claim our tokens
+  never carry), and *no* user has *any* role there, which Web Modeler's `identity.base-url` check
+  surfaces as "Access denied to organization ..." / "Could not fetch your shared resources" in the
+  UI — found by decoding the actual claims Identity has to work with and cross-checking against
+  the chart's own commented generic-OIDC example. That bootstrap only covers the one admin,
+  though: Identity has no "match everyone" mapping-rule operator (only `EQUALS`/`CONTAINS` on a
+  specific claim+value), so `seed-identity-mapping-rules.sh` separately creates an "AllUsers" rule
+  keyed on `demo_user=true` — a claim `AuthorizationServerConfig`'s token customizer stamps on
+  every human login specifically so this rule has something constant to match — granting baseline
+  Web Modeler/Console/Optimize/Orchestration roles to any user, not just the bootstrap admin. Runs
+  after `helm install` in `2-install-camunda-microk8s.sh`; idempotent, safe to re-run.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`

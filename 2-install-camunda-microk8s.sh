@@ -180,6 +180,11 @@ echo Updating connector secrets and patching deployment
 echo "=================================================================="
 ./update-connector-secrets.sh
 
+echo "=================================================================="
+echo Seeding Identity mapping rule for baseline demo user access
+echo "=================================================================="
+./seed-identity-mapping-rules.sh
+
 echo ""
 echo "=================================================================="
 echo "Camunda started successfully!"
