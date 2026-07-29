@@ -264,7 +264,14 @@ webModeler:
           oauth2:
             client-id: "web-modeler"
             token:
-              username-claim: "preferred_username"
+              # Web Modeler has no separate claim for the display "name" field - whatever claim is
+              # configured here fills both "username" and the profile "name" shown in the UI. User
+              # matching itself is keyed off "sub" (iam_id), not this claim, so it's safe to point
+              # this at the free-text display name instead of the login identifier. Was
+              # "preferred_username" (our email claim), which correctly matches Camunda's chart
+              # default docs warning: "usernames may appear as email-style identifiers" - and made
+              # the profile show the email in both the name and email fields instead of a real name.
+              username-claim: "name"
 
           pusher:
             host: "camunda-web-modeler-websockets"
