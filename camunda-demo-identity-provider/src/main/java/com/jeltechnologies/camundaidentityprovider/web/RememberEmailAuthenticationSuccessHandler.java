@@ -27,7 +27,17 @@ public class RememberEmailAuthenticationSuccessHandler implements Authentication
     private static final String COOKIE_NAME = "last_email";
     private static final Duration MAX_AGE = Duration.ofDays(180);
 
-    private final AuthenticationSuccessHandler delegate = new SavedRequestAwareAuthenticationSuccessHandler();
+    private final AuthenticationSuccessHandler delegate = createDelegate();
+
+    private static AuthenticationSuccessHandler createDelegate() {
+        SavedRequestAwareAuthenticationSuccessHandler handler = new SavedRequestAwareAuthenticationSuccessHandler();
+        // Only used when there's no saved request to bounce back to - i.e. someone logged in by
+        // navigating straight to /login rather than being redirected here mid OIDC-authorize flow.
+        // The app has no page at "/" (context root), so the framework default of redirecting there
+        // 404'd. /admin/users is the only real destination this app has.
+        handler.setDefaultTargetUrl("/admin/users");
+        return handler;
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
