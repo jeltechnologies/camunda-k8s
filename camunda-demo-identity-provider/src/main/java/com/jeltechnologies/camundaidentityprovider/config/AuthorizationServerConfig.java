@@ -120,6 +120,14 @@ public class AuthorizationServerConfig {
 
                 boolean isUserToken = !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType());
                 if (isUserToken) {
+                    // Standard OIDC "email" claim - every client is granted the "email" scope
+                    // (see confidentialClient/publicClient in OidcClientsConfig) but nothing was
+                    // ever stamping the claim it corresponds to. Web Modeler in particular reads
+                    // this to populate its own user record; without it, the email column stayed
+                    // blank and the user never got auto-provisioned into the default organization
+                    // ("Access denied to organization ..." / "Could not fetch your shared resources").
+                    context.getClaims().claim("email", principalName);
+                    context.getClaims().claim("email_verified", true);
                     userRepository.findByEmail(principalName)
                             .ifPresent(user -> context.getClaims().claim("name", user.name()));
                 }
