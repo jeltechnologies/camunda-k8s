@@ -7,7 +7,7 @@
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
         .form-panel {
-            max-width: 420px;
+            max-width: 640px;
         }
         .form-panel label {
             margin-top: 1rem;
@@ -65,7 +65,8 @@
             background: var(--gray-10);
             font-family: "IBM Plex Mono", ui-monospace, monospace;
             font-size: 13px;
-            word-break: break-all;
+            white-space: nowrap;
+            overflow-x: auto;
         }
     </style>
 </head>

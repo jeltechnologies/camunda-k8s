@@ -82,14 +82,17 @@ public class AdminClientController {
         }
         String audience = combineAudiences(knownAudiences, customAudience);
         String secret = generateSecret();
+        Client client;
         try {
-            clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
+            client = clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A client with client ID \"" + clientId + "\" already exists.");
             return "redirect:/admin/clients/new";
         }
         redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" created.");
-        return "redirect:/admin/clients";
+        // To the edit page, not the list: the secret is only ever shown there (see edit-client.html
+        // and the clients list template), and the admin needs to see this one right after creating it.
+        return "redirect:/admin/clients/" + client.id() + "/edit";
     }
 
     @GetMapping("/admin/clients/{id}/edit")
@@ -132,7 +135,8 @@ public class AdminClientController {
         String secret = generateSecret();
         clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
         redirectAttributes.addFlashAttribute("message", "Secret regenerated for \"" + client.name() + "\".");
-        return "redirect:/admin/clients";
+        // To the edit page, not the list: the new secret is only ever shown there.
+        return "redirect:/admin/clients/" + id + "/edit";
     }
 
     @PostMapping("/admin/clients/{id}/delete")

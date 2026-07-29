@@ -27,6 +27,24 @@
             font-family: "IBM Plex Mono", ui-monospace, monospace;
             font-size: 13px;
         }
+        table {
+            table-layout: fixed;
+        }
+        .col-name, .col-client-id {
+            width: 26%;
+        }
+        td.col-name, td.col-client-id {
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        .audience-list {
+            margin: 0;
+            padding-left: 1.1rem;
+        }
+        .audience-list li {
+            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -56,16 +74,17 @@
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Client ID</th><th>Audience</th><th>Secret</th><th></th></tr>
+                    <tr><th class="col-name">Name</th><th class="col-client-id">Client ID</th><th>Audience</th><th></th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="client : ${clients}">
-                        <td th:text="${client.name}"></td>
-                        <td><code th:text="${client.clientId}"></code></td>
-                        <td><code th:text="${client.audience}"></code></td>
+                        <td class="col-name" th:text="${client.name}"></td>
+                        <td class="col-client-id"><code th:text="${client.clientId}"></code></td>
                         <td>
-                            <code th:if="${client.secret}" th:text="${client.secret}"></code>
-                            <span th:unless="${client.secret}">-</span>
+                            <ul class="audience-list" th:if="${client.audience}">
+                                <li th:each="aud : ${#strings.listSplit(client.audience, ',')}" th:text="${#strings.trim(aud)}"></li>
+                            </ul>
+                            <span th:unless="${client.audience}">-</span>
                         </td>
                         <td><a class="edit-link" th:href="@{/admin/clients/{id}/edit(id=${client.id})}">Edit</a></td>
                     </tr>
