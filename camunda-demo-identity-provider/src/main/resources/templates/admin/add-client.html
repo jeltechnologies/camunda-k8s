@@ -100,5 +100,23 @@
             </form>
         </div>
     </div>
+    <script th:inline="none">
+        // Client ID defaults to a slug of the name, but only until the admin types into the
+        // Client ID field directly - once they do, their input wins and the name no longer
+        // overwrites it.
+        (function () {
+            var nameInput = document.getElementById('name');
+            var clientIdInput = document.getElementById('clientId');
+            var clientIdEdited = false;
+            clientIdInput.addEventListener('input', function () {
+                clientIdEdited = true;
+            });
+            nameInput.addEventListener('input', function () {
+                if (!clientIdEdited) {
+                    clientIdInput.value = nameInput.value.toLowerCase().split(' ').join('-');
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
