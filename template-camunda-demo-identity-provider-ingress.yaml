@@ -28,3 +28,33 @@ spec:
                 name: camunda-demo-identity-provider
                 port:
                   number: 80
+---
+# No component owns the bare "/" path (Console is /console, Web Modeler is /modeler, this
+# identity provider is /auth, etc.), so it 404'd with nothing to redirect the visitor anywhere
+# useful. nginx-ingress's permanent-redirect annotation issues the redirect directly - the
+# backend below is never actually reached, but the Ingress spec requires a valid one regardless.
+# pathType: Exact so this only matches "/" itself, not every other prefix-routed path.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: camunda-root-redirect-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/permanent-redirect: https://${CAMUNDA_DOMAIN}/auth/login
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: camunda-demo-identity-provider
+                port:
+                  number: 80
