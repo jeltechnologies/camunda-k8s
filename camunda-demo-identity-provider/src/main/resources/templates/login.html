@@ -8,28 +8,19 @@
     <style>
         body {
             display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .login-content {
+            flex: 1;
+            display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
         }
         .login-card {
             width: 320px;
             border: 1px solid var(--gray-20);
             padding: 2rem;
-        }
-        .login-brand {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin-bottom: 2rem;
-        }
-        .login-brand img {
-            width: 28px;
-            height: 28px;
-        }
-        .login-brand span {
-            font-weight: 600;
-            font-size: 15px;
         }
         h1 {
             font-size: 1rem;
@@ -44,22 +35,30 @@
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-brand">
+    <div class="top-bar">
+        <div class="logo">
             <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
-            <span>Demo Identity provider</span>
+            <span class="app-name">Demo Identity provider</span>
         </div>
-        <h1>Welcome to Camunda</h1>
-        <p class="error" th:if="${param.error}">Invalid email or password.</p>
-        <form method="post" th:action="@{/login}">
-            <label for="email">Email</label>
-            <input type="email" id="email" name="email" th:value="${lastEmail}"
-                   th:autofocus="${#strings.isEmpty(lastEmail)}" autocomplete="email"/>
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password"
-                   th:autofocus="${!#strings.isEmpty(lastEmail)}" autocomplete="current-password"/>
-            <button type="submit">Sign in</button>
-        </form>
+        <div class="right">
+            <a class="btn" th:href="@{/admin/users}">Manage Users</a>
+        </div>
+    </div>
+
+    <div class="login-content">
+        <div class="login-card">
+            <h1>Welcome to Camunda</h1>
+            <p class="error" th:if="${param.error}">Invalid email or password.</p>
+            <form method="post" th:action="@{/login}">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" th:value="${lastEmail}"
+                       th:autofocus="${#strings.isEmpty(lastEmail)}" autocomplete="email"/>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                       th:autofocus="${!#strings.isEmpty(lastEmail)}" autocomplete="current-password"/>
+                <button type="submit">Sign in</button>
+            </form>
+        </div>
     </div>
 </body>
 </html>
