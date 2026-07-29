@@ -13,8 +13,16 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
+import com.jeltechnologies.camundaidentityprovider.web.RememberEmailAuthenticationSuccessHandler;
+
 @Configuration
 public class SecurityConfig {
+
+    private final RememberEmailAuthenticationSuccessHandler rememberEmailAuthenticationSuccessHandler;
+
+    public SecurityConfig(RememberEmailAuthenticationSuccessHandler rememberEmailAuthenticationSuccessHandler) {
+        this.rememberEmailAuthenticationSuccessHandler = rememberEmailAuthenticationSuccessHandler;
+    }
 
     /**
      * The OIDC/OAuth2 protocol endpoints (/oauth2/*, /userinfo, /.well-known/*), scoped with
@@ -46,7 +54,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated());
         // Users authenticate with email + password, not a separate username - see
         // AppUserDetailsService for why the "username" parameter is bound to email.
-        http.formLogin(form -> form.loginPage("/login").usernameParameter("email").permitAll());
+        http.formLogin(form -> form.loginPage("/login").usernameParameter("email")
+                .successHandler(rememberEmailAuthenticationSuccessHandler).permitAll());
         return http.build();
     }
 
