@@ -128,6 +128,12 @@ public class AuthorizationServerConfig {
                     // ("Access denied to organization ..." / "Could not fetch your shared resources").
                     context.getClaims().claim("email", principalName);
                     context.getClaims().claim("email_verified", true);
+                    // Dedicated claim (not reusing email_verified, which happens to always be true
+                    // here but means something else) so Camunda Identity's mapping rules have an
+                    // explicit, unambiguous way to say "every human user of this demo" instead of
+                    // one hand-maintained rule per person. See the "AllUsers" mapping rule granting
+                    // baseline Web Modeler/Console/Optimize/Orchestration access.
+                    context.getClaims().claim("demo_user", "true");
                     userRepository.findByEmail(principalName)
                             .ifPresent(user -> context.getClaims().claim("name", user.name()));
                 }
