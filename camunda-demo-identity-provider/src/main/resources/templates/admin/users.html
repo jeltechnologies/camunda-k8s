@@ -16,7 +16,6 @@
             margin: 0;
         }
         .edit-link {
-            margin-left: 0.75rem;
             font-size: 13px;
             color: var(--blue-60);
             text-decoration: none;
@@ -35,6 +34,12 @@
         <nav>
             <a href="#" class="active">Users</a>
         </nav>
+        <div class="right">
+            <a class="btn-secondary" th:href="@{/login}">Camunda Login</a>
+            <form method="post" th:action="@{/logout}">
+                <button type="submit" class="btn-secondary">Logout</button>
+            </form>
+        </div>
     </div>
 
     <div class="content">
@@ -47,16 +52,14 @@
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+                    <tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="user : ${users}">
-                        <td>
-                            <span th:text="${user.name}"></span>
-                            <a class="edit-link" th:href="@{/admin/users/{id}/edit(id=${user.id})}">Edit</a>
-                        </td>
+                        <td th:text="${user.name}"></td>
                         <td th:text="${user.email}"></td>
                         <td th:text="${user.admin} ? 'Admin' : 'User'"></td>
+                        <td><a class="edit-link" th:href="@{/admin/users/{id}/edit(id=${user.id})}">Edit</a></td>
                     </tr>
                 </tbody>
             </table>

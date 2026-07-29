@@ -88,6 +88,19 @@ public class UserRepository {
                 .update();
     }
 
+    /**
+     * Name-only update, for the default admin: unlike other users, their email can't change (see
+     * AdminUserController) since it's the OIDC "sub"/preferred_username value Web Modeler and other
+     * Camunda components key user identity off - changing it would orphan everything that user
+     * already owns in those systems, invisibly, since the old rows aren't deleted, just unreachable.
+     */
+    public void updateName(UUID id, String name) {
+        jdbcClient.sql("UPDATE users SET name = :name WHERE id = :id")
+                .param("name", name)
+                .param("id", id)
+                .update();
+    }
+
     public void updatePassword(UUID id, String passwordHash) {
         jdbcClient.sql("UPDATE users SET password_hash = :passwordHash WHERE id = :id")
                 .param("passwordHash", passwordHash)

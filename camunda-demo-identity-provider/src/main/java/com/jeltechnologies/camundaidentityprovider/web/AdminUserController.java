@@ -74,18 +74,23 @@ public class AdminUserController {
             redirectAttributes.addFlashAttribute("error", "User not found.");
             return "redirect:/admin/users";
         }
+        if (user.defaultAdmin() && !email.equals(user.email())) {
+            redirectAttributes.addFlashAttribute("error",
+                    "The default admin user's email cannot be changed - it's the login identity Web Modeler and other components key on.");
+            return "redirect:/admin/users/" + id + "/edit";
+        }
         if (StringUtils.hasText(newPassword)) {
-            if (user.defaultAdmin()) {
-                redirectAttributes.addFlashAttribute("error", "The default admin user's password cannot be changed here.");
-                return "redirect:/admin/users/" + id + "/edit";
-            }
             userRepository.updatePassword(id, passwordEncoder.encode(newPassword));
         }
-        try {
-            userRepository.updateNameAndEmail(id, name, email);
-        } catch (DataIntegrityViolationException e) {
-            redirectAttributes.addFlashAttribute("error", "A user with email \"" + email + "\" already exists.");
-            return "redirect:/admin/users/" + id + "/edit";
+        if (user.defaultAdmin()) {
+            userRepository.updateName(id, name);
+        } else {
+            try {
+                userRepository.updateNameAndEmail(id, name, email);
+            } catch (DataIntegrityViolationException e) {
+                redirectAttributes.addFlashAttribute("error", "A user with email \"" + email + "\" already exists.");
+                return "redirect:/admin/users/" + id + "/edit";
+            }
         }
         redirectAttributes.addFlashAttribute("message", "User \"" + name + "\" updated.");
         return "redirect:/admin/users";

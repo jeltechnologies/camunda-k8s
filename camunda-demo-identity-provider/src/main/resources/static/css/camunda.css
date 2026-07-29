@@ -82,6 +82,14 @@ body {
     display: flex;
     align-items: center;
     height: 100%;
+    gap: 0.5rem;
+}
+
+.top-bar .right form {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin: 0;
 }
 
 .btn {
@@ -101,6 +109,27 @@ body {
 
 .btn:hover {
     background: #0043ce;
+}
+
+/* Grey, not the primary blue - used where a button needs to be present but not compete for
+   attention with the actual primary action on the page (e.g. "Manage Users" next to "Sign in"). */
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    background: var(--gray-20);
+    color: var(--gray-100);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: 0;
+}
+
+.btn-secondary:hover {
+    background: #c6c6c6;
 }
 
 .content {
@@ -175,6 +204,15 @@ input[type="password"] {
 input:focus {
     outline: 2px solid var(--blue-60);
     outline-offset: -2px;
+}
+
+input[readonly] {
+    background: var(--gray-10);
+    color: #565656;
+}
+
+input[readonly]:focus {
+    outline: none;
 }
 
 button, input[type="submit"] {
