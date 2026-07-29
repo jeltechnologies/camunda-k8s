@@ -75,7 +75,14 @@ public class OidcClientsConfig {
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)
                 .scope("offline_access")
-                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build())
+                // ClientSettings.builder() defaults requireProofKey to true in this Spring Security
+                // version (confirmed by decompiling ClientSettings.class - it's not documented as a
+                // behavior change anywhere obvious). camunda-identity/orchestration/optimize are
+                // traditional confidential-client flows that never send a code_challenge, so leaving
+                // the default made every authorization request 400 with "OAuth 2.0 Parameter:
+                // code_challenge" (OAuth2AuthorizationCodeRequestAuthenticationValidator requires PKCE
+                // whenever requireProofKey is true and none was sent).
+                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).requireProofKey(false).build())
                 .tokenSettings(tokenSettings());
 
         if (clientCredentials) {
