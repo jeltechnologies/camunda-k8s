@@ -26,6 +26,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -103,7 +104,15 @@ public class AuthorizationServerConfig {
     public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
         return context -> {
             String clientId = context.getRegisteredClient().getClientId();
-            context.getClaims().audience(audiencesFor(clientId));
+
+            // Only the access token's aud gets replaced with the resource-server audiences below.
+            // JwtClaimsSet.Builder.audience(...) overwrites the whole claim rather than appending,
+            // so applying this to the ID token too would drop the client_id that OIDC Core requires
+            // there - and that Spring Authorization Server's own RP-initiated logout endpoint relies
+            // on to resolve the RegisteredClient from id_token_hint, causing every logout to 400.
+            if (OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
+                context.getClaims().audience(audiencesFor(clientId));
+            }
 
             if (context.getPrincipal() != null && context.getPrincipal().getName() != null) {
                 String principalName = context.getPrincipal().getName();
