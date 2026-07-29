@@ -20,6 +20,19 @@
             color: #565656;
             margin-top: 0.3rem;
         }
+        .checkbox-list {
+            margin-top: 1rem;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+        }
+        .checkbox-row label {
+            margin: 0;
+            font-weight: 400;
+        }
         .button-row {
             display: flex;
             gap: 0.6rem;
@@ -64,11 +77,20 @@
                     What other systems authenticate as - letters, digits, ".", "_" or "-". Cannot be changed later.
                 </p>
 
-                <label for="audience">Audience</label>
-                <input type="text" id="audience" name="audience" value="orchestration-api" required="required"/>
+                <label>Audience</label>
+                <p class="note" style="margin-top: 0;">The resource server(s) this client's tokens are valid for.</p>
+                <div class="checkbox-list">
+                    <div class="checkbox-row" th:each="entry : ${knownAudiences}">
+                        <input type="checkbox" th:id="${'aud-' + entry.value}" name="knownAudiences"
+                               th:value="${entry.value}" th:checked="${selectedAudiences.contains(entry.value)}"/>
+                        <label th:for="${'aud-' + entry.value}" th:text="${entry.key + ' (' + entry.value + ')'}"></label>
+                    </div>
+                </div>
+
+                <label for="customAudience">Custom audience(s)</label>
+                <input type="text" id="customAudience" name="customAudience" th:value="${customAudience}"/>
                 <p class="note">
-                    The resource server this client's tokens are valid for, e.g. "orchestration-api" to call
-                    Orchestration's REST API. Space/comma-separated for more than one.
+                    Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
                 </p>
 
                 <div class="button-row">

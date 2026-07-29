@@ -20,6 +20,27 @@
             color: #565656;
             margin-top: 0.3rem;
         }
+        .checkbox-list {
+            margin-top: 1rem;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+        }
+        .checkbox-row label {
+            margin: 0;
+            font-weight: 400;
+        }
+        .secret-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .secret-row .secret-value {
+            flex: 1;
+        }
         .button-row {
             display: flex;
             gap: 0.6rem;
@@ -73,25 +94,32 @@
                 <input type="text" id="clientId" th:value="${client.clientId}" readonly="readonly"/>
                 <p class="note">The client ID cannot be changed after creation.</p>
 
-                <label for="audience">Audience</label>
-                <input type="text" id="audience" name="audience" th:value="${client.audience}" required="required"/>
+                <label>Audience</label>
+                <p class="note" style="margin-top: 0;">The resource server(s) this client's tokens are valid for.</p>
+                <div class="checkbox-list">
+                    <div class="checkbox-row" th:each="entry : ${knownAudiences}">
+                        <input type="checkbox" th:id="${'aud-' + entry.value}" name="knownAudiences"
+                               th:value="${entry.value}" th:checked="${selectedAudiences.contains(entry.value)}"/>
+                        <label th:for="${'aud-' + entry.value}" th:text="${entry.key + ' (' + entry.value + ')'}"></label>
+                    </div>
+                </div>
+
+                <label for="customAudience">Custom audience(s)</label>
+                <input type="text" id="customAudience" name="customAudience" th:value="${customAudience}"/>
                 <p class="note">
-                    The resource server this client's tokens are valid for, e.g. "orchestration-api" to call
-                    Orchestration's REST API. Space/comma-separated for more than one.
+                    Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
                 </p>
 
                 <label>Secret</label>
-                <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
-                <p class="note" th:unless="${client.secret}">
-                    This client was created before secrets were stored in recoverable form. Use "Regenerate secret"
-                    to get one you can view here.
-                </p>
+                <div class="secret-row">
+                    <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
+                    <span class="secret-value" th:unless="${client.secret}">Not available - click "Generate new".</span>
+                    <button type="submit" class="btn-secondary"
+                            th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Generate new</button>
+                </div>
 
                 <div class="button-row">
                     <button type="submit">OK</button>
-                    <button type="submit" class="danger" th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Regenerate secret</button>
-                </div>
-                <div class="button-row">
                     <button type="submit" class="danger" th:formaction="@{/admin/clients/{id}/delete(id=${client.id})}">Remove</button>
                     <a class="btn-cancel" th:href="@{/admin/clients}">Cancel</a>
                 </div>

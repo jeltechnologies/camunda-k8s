@@ -145,7 +145,8 @@ public class AuthorizationServerConfig {
         };
     }
 
-    private static final String CONSOLE_AUDIENCE = "console-api";
+    /** Also referenced by AdminClientController to offer it as a known-audience checkbox. */
+    public static final String CONSOLE_AUDIENCE = "console-api";
 
     /**
      * Returns plain {@link java.util.ArrayList}s, not {@code List.of(...)}. The audience ends up

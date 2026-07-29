@@ -1,13 +1,18 @@
 package com.jeltechnologies.camundaidentityprovider.web;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
 import com.jeltechnologies.camundaidentityprovider.client.Client;
 import com.jeltechnologies.camundaidentityprovider.client.ClientRepository;
+import com.jeltechnologies.camundaidentityprovider.config.AuthorizationServerConfig;
 import com.jeltechnologies.camundaidentityprovider.config.IdentityProviderProperties;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -58,35 +63,44 @@ public class AdminClientController {
     }
 
     @GetMapping("/admin/clients/new")
-    public String newClientForm() {
+    public String newClientForm(Model model) {
+        model.addAttribute("knownAudiences", knownAudiences());
+        // Pre-check the overwhelmingly common case - a client created to call Orchestration's REST API.
+        model.addAttribute("selectedAudiences", Set.of(identityProviderProperties.clients().orchestration().audience()));
+        model.addAttribute("customAudience", "");
         return "admin/add-client";
     }
 
     @PostMapping("/admin/clients")
     public String add(@RequestParam String clientId, @RequestParam String name,
-            @RequestParam String audience, RedirectAttributes redirectAttributes) {
+            @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
+            @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
             redirectAttributes.addFlashAttribute("error",
                     "Client ID \"" + clientId + "\" is reserved or invalid. Use letters, digits, \".\", \"_\" or \"-\".");
             return "redirect:/admin/clients/new";
         }
+        String audience = combineAudiences(knownAudiences, customAudience);
         String secret = generateSecret();
-        Client client;
         try {
-            client = clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
+            clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A client with client ID \"" + clientId + "\" already exists.");
             return "redirect:/admin/clients/new";
         }
         redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" created.");
-        return "redirect:/admin/clients/" + client.id() + "/edit";
+        return "redirect:/admin/clients";
     }
 
     @GetMapping("/admin/clients/{id}/edit")
     public String editClientForm(@PathVariable UUID id, Model model, RedirectAttributes redirectAttributes) {
         return clientRepository.findById(id)
                 .map(client -> {
+                    Map<String, String> knownAudiences = knownAudiences();
                     model.addAttribute("client", client);
+                    model.addAttribute("knownAudiences", knownAudiences);
+                    model.addAttribute("selectedAudiences", selectedKnownAudiences(client.audience(), knownAudiences));
+                    model.addAttribute("customAudience", customAudiencePart(client.audience(), knownAudiences));
                     return "admin/edit-client";
                 })
                 .orElseGet(() -> {
@@ -96,15 +110,16 @@ public class AdminClientController {
     }
 
     @PostMapping("/admin/clients/{id}/edit")
-    public String edit(@PathVariable UUID id, @RequestParam String name, @RequestParam String audience,
-            RedirectAttributes redirectAttributes) {
+    public String edit(@PathVariable UUID id, @RequestParam String name,
+            @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
+            @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
         if (clientRepository.findById(id).isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
         }
-        clientRepository.updateNameAndAudience(id, name, audience);
+        clientRepository.updateNameAndAudience(id, name, combineAudiences(knownAudiences, customAudience));
         redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" updated.");
-        return "redirect:/admin/clients/" + id + "/edit";
+        return "redirect:/admin/clients";
     }
 
     @PostMapping("/admin/clients/{id}/regenerate-secret")
@@ -117,7 +132,7 @@ public class AdminClientController {
         String secret = generateSecret();
         clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
         redirectAttributes.addFlashAttribute("message", "Secret regenerated for \"" + client.name() + "\".");
-        return "redirect:/admin/clients/" + id + "/edit";
+        return "redirect:/admin/clients";
     }
 
     @PostMapping("/admin/clients/{id}/delete")
@@ -133,5 +148,74 @@ public class AdminClientController {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /**
+     * The audiences every fixed, code-defined Camunda component (see OidcClientsConfig) is actually
+     * configured with in this Camunda 8.9 install, offered as checkboxes so an admin-managed client
+     * can be pointed at the same resource server without having to know/type the exact string. Read
+     * from {@link IdentityProviderProperties} (and {@link AuthorizationServerConfig#CONSOLE_AUDIENCE}
+     * for Console, which has no per-install config of its own) rather than hardcoded here, so this
+     * list can never drift from what {@code AuthorizationServerConfig.audiencesFor} actually stamps
+     * into the fixed clients' tokens. A future Camunda version's new audience won't appear here
+     * automatically - that's what the freeform "custom" field next to these checkboxes is for.
+     */
+    private Map<String, String> knownAudiences() {
+        IdentityProviderProperties.Clients clients = identityProviderProperties.clients();
+        // TreeMap, not LinkedHashMap: keeps the checkboxes sorted alphabetically by label.
+        Map<String, String> options = new java.util.TreeMap<>();
+        options.put("Camunda Identity", clients.identity().audience());
+        options.put("Orchestration", clients.orchestration().audience());
+        options.put("Optimize", clients.optimize().audience());
+        options.put("Web Modeler (client API)", clients.webModeler().clientApiAudience());
+        options.put("Web Modeler (public API)", clients.webModeler().publicApiAudience());
+        options.put("Console", AuthorizationServerConfig.CONSOLE_AUDIENCE);
+        return options;
+    }
+
+    /** Combines the checked known-audience values with whatever's typed into the custom field. */
+    private static String combineAudiences(List<String> knownAudiences, String customAudience) {
+        Set<String> all = new LinkedHashSet<>();
+        if (knownAudiences != null) {
+            all.addAll(knownAudiences);
+        }
+        if (customAudience != null) {
+            for (String token : customAudience.trim().split("[,\\s]+")) {
+                if (!token.isBlank()) {
+                    all.add(token);
+                }
+            }
+        }
+        return String.join(", ", all);
+    }
+
+    /** Which of the known-audience checkboxes should come back checked for an already-stored value. */
+    private static Set<String> selectedKnownAudiences(String storedAudience, Map<String, String> knownAudiences) {
+        if (storedAudience == null || storedAudience.isBlank()) {
+            return Set.of();
+        }
+        Set<String> known = new LinkedHashSet<>(knownAudiences.values());
+        Set<String> selected = new LinkedHashSet<>();
+        for (String token : storedAudience.trim().split("[,\\s]+")) {
+            if (known.contains(token)) {
+                selected.add(token);
+            }
+        }
+        return selected;
+    }
+
+    /** Whatever's left of a stored audience value once the known checkboxes' values are removed. */
+    private static String customAudiencePart(String storedAudience, Map<String, String> knownAudiences) {
+        if (storedAudience == null || storedAudience.isBlank()) {
+            return "";
+        }
+        Set<String> known = new LinkedHashSet<>(knownAudiences.values());
+        List<String> custom = new ArrayList<>();
+        for (String token : storedAudience.trim().split("[,\\s]+")) {
+            if (!token.isBlank() && !known.contains(token)) {
+                custom.add(token);
+            }
+        }
+        return String.join(", ", custom);
     }
 }
