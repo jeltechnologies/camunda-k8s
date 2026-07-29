@@ -41,7 +41,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/login", "/error").permitAll()
+                .requestMatchers("/login", "/error", "/favicon.ico", "/css/**", "/images/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated());
         // Users authenticate with email + password, not a separate username - see

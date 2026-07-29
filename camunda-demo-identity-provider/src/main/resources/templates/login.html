@@ -2,64 +2,52 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Sign in - Camunda Identity Provider</title>
+    <title>Demo Identity provider | Sign in</title>
+    <link rel="icon" th:href="@{/favicon.ico}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
-        :root {
-            --camunda-orange: #FF6428;
-            --camunda-ink: #1A1E29;
-        }
-        * { box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-            background: var(--camunda-ink);
-            background-image: radial-gradient(circle at 15% 15%, rgba(255,100,40,0.18), transparent 45%);
-            display: flex; justify-content: center; align-items: center;
-            height: 100vh; margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
-        .card {
-            background: #ffffff; padding: 2.5rem; border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.35); width: 340px;
+        .login-card {
+            width: 320px;
+            border: 1px solid var(--gray-20);
+            padding: 2rem;
         }
-        .brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.75rem; }
-        .brand-mark {
-            width: 30px; height: 30px; border-radius: 8px;
-            background: linear-gradient(135deg, var(--camunda-orange), #ff8c5a);
-            flex-shrink: 0;
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 2rem;
         }
-        .brand-text { line-height: 1.1; }
-        .brand-text .product { font-weight: 700; font-size: 1.1rem; color: var(--camunda-ink); letter-spacing: -0.02em; }
-        .brand-text .tagline { font-size: 0.72rem; color: #8a8f9c; text-transform: uppercase; letter-spacing: 0.06em; }
-        h1 { font-size: 1.05rem; margin: 0 0 1.25rem; color: var(--camunda-ink); font-weight: 600; }
-        label { display: block; margin-bottom: 0.3rem; font-size: 0.8rem; font-weight: 500; color: #4a4f5c; }
-        input {
-            width: 100%; padding: 0.6rem 0.7rem; margin-bottom: 1.1rem;
-            border: 1px solid #d8dbe2; border-radius: 6px; font-size: 0.9rem;
-            transition: border-color 0.15s ease;
+        .login-brand img {
+            width: 28px;
+            height: 28px;
         }
-        input:focus {
-            outline: none; border-color: var(--camunda-orange);
-            box-shadow: 0 0 0 3px rgba(255,100,40,0.15);
+        .login-brand span {
+            font-weight: 600;
+            font-size: 15px;
         }
-        button {
-            width: 100%; padding: 0.7rem; background: var(--camunda-orange); color: white;
-            border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600;
-            transition: background 0.15s ease;
+        h1 {
+            font-size: 1rem;
+            margin-bottom: 1.25rem;
         }
-        button:hover { background: #e8551d; }
-        .error {
-            color: #b00020; background: #fdecea; border-radius: 6px; padding: 0.6rem 0.8rem;
-            font-size: 0.8rem; margin-bottom: 1.1rem;
+        .login-card input {
+            margin-bottom: 1.1rem;
+        }
+        .login-card button {
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <div class="brand">
-            <div class="brand-mark"></div>
-            <div class="brand-text">
-                <div class="product">Camunda</div>
-                <div class="tagline">Identity Provider</div>
-            </div>
+    <div class="login-card">
+        <div class="login-brand">
+            <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
+            <span>Demo Identity provider</span>
         </div>
         <h1>Sign in</h1>
         <p class="error" th:if="${param.error}">Invalid email or password.</p>

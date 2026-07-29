@@ -2,101 +2,61 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Users - Camunda Identity Provider</title>
-    <style>
-        :root { --camunda-orange: #FF6428; --camunda-ink: #1A1E29; }
-        * { box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-            background: #f4f5f7; margin: 0; padding: 2.5rem 1.5rem;
-        }
-        .brand { display: flex; align-items: center; gap: 0.6rem; max-width: 760px; margin: 0 auto 1.5rem; }
-        .brand-mark {
-            width: 26px; height: 26px; border-radius: 7px;
-            background: linear-gradient(135deg, var(--camunda-orange), #ff8c5a);
-            flex-shrink: 0;
-        }
-        .brand-text { line-height: 1.1; }
-        .brand-text .product { font-weight: 700; font-size: 1rem; color: var(--camunda-ink); letter-spacing: -0.02em; }
-        .brand-text .tagline { font-size: 0.68rem; color: #8a8f9c; text-transform: uppercase; letter-spacing: 0.06em; }
-        .panel {
-            background: white; padding: 1.75rem 2rem; border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 760px; margin: 0 auto 1.5rem;
-        }
-        h1, h2 { color: var(--camunda-ink); }
-        h1 { font-size: 1.2rem; margin-top: 0; }
-        h2 { font-size: 1rem; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; }
-        th {
-            text-align: left; padding: 0.5rem; font-size: 0.75rem; text-transform: uppercase;
-            letter-spacing: 0.04em; color: #8a8f9c; border-bottom: 2px solid #eef0f3;
-        }
-        td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #eef0f3; font-size: 0.88rem; }
-        form.inline { display: inline; }
-        input {
-            padding: 0.45rem 0.6rem; border: 1px solid #d8dbe2; border-radius: 6px; font-size: 0.85rem;
-        }
-        input:focus { outline: none; border-color: var(--camunda-orange); box-shadow: 0 0 0 3px rgba(255,100,40,0.15); }
-        button {
-            padding: 0.45rem 0.8rem; border: none; border-radius: 6px; background: var(--camunda-orange);
-            color: white; cursor: pointer; font-size: 0.85rem; font-weight: 600;
-        }
-        button:hover { background: #e8551d; }
-        button.danger { background: #b00020; }
-        button.danger:hover { background: #8f0019; }
-        .message { color: #1a7f37; background: #eaf7ee; border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; font-size: 0.85rem; }
-        .error { color: #b00020; background: #fdecea; border-radius: 6px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; font-size: 0.85rem; }
-        .add-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
-        .add-form label { font-size: 0.85rem; color: #4a4f5c; }
-    </style>
+    <title>Demo Identity provider | Users</title>
+    <link rel="icon" th:href="@{/favicon.ico}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
 </head>
 <body>
-    <div class="brand">
-        <div class="brand-mark"></div>
-        <div class="brand-text">
-            <div class="product">Camunda</div>
-            <div class="tagline">Identity Provider</div>
+    <div class="top-bar">
+        <div class="logo">
+            <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
+            <span class="app-name">Demo Identity provider</span>
         </div>
+        <nav>
+            <a href="#" class="active">Users</a>
+        </nav>
     </div>
 
-    <div class="panel">
-        <h1>Users</h1>
-        <p class="message" th:if="${message}" th:text="${message}"></p>
-        <p class="error" th:if="${error}" th:text="${error}"></p>
-        <table>
-            <thead>
-                <tr><th>Name</th><th>Email</th><th>Admin</th><th>Reset password</th><th></th></tr>
-            </thead>
-            <tbody>
-                <tr th:each="user : ${users}">
-                    <td th:text="${user.name}"></td>
-                    <td th:text="${user.email}"></td>
-                    <td th:text="${user.admin} ? 'yes' : 'no'"></td>
-                    <td>
-                        <form class="inline" method="post" th:action="@{/admin/users/{id}/reset-password(id=${user.id})}">
-                            <input type="password" name="password" placeholder="new password" required="required"/>
-                            <button type="submit">Set</button>
-                        </form>
-                    </td>
-                    <td>
-                        <form class="inline" method="post" th:action="@{/admin/users/{id}/delete(id=${user.id})}">
-                            <button type="submit" class="danger">Remove</button>
-                        </form>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <div class="content">
+        <div class="panel">
+            <h1>Users</h1>
+            <p class="message" th:if="${message}" th:text="${message}"></p>
+            <p class="error" th:if="${error}" th:text="${error}"></p>
+            <table>
+                <thead>
+                    <tr><th>Name</th><th>Email</th><th>Admin</th><th>Reset password</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <tr th:each="user : ${users}">
+                        <td th:text="${user.name}"></td>
+                        <td th:text="${user.email}"></td>
+                        <td th:text="${user.admin} ? 'yes' : 'no'"></td>
+                        <td>
+                            <form class="inline" method="post" th:action="@{/admin/users/{id}/reset-password(id=${user.id})}">
+                                <input type="password" name="password" placeholder="new password" required="required"/>
+                                <button type="submit">Set</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form class="inline" method="post" th:action="@{/admin/users/{id}/delete(id=${user.id})}">
+                                <button type="submit" class="danger">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-    <div class="panel">
-        <h2>Add user</h2>
-        <form class="add-form" method="post" th:action="@{/admin/users}">
-            <input type="text" name="name" placeholder="name" required="required"/>
-            <input type="email" name="email" placeholder="email" required="required"/>
-            <input type="password" name="password" placeholder="password" required="required"/>
-            <label><input type="checkbox" name="admin" value="true"/> admin</label>
-            <button type="submit">Add</button>
-        </form>
+        <div class="panel">
+            <h2>Add user</h2>
+            <form class="add-form" method="post" th:action="@{/admin/users}">
+                <input type="text" name="name" placeholder="name" required="required"/>
+                <input type="email" name="email" placeholder="email" required="required"/>
+                <input type="password" name="password" placeholder="password" required="required"/>
+                <label><input type="checkbox" name="admin" value="true"/> admin</label>
+                <button type="submit">Add</button>
+            </form>
+        </div>
     </div>
 </body>
 </html>
