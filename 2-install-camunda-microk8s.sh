@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "=================================================================="
+echo "Sudo access"
+echo "=================================================================="
+# Prompt for the sudo password up front and let sudo cache it, so
+# install-fix-hosts.sh below (which needs root) doesn't stall the script
+# waiting on a password after the user has already answered every
+# configure-env.sh prompt.
+sudo echo "Please provide your sudo password"
+
 echo ==================================================================
 echo Environment
 echo ==================================================================
