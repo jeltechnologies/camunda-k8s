@@ -38,8 +38,12 @@ public class OidcClientsConfig {
         RegisteredClient camundaIdentity = confidentialClient("camunda-identity", clients.identity().secret(),
                 passwordEncoder, "https://" + domain + "/identity/auth/login-callback", false);
 
+        // Operate/Tasklist's logout lands on a different path ("/orchestration/post-logout") than
+        // the login callback ("/orchestration/sso-callback") - found by testing logout directly,
+        // since neither URI is documented anywhere as the "the" post-logout redirect.
         RegisteredClient orchestration = confidentialClient("orchestration", clients.orchestration().secret(),
-                passwordEncoder, "https://" + domain + "/orchestration/sso-callback", true);
+                passwordEncoder, "https://" + domain + "/orchestration/sso-callback", true,
+                "https://" + domain + "/orchestration/post-logout");
 
         RegisteredClient optimize = confidentialClient("optimize", clients.optimize().secret(),
                 passwordEncoder, "https://" + domain + "/optimize/api/authentication/callback", false);
@@ -62,6 +66,11 @@ public class OidcClientsConfig {
 
     private RegisteredClient confidentialClient(String clientId, String secret, PasswordEncoder passwordEncoder,
             String redirectUri, boolean clientCredentials) {
+        return confidentialClient(clientId, secret, passwordEncoder, redirectUri, clientCredentials, null);
+    }
+
+    private RegisteredClient confidentialClient(String clientId, String secret, PasswordEncoder passwordEncoder,
+            String redirectUri, boolean clientCredentials, String extraPostLogoutRedirectUri) {
         RegisteredClient.Builder builder = RegisteredClient.withId(clientId)
                 .clientId(clientId)
                 .clientSecret(passwordEncoder.encode(secret))
@@ -85,6 +94,9 @@ public class OidcClientsConfig {
                 .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).requireProofKey(false).build())
                 .tokenSettings(tokenSettings());
 
+        if (extraPostLogoutRedirectUri != null) {
+            builder.postLogoutRedirectUri(extraPostLogoutRedirectUri);
+        }
         if (clientCredentials) {
             builder.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS);
         }
