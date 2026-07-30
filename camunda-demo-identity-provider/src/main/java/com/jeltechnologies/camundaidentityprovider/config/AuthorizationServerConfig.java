@@ -102,7 +102,13 @@ public class AuthorizationServerConfig {
      * `preferred_username` is the user's email (the actual unique identifier - see
      * AppUserDetailsService) for human logins, or the client ID for M2M tokens. The free-text
      * display `name` is a separate claim, looked up fresh so admin-screen edits show up
-     * immediately without needing a new login.
+     * immediately without needing a new login. `username` duplicates the same value:
+     * Management Identity's own "Add mapping" UI only offers `username`/`sub`/`groups`/`roles`
+     * in its claim-name dropdown - `preferred_username` isn't selectable there, so without this,
+     * an M2M client can never be granted a role through that UI (confirmed `sub` alone, despite
+     * carrying the same value, does not get matched by Identity's mapping-rule evaluation either -
+     * only a direct SQL insert against Identity's mapping_rules table with
+     * claim_name='preferred_username' was ever observed to work).
      */
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
@@ -121,6 +127,7 @@ public class AuthorizationServerConfig {
             if (context.getPrincipal() != null && context.getPrincipal().getName() != null) {
                 String principalName = context.getPrincipal().getName();
                 context.getClaims().claim("preferred_username", principalName);
+                context.getClaims().claim("username", principalName);
 
                 boolean isUserToken = !AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType());
                 if (isUserToken) {
@@ -140,6 +147,12 @@ public class AuthorizationServerConfig {
                     context.getClaims().claim("demo_user", "true");
                     userRepository.findByEmail(principalName)
                             .ifPresent(user -> context.getClaims().claim("name", user.name()));
+                } else {
+                    // M2M equivalent of "demo_user" above: an explicit, unambiguous claim so a
+                    // single Identity mapping rule can grant every client_credentials client (not
+                    // just one hand-picked client ID) a baseline role, instead of needing a new
+                    // mapping rule per client.
+                    context.getClaims().claim("m2m_client", "true");
                 }
             }
         };
