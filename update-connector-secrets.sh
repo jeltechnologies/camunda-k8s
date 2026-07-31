@@ -60,18 +60,18 @@ DEPLOYMENT=$(microk8s kubectl get deployments -n "${NAMESPACE}" \
   -o custom-columns="NAME:.metadata.name" \
   | grep -i "connector" \
   | head -n 1)
-microk8s kubectl patch deployment "${DEPLOYMENT}" -n "${NAMESPACE}" --type=json -p='[
+microk8s kubectl patch deployment "${DEPLOYMENT}" -n "${NAMESPACE}" --type=json -p="[
   {
-    "op": "add",
-    "path": "/spec/template/spec/containers/0/envFrom/-",
-    "value": {
-      "secretRef": {
-        "name": "camunda-connector-secrets"
+    \"op\": \"add\",
+    \"path\": \"/spec/template/spec/containers/0/envFrom/-\",
+    \"value\": {
+      \"secretRef\": {
+        \"name\": \"${SECRET_NAME}\"
       }
     }
   }
-]'
-echo "Deployment '${DEPLOYMENT}' patched."
+]"
+echo "Deployment '${DEPLOYMENT}' patched with secret '${SECRET_NAME}'."
 echo ""
 
 echo "Restarting pod '${POD}'..."
