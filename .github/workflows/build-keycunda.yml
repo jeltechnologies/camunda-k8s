@@ -8,6 +8,7 @@ on:
       - ".github/workflows/build-keycunda.yml"
     tags:
       - "keycunda-v*"
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -32,6 +33,8 @@ jobs:
           echo "name=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/keycunda" >> "$GITHUB_OUTPUT"
           if [[ "${GITHUB_REF}" == refs/tags/keycunda-v* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/keycunda-v}" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           fi

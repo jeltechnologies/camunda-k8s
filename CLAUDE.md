@@ -31,7 +31,7 @@ not present it as a production-hardened component.
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
 | `keycunda/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
-| `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or an `keycunda-v*` tag. |
+| `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or a `keycunda-v*`/`v*` tag. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
 | `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via keycunda's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
