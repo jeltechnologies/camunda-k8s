@@ -45,7 +45,7 @@ echo "Kubernetes namespace    : camunda"
 echo "Helm chart version      : ${HELM_CHART_VERSION}"
 echo "Elasticsearch version   : ${ES_VERSION}"
 echo "PostgreSQL version      : ${PG_VERSION}"
-echo "Identity Provider image : ${IDENTITY_PROVIDER_IMAGE}"
+echo "Keycunda image          : ${KEYCUNDA_IMAGE}"
 
 echo "=================================================================="
 echo Configuring Zeebe gRPC TCP passthrough for nginx ingress
@@ -86,18 +86,18 @@ microk8s kubectl create secret generic camunda-credentials \
     --from-literal=webmodeler-postgresql-user-password="${PASSWORD}" \
     --from-literal=orchestration-postgresql-password="${PASSWORD}" \
     --from-literal=identity-postgresql-password="${PASSWORD}" \
-    --from-literal=identity-provider-postgresql-password="${PASSWORD}" \
+    --from-literal=keycunda-postgresql-password="${PASSWORD}" \
     -n camunda
 
 echo "=================================================================="
-echo Generating the Identity Provider signing key, if it does not already exist
+echo Generating the Keycunda signing key, if it does not already exist
 echo "=================================================================="
-if microk8s kubectl get secret camunda-identity-provider-signing-key -n camunda &>/dev/null; then
-  echo "camunda-identity-provider-signing-key already exists - keeping it, so existing tokens stay valid."
+if microk8s kubectl get secret keycunda-signing-key -n camunda &>/dev/null; then
+  echo "keycunda-signing-key already exists - keeping it, so existing tokens stay valid."
 else
   echo "No existing signing key found, generating one..."
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 \
-    | microk8s kubectl create secret generic camunda-identity-provider-signing-key \
+    | microk8s kubectl create secret generic keycunda-signing-key \
         --from-file=private-key.pem=/dev/stdin \
         -n camunda
 fi
@@ -133,17 +133,22 @@ microk8s kubectl rollout status statefulset/camunda-postgresql -n camunda --time
 echo "PostgreSQL installed. Service: camunda-postgresql:5432"
 
 echo "=================================================================="
-echo "Installing Identity Provider (${IDENTITY_PROVIDER_IMAGE})"
+echo Setting up RBAC for Keycunda Secrets Management functions
 echo "=================================================================="
-envsubst '${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
-  < template-camunda-demo-identity-provider.yaml | microk8s kubectl apply -f -
+microk8s kubectl apply -f template-keycunda-rbac.yaml
 
-echo "Waiting for the Identity Provider to be ready..."
-microk8s kubectl rollout status deployment/camunda-demo-identity-provider -n camunda --timeout=5m
-echo "Identity Provider installed. Service: camunda-demo-identity-provider.camunda:80/auth"
+echo "=================================================================="
+echo "Installing Keycunda (${KEYCUNDA_IMAGE})"
+echo "=================================================================="
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
+  < template-keycunda.yaml | microk8s kubectl apply -f -
+
+echo "Waiting for Keycunda to be ready..."
+microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=5m
+echo "Keycunda installed. Service: keycunda.camunda:80/auth"
 
 envsubst '${CAMUNDA_DOMAIN}' \
-  < template-camunda-demo-identity-provider-ingress.yaml | microk8s kubectl apply -f -
+  < template-keycunda-ingress.yaml | microk8s kubectl apply -f -
 
 echo "=================================================================="
 echo Uninstalling previous Camunda installation if present

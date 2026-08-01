@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!--
+      Shared top bar for every /admin/** page, parameterized by which link is "active". Grouped
+      into "Identity Management" (Users, Clients) and "Secrets Management" (Secrets) - see the
+      portal landing page (admin/portal.html) for where those section names are spelled out; the
+      bar itself stays a flat list of quick links plus a divider between the two groups.
+
+      The app-switcher (dots icon left of the logo, matching Console's own layout) copies the
+      behavior of Console's own app switcher - a panel linking out to every Camunda component.
+      Uses <details>, not JS, matching the rest of this app's zero-JS toggle pattern (see the
+      masked-value reveal on the Secrets page). Needs `camundaDomain` in the model - provided
+      globally by GlobalModelAttributes.java, so every page using this fragment gets it
+      automatically without each controller repeating the same KeycundaProperties lookup.
+
+      The panel opens rightward (left-aligned to the icon) on purpose: the icon sits at the very
+      left edge of the top bar now, so a panel that instead opened leftward would render mostly
+      off-screen (confirmed - "Web Modeler"/"Operate / Tasklist" were clipped to "Modeler"/
+      "Tasklist" when this was tried).
+
+      The Users/Clients/Secrets links only render for admins (`isAdmin`, from
+      GlobalModelAttributes.java) - a normal (ROLE_USER) visitor sees just the app-switcher and
+      Logout. This is UI polish only; the real access control is SecurityConfig's
+      hasRole("ADMIN") rule on those paths, which applies regardless of what this nav shows.
+    -->
+    <div th:fragment="topbar(active)" class="top-bar">
+        <details class="app-switcher">
+            <summary aria-label="Camunda applications" title="Camunda applications">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                    <circle cx="2" cy="2" r="1.6"></circle>
+                    <circle cx="8" cy="2" r="1.6"></circle>
+                    <circle cx="14" cy="2" r="1.6"></circle>
+                    <circle cx="2" cy="8" r="1.6"></circle>
+                    <circle cx="8" cy="8" r="1.6"></circle>
+                    <circle cx="14" cy="8" r="1.6"></circle>
+                    <circle cx="2" cy="14" r="1.6"></circle>
+                    <circle cx="8" cy="14" r="1.6"></circle>
+                    <circle cx="14" cy="14" r="1.6"></circle>
+                </svg>
+            </summary>
+            <div class="app-switcher-panel">
+                <a th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
+                <a th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
+                <a th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
+                <a th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
+                <a href="/keycunda">Keycunda</a>
+            </div>
+        </details>
+        <!-- Plain "/keycunda"/"/keycunda/secrets", not th:url @{...}: these deliberately step
+             outside Keycunda's own /auth servlet context-path. The ingress rewrites them
+             server-side to /auth/admin and /auth/admin/secrets respectively before the request
+             ever reaches the app - see template-keycunda-ingress.yaml. -->
+        <a class="logo" href="/keycunda">
+            <img th:src="@{/images/c-logo.png}" alt="Keycunda"/>
+            <span class="app-name">Keycunda</span>
+        </a>
+        <nav th:if="${isAdmin}">
+            <a th:href="@{/admin/users}" th:classappend="${active == 'users'} ? 'active'">Users</a>
+            <a th:href="@{/admin/clients}" th:classappend="${active == 'clients'} ? 'active'">Clients</a>
+            <span class="nav-divider"></span>
+            <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
+        </nav>
+        <div class="right">
+            <form method="post" th:action="@{/logout}">
+                <button type="submit" class="btn-secondary">Logout</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

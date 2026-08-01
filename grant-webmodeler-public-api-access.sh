@@ -8,7 +8,7 @@ POSTGRES_POD="camunda-postgresql-0"
 
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <client-id>" >&2
-    echo "Grants an M2M client (one created via camunda-demo-identity-provider's /admin/clients," >&2
+    echo "Grants an M2M client (one created via keycunda's /admin/clients," >&2
     echo "not one of the fixed Camunda-component clients) full CRUD access to Web Modeler's public API." >&2
     exit 1
 fi
@@ -24,11 +24,11 @@ echo "=================================================================="
 # rule below is per-client. Identity has no "grant this specific client X" concept and no
 # "Applications" list for clients outside the fixed Camunda-component set (see OidcClientsConfig.java)
 # - the only mechanism is a claim-matching mapping rule, same as seed-identity-mapping-rules.sh's
-# "AllUsers"/"demo_user" rule. camunda-demo-identity-provider's AuthorizationServerConfig stamps
+# "AllUsers"/"demo_user" rule. keycunda's AuthorizationServerConfig stamps
 # `preferred_username` = the client ID on every M2M (client_credentials) token (the same claim used
 # for human logins), so that's what this matches on.
 #
-# This alone isn't enough: the client's own `audience` (set via camunda-demo-identity-provider's
+# This alone isn't enough: the client's own `audience` (set via keycunda's
 # /admin/clients) must also include "web-modeler-public-api", or its tokens won't carry the right
 # `aud` and Web Modeler will still reject them with 401 regardless of this grant.
 microk8s kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- env PGPASSWORD="${PASSWORD}" psql -U identity -d identity \

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Keycunda</title>
+    <link rel="icon" th:href="@{/favicon.ico}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
+    <!-- Zero-JS "please wait" polling: keeps reloading this page every 2s while the apply is
+         still running, stops on its own once the job reaches a terminal state. -->
+    <meta th:if="${job != null and job.state.name() == 'RUNNING'}" http-equiv="refresh" content="2"/>
+</head>
+<body>
+    <div th:replace="~{admin/fragments/nav :: topbar('secrets')}"></div>
+
+    <div class="content">
+        <div class="panel">
+            <h1>Apply to cluster</h1>
+            <p th:if="${job == null}">Nothing has been applied yet.</p>
+            <p th:if="${job != null and job.state.name() == 'RUNNING'}" th:text="${job.message}"></p>
+            <p class="message" th:if="${job != null and job.state.name() == 'SUCCESS'}" th:text="${job.message}"></p>
+            <p class="error" th:if="${job != null and job.state.name() == 'ERROR'}" th:text="${job.message}"></p>
+            <a class="btn-secondary" th:href="@{/admin/secrets}">Back to Secrets</a>
+        </div>
+    </div>
+</body>
+</html>

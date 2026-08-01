@@ -25,24 +25,27 @@ A complete Camunda 8 platform running on a single machine:
 | Optimize | `https://<your-domain>/optimize` |
 | Console | `https://<your-domain>/console` |
 | Identity | `https://<your-domain>/identity` |
-| Identity Provider (login) | `https://<your-domain>/auth` |
+| Keycunda (login) | `https://<your-domain>/auth` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 | Swagger UI | `https://<your-domain>/orchestration/swagger` *(disabled by default)* |
 
 All components are secured with OIDC authentication, provided by a minimal purpose-built
-identity provider (`camunda-demo-identity-provider/`, a small Spring Boot app — see its own
-[README](camunda-demo-identity-provider/README.md)) rather than a full Keycloak instance. Keycloak
-is a solid choice for production, but its realms, clients and role screens are a lot to navigate
-for a demo box where all you want is "add a user" or "add an integration". This identity provider
-trades that generality for two focused admin pages at `/auth/admin`:
+identity provider called **Keycunda** (`keycunda/`, a small Spring Boot app — see its own
+[README](keycunda/README.md)) rather than a full Keycloak instance. Keycloak is a solid choice for
+production, but its realms, clients and role screens are a lot to navigate for a demo box where
+all you want is "add a user" or "add an integration". Keycunda still serves its OIDC endpoints at
+`/auth` (Camunda's own convention for this role, kept as-is), and trades Keycloak's generality for
+a small admin portal at `/auth/admin`, organized into two areas:
 
-- **Users** — human accounts: email, password, an admin flag.
-- **Clients** — OAuth2 client-credentials applications, the same concept Camunda's own Console
-  renamed from "M2M" to "Clients" in 8.9 (default from 8.10 on) — support this identity provider
-  already has, ahead of that switch. Creating one generates its ID and secret for you, lets you
-  pick which Camunda API(s) it's authorized for from checkboxes instead of typing exact audience
-  strings, and — since this is a demo, not production — keeps the secret visible afterward rather
-  than a one-time reveal.
+- **Identity Management**
+  - **Users** — human accounts: email, password, an admin flag.
+  - **Clients** — OAuth2 client-credentials applications, the same concept Camunda's own Console
+    renamed from "M2M" to "Clients" in 8.9 (default from 8.10 on) — support Keycunda already has,
+    ahead of that switch. Creating one generates its ID and secret for you, lets you pick which
+    Camunda API(s) it's authorized for from checkboxes instead of typing exact audience strings,
+    and — since this is a demo, not production — keeps the secret visible afterward rather than a
+    one-time reveal.
+- **Secrets Management** — see the "Secrets" section below.
 
 As the name says, this is a **demo-grade** OIDC provider — it covers what this platform needs to
 authenticate and issue tokens, not the security hardening, auditing, or compliance controls of an
@@ -82,20 +85,19 @@ After this the script prompts for domain, password, and optional Ollama/GitLab s
 
 ## Architecture
 
-All components run as Kubernetes workloads inside MicroK8s. External dependencies (the Identity
-Provider, PostgreSQL, Elasticsearch) are deployed before the Camunda Helm chart is installed. The
-nginx ingress controller handles TLS termination and routes all traffic by path prefix — no
-NodePorts or port forwarding anywhere.
+All components run as Kubernetes workloads inside MicroK8s. External dependencies (Keycunda,
+PostgreSQL, Elasticsearch) are deployed before the Camunda Helm chart is installed. The nginx
+ingress controller handles TLS termination and routes all traffic by path prefix — no NodePorts
+or port forwarding anywhere.
 
-The Identity Provider runs in the `camunda` namespace alongside the rest of the platform, as a
-plain `kubectl apply`-ed Deployment/Service — it's not part of the Helm release, since it's an
-external component this stack depends on, not part of the Camunda platform itself. It gets its
-own Ingress object (routed by nginx on the `/auth` path prefix, same domain, same TLS cert as
-everything else).
+Keycunda runs in the `camunda` namespace alongside the rest of the platform, as a plain
+`kubectl apply`-ed Deployment/Service — it's not part of the Helm release, since it's an external
+component this stack depends on, not part of the Camunda platform itself. It gets its own Ingress
+object (routed by nginx on the `/auth` path prefix, same domain, same TLS cert as everything else).
 
 ```
 Internet → nginx ingress (443)
-             ├── /auth          → Identity Provider (login, OIDC)
+             ├── /auth          → Keycunda (login, OIDC)
              ├── /modeler       → Web Modeler
              ├── /orchestration → Zeebe / Operate / Tasklist
              ├── /optimize      → Optimize
@@ -104,9 +106,9 @@ Internet → nginx ingress (443)
 ```
 
 Camunda's own `identity` component still manages authorization (roles/permissions in its own
-database) — only *authentication* moved from Keycloak to camunda-demo-identity-provider.
-Its container image is built by `.github/workflows/build-camunda-demo-identity-provider.yml` and
-published to GHCR; the install script pulls it by tag (`IDENTITY_PROVIDER_IMAGE`, a constant in `configure-env.sh`).
+database) — only *authentication* moved from Keycloak to Keycunda. Its container image is built
+by `.github/workflows/build-keycunda.yml` and published to GHCR; the install script pulls it by
+tag (`KEYCUNDA_IMAGE`, a constant in `configure-env.sh`).
 
 ## Custom connectors
 
@@ -114,11 +116,39 @@ Drop connector JARs into `~/camunda-connectors` on the host.
 
 ## Secrets
 
-Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials they need, then run:
+Connector credentials (API keys, connection strings, service-account JSON keys, ...) can be
+managed two ways:
 
-```bash
-./update-connector-secrets.sh
-```
+- **Keycunda's Secrets Management page** (`/auth/admin/secrets`). Kubernetes is the source of
+  truth here, not a database: the first time you open the page in a browser session, it fetches
+  the live connectors Secret and holds a working copy in your session while you edit it.
+  Add/edit/delete/import only change that in-memory working copy — nothing in the cluster changes
+  until you click **Apply to cluster**, since the connectors pod only ever picks up a change after
+  a restart anyway, so pushing every micro-edit through immediately would accomplish nothing
+  except extra API calls. Values are masked with a click-to-view toggle, sorted by key, with
+  unique-key enforcement.
+  - **Export** the working copy as a Kubernetes `kind: Secret` manifest (matching the shape
+    `update-connector-secrets.sh` expects) or as a `.env` file.
+  - **Import** a `.yaml`/`.yml` manifest or a `.env` file into the working copy, upserting by key
+    (existing keys are updated in place, nothing already staged is removed just because it's
+    absent from the imported file). The `.env` import intentionally accepts multi-line, unquoted
+    values — e.g. a service-account JSON key pasted directly after `KEY=` — not just strict
+    single-line `KEY=VALUE` entries.
+  - **Apply to cluster** — writes the working copy to the named Kubernetes Secret, re-fetches it
+    to verify the values actually landed, wires it into the connectors Deployment's `envFrom` if
+    it isn't already, and restarts the connectors pod so it picks up the new values. Requires the
+    RBAC granted in `template-keycunda-rbac.yaml` (applied automatically by
+    `2-install-camunda-microk8s.sh`).
+  - Values are **not** encrypted by this app — they sit in the cluster exactly as any
+    `kubectl create secret` would leave them (base64 in etcd, no additional encryption layer).
+    This is a demo/learning tool, not an enterprise secrets manager; if that's not enough
+    protection for your use case, that's a signal this isn't the right tool for it.
+- **By hand** — create a `connector-secrets.yaml` Kubernetes secret manifest yourself (or use
+  Keycunda's export above to produce one), then run:
+
+  ```bash
+  ./update-connector-secrets.sh
+  ```
 
 ## Files
 
@@ -129,9 +159,10 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 | `configure-env.sh` | Interactive configuration wizard |
 | `.env.example` | Reference for what secrets/config this repo needs — copy nothing, just run `configure-env.sh` |
 | `template-values-camunda.yaml` | Helm values template |
-| `camunda-demo-identity-provider/` | Source + Maven build for the custom OIDC Identity Provider |
-| `template-camunda-demo-identity-provider.yaml` | Identity Provider Deployment and Service |
-| `template-camunda-demo-identity-provider-ingress.yaml` | Identity Provider ingress |
+| `keycunda/` | Source + Maven build for Keycunda, the custom OIDC identity provider |
+| `template-keycunda.yaml` | Keycunda Deployment and Service |
+| `template-keycunda-ingress.yaml` | Keycunda ingress |
+| `template-keycunda-rbac.yaml` | ServiceAccount/Role/RoleBinding for Keycunda's Secrets Management "Apply to cluster" function |
 | `template-postgresql.yaml` | PostgreSQL StatefulSet |
 | `template-elasticsearch.yaml` | Elasticsearch StatefulSet |
 | `template-volumes.yaml` | Persistent volumes for documents and connectors |
@@ -144,6 +175,6 @@ Create a `connector-secrets.yaml` Kubernetes secret manifest for any credentials
 |---|---|
 | Camunda | 8.9.12 |
 | Helm chart | 14.7.0 |
-| Identity Provider | see `camunda-demo-identity-provider/pom.xml`, image tag set by `IDENTITY_PROVIDER_IMAGE` |
+| Keycunda | see `keycunda/pom.xml`, image tag set by `KEYCUNDA_IMAGE` |
 | Elasticsearch | 8.19.x |
 | PostgreSQL | 16 |

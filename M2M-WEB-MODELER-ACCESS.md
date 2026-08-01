@@ -7,7 +7,7 @@ How to fix `HTTP 404 {"title":"Not Found",...,"instance":"/modeler/api/v1/..."}`
 ## Root cause #1: no matching claim for Identity's Mapping Rules
 
 Management Identity's "Add mapping" UI only lets you pick `username` / `sub` / `groups` / `roles`
-as the claim name. `camunda-demo-identity-provider` only ever stamped `preferred_username` on
+as the claim name. `keycunda` only ever stamped `preferred_username` on
 tokens (not `username`), and `sub` alone was observed to not get matched by Identity's mapping-rule
 evaluation either — so an M2M client could never be granted a role through that UI at all.
 

@@ -10,12 +10,12 @@ box** running MicroK8s, fronted by nginx ingress with OIDC authentication provid
 purpose-built identity provider on real path-based URLs.
 
 Almost everything here is shell scripts and YAML templates — no build, no test suite, no CI for
-those. **One deliberate exception:** `camunda-demo-identity-provider/` is real application source
+those. **One deliberate exception:** `keycunda/` is real application source
 code (Spring Boot, Maven build, GitHub Actions CI publishing to GHCR). It replaces Keycloak as the
 platform's OIDC provider. See its own `README.md` for how to build/run/test it.
 
 Target audience is demos, learning and experimenting — explicitly not production (see README).
-The identity provider is explicitly **demo-grade**, not an enterprise-security Identity Provider: no MFA, no
+Keycunda is explicitly **demo-grade**, not an enterprise-security Identity Provider: no MFA, no
 audit logging, no key rotation, single in-memory JWT signing key regenerated on every restart. Do
 not present it as a production-hardened component.
 
@@ -30,11 +30,11 @@ not present it as a production-hardened component.
 | `install-fix-hosts.sh` | Adds `/etc/hosts` entries (skipped when behind a reverse proxy). Needs root. |
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
-| `camunda-demo-identity-provider/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
-| `.github/workflows/build-camunda-demo-identity-provider.yml` | Builds/pushes its image to GHCR on push to `main` or an `identity-provider-v*` tag. |
+| `keycunda/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
+| `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or an `keycunda-v*` tag. |
 | `update-connector-secrets.sh` | Applies optional `connector-secrets.yaml`, patches the connectors Deployment with `envFrom`, restarts the pod. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
-| `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via camunda-demo-identity-provider's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
+| `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via keycunda's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
 
 ## The templating model — most important thing to know
@@ -45,11 +45,14 @@ Generated files are **gitignored and overwritten on every install**. Never edit 
 template-values-camunda.yaml                    --envsubst-->  values-camunda.yaml     (gitignored)
 template-elasticsearch.yaml                     --envsubst-->  piped straight to kubectl apply
 template-postgresql.yaml                        --envsubst-->  piped straight to kubectl apply
-template-camunda-demo-identity-provider.yaml    --envsubst-->  piped straight to kubectl apply
-template-camunda-demo-identity-provider-ingress.yaml
+template-keycunda.yaml    --envsubst-->  piped straight to kubectl apply
+template-keycunda-ingress.yaml
 template-volumes.yaml
 configure-env.sh                                --writes-->    install-env.sh          (gitignored)
 ```
+
+`template-keycunda-rbac.yaml` is the one exception: it has no `${VAR}` placeholders at
+all (namespace and names are fixed), so it's `kubectl apply`-ed directly, with no `envsubst` step.
 
 `values-camunda.yaml` is present in the working tree but ignored — treat it as build output when
 diagnosing something, not as a file to change.
@@ -69,8 +72,8 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- camunda-demo-identity-provider: `${IDENTITY_PROVIDER_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
-- camunda-demo-identity-provider-ingress: `${CAMUNDA_DOMAIN}`
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
+- keycunda-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}`
 
@@ -87,7 +90,7 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 7. Create the `camunda-credentials` secret imperatively — all keys get the same `$PASSWORD`.
    Every template refers to it via `existingSecret`/`existingSecretKey`; no password is ever
    templated directly into the Helm values.
-8. Apply Elasticsearch → PostgreSQL → camunda-demo-identity-provider, waiting on `rollout status`
+8. Apply Elasticsearch → PostgreSQL → keycunda, waiting on `rollout status`
    for each
 9. `helm uninstall camunda || true`, delete the connectors PV/PVC, regenerate values, recreate
    host dirs + PVs, `helm install camunda camunda/camunda-platform --wait --timeout 20m`
@@ -95,7 +98,7 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 11. `./seed-identity-mapping-rules.sh`
 
 Re-running is the supported upgrade path: only the Helm release is torn down. The Elasticsearch,
-PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed in place, so
+PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place, so
 **data survives**. The connectors PV/PVC is deliberately deleted and recreated each run.
 
 ## Conventions to follow
@@ -107,9 +110,9 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
 - Loud banner-style progress output (`echo ====...`) between phases — match the existing style.
 - Waits are explicit `kubectl rollout status`/`kubectl wait` with a timeout, never bare `sleep`.
 - Version pins live as constants at the top of `configure-env.sh`
-  (`ES_VERSION`, `PG_VERSION`, `IDENTITY_PROVIDER_IMAGE`) and as `DEFAULT_*` prompts for the Camunda Helm chart
-  and app version. `IDENTITY_PROVIDER_IMAGE` is deliberately **not** prompted, unlike the Camunda-side versions
-  — the identity provider is expected to need no end-user tuning once it's running, so bumping it
+  (`ES_VERSION`, `PG_VERSION`, `KEYCUNDA_IMAGE`) and as `DEFAULT_*` prompts for the Camunda Helm chart
+  and app version. `KEYCUNDA_IMAGE` is deliberately **not** prompted, unlike the Camunda-side versions
+  — Keycunda is expected to need no end-user tuning once it's running, so bumping it
   is a code change (this constant), not something to surface in the wizard. If you bump any of
   these, **update the Versions table in `README.md` to match** — it is maintained by hand.
 
@@ -120,35 +123,35 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   `exporters.camunda.enabled: false`). Elasticsearch is there for **Optimize**. Don't assume the
   usual ES-backed Zeebe exporter setup.
 - **One PostgreSQL, four databases**, all created by the init ConfigMap in
-  `template-postgresql.yaml`: `camunda-demo-identity-provider` (user `camunda-demo-identity-provider`,
+  `template-postgresql.yaml`: `keycunda` (user `keycunda`,
   matching the image name), `web-modeler` (user `webmodeler`), `orchestration` (user
   `orchestration`), and `identity` (user `identity` — Management Identity's own JPA store,
   needed only in GENERIC OIDC mode; see the note under `identity.externalDatabase` in
   `template-values-camunda.yaml`). Adding a database means editing that init script — it only
   runs on a **fresh** PG data volume, so an existing install needs manual SQL.
-- **camunda-demo-identity-provider replaced Keycloak, and runs in the `camunda` namespace**
+- **keycunda replaced Keycloak, and runs in the `camunda` namespace**
   alongside the rest of the platform, as a plain `kubectl apply`-ed Deployment/Service (not part
   of the Helm release — `helm uninstall camunda` never touches it). It was originally split into
   its own `jeltechnologies` namespace to model "external component this stack depends on", but
   that bought cross-namespace DNS footguns (a component reaching it internally has to remember the
   `.jeltechnologies` suffix everywhere) for no real benefit in a single-box demo, and it caused a
   real bug: Web Modeler's backend fetching JWKS over cluster DNS threw `UnknownHostException`.
-  Co-locating it in `camunda` means the short Service name (`camunda-demo-identity-provider`)
+  Co-locating it in `camunda` means the short Service name (`keycunda`)
   resolves correctly everywhere, it reads client secrets straight from `camunda-credentials`
-  (including its own Postgres password, key `identity-provider-postgresql-password`) instead of a
-  duplicate `identity-provider-credentials` Secret, and its Ingress reuses the same
+  (including its own Postgres password, key `keycunda-postgresql-password`) instead of a
+  duplicate `keycunda-credentials` Secret, and its Ingress reuses the same
   `tls-secret-${CAMUNDA_DOMAIN}` instead of a second copy of the cert.
 
-  It runs as a single replica now (`template-camunda-demo-identity-provider.yaml`, `replicas: 1`)
+  It runs as a single replica now (`template-keycunda.yaml`, `replicas: 1`)
   — the multi-replica setup was for testing future multi-node deployments, not a current need.
   The JDBC-backed session/token store described below still matters even at replicas: 1: it's what
   makes a pod restart (redeploy, node reschedule) not silently log everyone out, since sessions
   and tokens survive in Postgres rather than in-process memory.
 
   It has no volume of its own — all state is either in Postgres or in the
-  `camunda-identity-provider-signing-key` Secret, specifically so it can run multiple replicas and
+  `keycunda-signing-key` Secret, specifically so it can run multiple replicas and
   survive restarts without logging everyone out:
-  - **Users** live in the `camunda-demo-identity-provider` Postgres database (`users` table).
+  - **Users** live in the `keycunda` Postgres database (`users` table).
     **Email is the unique login identifier; `name` is free text and not unique.** Users log in
     with email + password. The `preferred_username` claim carries the email (Camunda's own RBAC
     keys off this — see `orchestration.security.initialization` in
@@ -158,8 +161,8 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
     same database via `spring-session-jdbc` and `JdbcOAuth2AuthorizationService` — not the
     in-memory defaults — so a request doesn't need to land on the same pod that handled the
     previous one in the flow.
-  - **The RSA JWT signing key** comes from the `camunda-identity-provider-signing-key` Secret
-    (`IDENTITY_PROVIDER_JWT_SIGNING_KEY_PEM`), generated once by `2-install-camunda-microk8s.sh` (idempotent —
+  - **The RSA JWT signing key** comes from the `keycunda-signing-key` Secret
+    (`KEYCUNDA_JWT_SIGNING_KEY_PEM`), generated once by `2-install-camunda-microk8s.sh` (idempotent —
     it checks whether the secret already exists before generating) rather than freshly per pod
     startup. Every replica must sign/validate with the *same* key, and a restart must not rotate
     it, or outstanding tokens stop validating. Local dev without that env var falls back to a
@@ -176,7 +179,7 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   standards-compliant external OIDC provider instead of the chart's bundled Keycloak. Camunda's own
   `identity` component still manages authorization/roles in its own DB; only *authentication*
   moved. The OAuth2 client set (`camunda-identity`, `orchestration`, `connectors`, `optimize`,
-  `web-modeler`, `console`) is fixed in `camunda-demo-identity-provider/.../OidcClientsConfig.java`
+  `web-modeler`, `console`) is fixed in `keycunda/.../OidcClientsConfig.java`
   — adding a new Camunda component means a code change there **and** a matching block in
   `template-values-camunda.yaml`, cross-checked against `helm show values camunda/camunda-platform
   --version <HELM_CHART_VERSION>` since field names have moved between chart versions (e.g.
@@ -189,7 +192,7 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   header; confirmed by testing both directly against `/oauth2/token` when Connectors' M2M auth
   kept failing with 401 despite the secret value being verified correct.
   **That fixed set is separate from user-managed "Clients"** — client-credentials-only OAuth2
-  clients an admin creates/deletes at `/admin/clients` (`camunda-demo-identity-provider/.../client/`
+  clients an admin creates/deletes at `/admin/clients` (`keycunda/.../client/`
   and `web/AdminClientController.java`), stored in the `oauth_clients` table, for external
   automation talking to Camunda's APIs — the equivalent of what Camunda's own Console calls
   "Clients" from 8.9 onward (formerly "M2M"). `CompositeRegisteredClientRepository` is the actual
@@ -205,7 +208,7 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   without it, a client created here only ever gets its own client ID as audience, and every
   resource server (Orchestration's REST API included) rejects the token as wrong-audience. Set it
   to `orchestration-api` for a client that needs to call Orchestration, matching what the fixed
-  `orchestration`/`connectors` clients get from `identity-provider.clients.orchestration.audience`.
+  `orchestration`/`connectors` clients get from `keycunda.clients.orchestration.audience`.
   Also unlike user passwords, a client's plaintext secret **is** kept (the `secret` column,
   alongside `secret_hash`) and stays visible on the clients list/edit page indefinitely — a
   deliberate demo-grade choice, since these secrets need to be pasted into whatever external system
@@ -229,7 +232,7 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   **Same gap, but for M2M clients.** Identity's "Applications" concept only covers the fixed,
   Helm-configured client set (`camunda-identity`, `orchestration`, `connectors`, `optimize`,
   `web-modeler`, `console`) — it has no awareness of clients created via
-  camunda-demo-identity-provider's own `/admin/clients` (see the `client` package and
+  keycunda's own `/admin/clients` (see the `client` package and
   `CompositeRegisteredClientRepository`), so such a client can never be found or granted a role
   through Identity's own console UI. The fix is the same claim-matching mapping-rule mechanism as
   above: `grant-webmodeler-public-api-access.sh <client-id>` creates a "Web Modeler Public API"
@@ -242,12 +245,82 @@ PostgreSQL and identity-provider Deployment and their PVCs/state are `apply`-ed 
   carry the right `aud` and Web Modeler rejects them regardless of this grant — found by querying
   Identity's own Postgres `permissions`/`roles_permissions` tables directly, since there's no UI
   for a client Identity doesn't know about.
+- **The identity provider's brand is "Keycunda" (previously "Caddy" during an earlier iteration,
+  before that a plain "Demo Identity Provider") — this time the underlying project was renamed to
+  match, not just the UI text.** Directory (`keycunda/`), Maven artifact/groupId's trailing package
+  segment (`com.jeltechnologies.keycunda`), Java class names (`KeycundaApplication`,
+  `KeycundaProperties`, ...), Docker image name, Postgres database/user, Kubernetes
+  Service/Deployment/ServiceAccount/Role/RoleBinding names, the signing-key Secret
+  (`keycunda-signing-key`) and the `camunda-credentials` key `keycunda-postgresql-password` all
+  say "keycunda" consistently now — see git history for the earlier Caddy-branding-only commit if
+  you need to understand what changed between that pass and this one. **One thing deliberately did
+  not change:** the OIDC endpoints still live at `/auth` — that's Camunda's own convention for
+  this role, not Keycunda's brand name, so it stays regardless of what the app itself is called.
+  The portal is organized into two areas: **Identity Management** (Users, Clients) and **Secrets
+  Management** (the connectors Kubernetes Secret, described next) — deliberately not framed as an
+  open-ended "Cluster Management" category anymore, since the portal shouldn't imply more
+  functions are coming before they actually exist.
+- **Secrets Management (`secret/`, `web/AdminSecretController.java`) treats Kubernetes itself as the
+  source of truth - there is no database table for it.** `secret/SecretsWorkingCopy.java` is a
+  `@SessionScope` bean holding an in-memory, per-admin-session copy of the connectors Secret's
+  key/value pairs. The first time an admin opens `/admin/secrets` in a browser session,
+  `AdminSecretController.ensureLoaded()` fetches the live Secret (via
+  `ClusterSecretsApplier.fetch`) and seeds the working copy; every add/edit/delete/import after
+  that only mutates the in-memory copy, never Kubernetes directly - the connectors pod only ever
+  picks up a change after a restart anyway, so pushing every micro-edit through immediately would
+  accomplish nothing except extra API calls. Values are **not** encrypted anywhere - they sit in
+  the working copy in plaintext and, once applied, in the cluster exactly as any
+  `kubectl create secret` would leave them (base64 in etcd, no extra layer). This was a deliberate
+  choice, not an oversight: an earlier version of this feature stored secrets encrypted (AES-GCM)
+  in this app's own Postgres database with Kubernetes as a derived export target, but that's
+  needless complexity for what CLAUDE.md already frames as a demo/learning tool, not an enterprise
+  secrets manager - see the README's "Secrets" section for the user-facing version of this
+  tradeoff. The `.env` import parser (`SecretEnvCodec`) is deliberately non-standard: any line that
+  isn't itself a new `KEY=` assignment is treated as a continuation of the previous key's value
+  (newline preserved), so a multi-line, unquoted value - e.g. a GCP service-account JSON key pasted
+  straight after `KEY=` - round-trips correctly. This is not strict dotenv syntax and should not be
+  "fixed" into it. Import always upserts by key; nothing already staged is ever removed by an
+  import just because it's absent from the imported file.
+- **"Apply to cluster" (`secret/ClusterSecretsApplier.java`) talks to the Kubernetes API directly
+  via the fabric8 `kubernetes-client` Java library, not by shelling out to `update-connector-secrets.sh`
+  from inside the pod.** That script needs `microk8s kubectl` and a host shell context neither of
+  which exist inside the Keycunda container - reusing it as-is was never actually
+  possible, so this is a from-scratch reimplementation of the same delete/create-Secret,
+  patch-Deployment-envFrom, delete-pod, wait-for-rollout steps, not a wrapper around the script.
+  After writing the Secret, `apply()` re-fetches it and compares against what was submitted before
+  doing anything else, throwing if they don't match - the explicit "verify it actually loaded"
+  step this feature was built around, not just a write-and-hope. Needs its own RBAC: a
+  `keycunda` ServiceAccount (referenced via `serviceAccountName` in
+  `template-keycunda.yaml`) bound to a Role granting
+  get/list/create/update/delete on `secrets`, get/list/patch on `deployments`, and get/list/delete
+  on `pods` - all namespaced to `camunda`, defined in `template-keycunda-rbac.yaml` and
+  applied by `2-install-camunda-microk8s.sh` before the Keycunda Deployment itself (the
+  Deployment references the ServiceAccount by name, so it must already exist). Unlike the bash
+  script's unconditional JSON-patch append (which would add a duplicate `envFrom` entry on every
+  re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
+  references the target Secret name before patching, so repeated applies stay idempotent. The
+  connectors Deployment/pod are found by a case-insensitive name match containing "connector"
+  (same fuzzy-match approach `update-connector-secrets.sh` already uses), not a hardcoded name.
+
+  The apply itself runs on a background thread from `AdminSecretController` (a dedicated
+  single-thread `ExecutorService`, so two clicks in a row can't race each other) with progress
+  tracked in `secret/ApplyJobStatus.java` - a single in-memory mutable slot, not persisted, which
+  is fine only because the pod runs at `replicas: 1`; a pod restart mid-apply is meant to read as
+  "nothing running" rather than resurrect a stale job. The status page polls via a plain
+  `<meta http-equiv="refresh">` (no JavaScript) until the job leaves the RUNNING state. **Critical
+  constraint found the hard way: that background thread must never touch `SecretsWorkingCopy`
+  directly.** It has no HTTP request/session bound to it, so resolving the session-scoped proxy
+  throws `IllegalStateException: Scope 'session' is not active for the current thread`. That's why
+  `ApplyJobStatus.Job` carries the verified, freshly-fetched secret map as plain data, and why the
+  actual `secretsWorkingCopy.load(...)` resync happens in `AdminSecretController.applyStatus()`
+  (the GET handler for the status page) instead of inside the background thread's lambda - that
+  handler runs on a normal request thread, where the session-scoped bean resolves fine.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`
   documents one such fix (Tomcat + `https-only: true` → redirect loop); expect similar issues
   whenever a component is upgraded and read that comment before touching it.
-  `camunda-demo-identity-provider` sets the same `server.forward-headers-strategy=native` for the
+  `keycunda` sets the same `server.forward-headers-strategy=native` for the
   identical reason.
 - **Host-path volumes.** `~/camunda-docs` (document store, mounted at `/camunda-docs` in
   identity/optimize/connectors/orchestration) and `~/camunda-connectors` (custom connector JARs,
@@ -269,10 +342,10 @@ microk8s kubectl get pods -n camunda -w
 ./tail-connector-logs.sh
 ```
 
-For `camunda-demo-identity-provider/`, there **is** a real build to verify:
+For `keycunda/`, there **is** a real build to verify:
 
 ```bash
-cd camunda-demo-identity-provider && mvn -q verify         # compiles + runs the test suite
+cd keycunda && mvn -q verify         # compiles + runs the test suite
 ```
 
 A full install takes 15–20 minutes and mutates the host (apt, swap, `/etc/hosts`, snap), so
@@ -289,10 +362,10 @@ terminal during install — that's existing behaviour for a single-user demo box
 unasked. The `camunda-credentials` secret's keys (`identity-identity-client-token`,
 `identity-orchestration-client-token`, `identity-optimize-client-token`,
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
-`orchestration-postgresql-password`, `identity-provider-postgresql-password`) are all set to the
+`orchestration-postgresql-password`, `keycunda-postgresql-password`) are all set to the
 same `$PASSWORD` too, doing double duty as both database passwords and OAuth2 client secrets for
-`camunda-demo-identity-provider`. The
-**`camunda-identity-provider-signing-key` Secret is deliberately separate** and handled differently: unlike
+`keycunda`. The
+**`keycunda-signing-key` Secret is deliberately separate** and handled differently: unlike
 `camunda-credentials` (deleted and recreated on every install run, harmless since the value always
 comes from the same `$PASSWORD`), this one holds randomly generated key material with no external
 source of truth, so `2-install-camunda-microk8s.sh` only creates it if it doesn't already exist.
@@ -303,7 +376,7 @@ outstanding token on the next install run.
 committed alongside it, documenting the shape with placeholder values only:
 - `.env.example` (root) mirrors `install-env.sh` — reference only; `configure-env.sh` is still
   the actual way to produce `install-env.sh`, nobody should hand-write it from the example.
-- `camunda-demo-identity-provider/.env.example` mirrors the `.env` a developer creates for local
+- `keycunda/.env.example` mirrors the `.env` a developer creates for local
   `mvn spring-boot:run` (see that subproject's README).
 
 Both real `.env` files are gitignored. When adding a new secret-bearing variable anywhere, add it

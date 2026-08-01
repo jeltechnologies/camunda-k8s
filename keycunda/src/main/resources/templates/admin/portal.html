@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Keycunda</title>
+    <link rel="icon" th:href="@{/favicon.ico}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
+    <style>
+        .welcome-panel {
+            max-width: 640px;
+        }
+        .welcome-panel p {
+            line-height: 1.5;
+        }
+        .welcome-panel ul {
+            padding-left: 1.2rem;
+            line-height: 1.6;
+        }
+        .disclaimer {
+            margin-top: 1.5rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--gray-20);
+        }
+        .disclaimer p {
+            font-size: 12px;
+            color: #565656;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{admin/fragments/nav :: topbar('')}"></div>
+
+    <div class="content">
+        <div class="panel welcome-panel">
+            <h1>Welcome to Keycunda</h1>
+            <p>
+                Keycunda is the OIDC identity provider for this Camunda 8 demo/learning environment.
+                It replaces Keycloak with a small, purpose-built alternative for exactly what a demo
+                box needs - nothing more.
+            </p>
+            <div th:if="${isAdmin}">
+                <p>Use the links in the top bar to get to:</p>
+                <ul>
+                    <li><strong>Identity Management</strong> - human user accounts and the OAuth2
+                        client-credentials applications ("Clients") external integrations
+                        authenticate as.</li>
+                    <li><strong>Secrets Management</strong> - an editable working copy of the
+                        connectors deployment's Kubernetes Secret, importable/exportable and
+                        applied to the cluster on demand.</li>
+                </ul>
+            </div>
+            <div class="disclaimer">
+                <p>
+                    Keycunda contains Identity Management and Kubernetes Secrets Management for
+                    Camunda 8 on a single Ubuntu box, for experimenting, learning and demos.
+                    Keycunda cannot be used in production, because this approach lacks the
+                    robustness, scale, high availability and license needed in enterprise
+                    environments.
+                </p>
+                <p>
+                    Keycunda is developed by Camunda's partners or independent third-party
+                    developers. To receive assistance or support for Keycunda, contact
+                    jeltechnologies directly using the contact information. Camunda disclaims any
+                    support obligation for Keycunda.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

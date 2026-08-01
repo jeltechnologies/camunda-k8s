@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Keycunda</title>
+    <link rel="icon" th:href="@{/favicon.ico}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
+    <style>
+        .form-panel {
+            max-width: 420px;
+        }
+        .form-panel label {
+            margin-top: 1rem;
+        }
+        .form-panel label:first-of-type {
+            margin-top: 0;
+        }
+        .note {
+            font-size: 13px;
+            color: #565656;
+            margin-top: 0.3rem;
+        }
+        .checkbox-list {
+            margin-top: 1rem;
+        }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.35rem;
+        }
+        .checkbox-row label {
+            margin: 0;
+            font-weight: 400;
+        }
+        .button-row {
+            display: flex;
+            gap: 0.6rem;
+            margin-top: 1.5rem;
+        }
+        .btn-cancel {
+            padding: 0.55rem 1rem;
+            background: #ffffff;
+            color: var(--gray-100);
+            border: 1px solid var(--gray-20);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+    <div th:replace="~{admin/fragments/nav :: topbar('clients')}"></div>
+
+    <div class="content">
+        <div class="panel form-panel">
+            <h1>Add client</h1>
+            <p class="error" th:if="${error}" th:text="${error}"></p>
+            <form method="post" th:action="@{/admin/clients}">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" required="required" autofocus="autofocus"/>
+
+                <label for="clientId">Client ID</label>
+                <input type="text" id="clientId" name="clientId" required="required" pattern="[a-zA-Z0-9._-]+"/>
+                <p class="note">
+                    What other systems authenticate as - letters, digits, ".", "_" or "-". Cannot be changed later.
+                </p>
+
+                <label>Audience</label>
+                <p class="note" style="margin-top: 0;">The resource server(s) this client's tokens are valid for.</p>
+                <div class="checkbox-list">
+                    <div class="checkbox-row" th:each="entry : ${knownAudiences}">
+                        <input type="checkbox" th:id="${'aud-' + entry.value}" name="knownAudiences"
+                               th:value="${entry.value}" th:checked="${selectedAudiences.contains(entry.value)}"/>
+                        <label th:for="${'aud-' + entry.value}" th:text="${entry.key + ' (' + entry.value + ')'}"></label>
+                    </div>
+                </div>
+
+                <label for="customAudience">Custom audience(s)</label>
+                <input type="text" id="customAudience" name="customAudience" th:value="${customAudience}"/>
+                <p class="note">
+                    Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
+                </p>
+
+                <div class="button-row">
+                    <button type="submit">OK</button>
+                    <a class="btn-cancel" th:href="@{/admin/clients}">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script th:inline="none">
+        // Client ID defaults to a slug of the name, but only until the admin types into the
+        // Client ID field directly - once they do, their input wins and the name no longer
+        // overwrites it.
+        (function () {
+            var nameInput = document.getElementById('name');
+            var clientIdInput = document.getElementById('clientId');
+            var clientIdEdited = false;
+            clientIdInput.addEventListener('input', function () {
+                clientIdEdited = true;
+            });
+            nameInput.addEventListener('input', function () {
+                if (!clientIdEdited) {
+                    clientIdInput.value = nameInput.value.toLowerCase().split(' ').join('-');
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

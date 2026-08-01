@@ -10,7 +10,7 @@ echo "=================================================================="
 echo "Granting ManagementIdentity to every M2M (client_credentials) client"
 echo "=================================================================="
 
-# Requires camunda-demo-identity-provider's AuthorizationServerConfig to stamp `m2m_client=true`
+# Requires keycunda's AuthorizationServerConfig to stamp `m2m_client=true`
 # on every client_credentials token (added alongside the existing "demo_user=true" stamped on
 # every human login) - without that claim, this rule matches nothing. Same pattern as the
 # "AllUsers" rule in seed-identity-mapping-rules.sh, just for M2M clients instead of human users.

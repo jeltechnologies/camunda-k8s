@@ -17,7 +17,7 @@ global:
   identity:
     # GENERIC = talk to any standards-compliant OIDC provider instead of the bundled Keycloak.
     # See https://docs.camunda.io/docs/self-managed/deployment/helm/configure/authentication-and-authorization/generic-oidc-provider/
-    # camunda-demo-identity-provider (template-camunda-demo-identity-provider.yaml) issues the tokens. Client IDs/audiences below
+    # keycunda (template-keycunda.yaml) issues the tokens. Client IDs/audiences below
     # were verified against `helm show values camunda/camunda-platform --version 14.7.0` - re-check
     # if you bump HELM_CHART_VERSION, since field names have moved between chart versions before
     # (e.g. orchestration.security.authentication.oidc.issuer, not "issuerUrl").
@@ -25,10 +25,10 @@ global:
       enabled: true
       type: "GENERIC"
       publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth"
-      issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+      issuerBackendUrl: "http://keycunda/auth"
       authUrl: "https://${CAMUNDA_DOMAIN}/auth/oauth2/authorize"
-      tokenUrl: "http://camunda-demo-identity-provider/auth/oauth2/token"
-      jwksUrl: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
+      tokenUrl: "http://keycunda/auth/oauth2/token"
+      jwksUrl: "http://keycunda/auth/oauth2/jwks"
       identity:
         clientId: "camunda-identity"
         audience: "camunda-identity-resource-server"
@@ -45,7 +45,7 @@ global:
         # commented example for generic OIDC providers (`helm show values`, "Microsoft Entra example").
         initialClaimName: "preferred_username"
         initialClaimValue: "${DEMO_EMAIL}"
-      # web-modeler is a public (PKCE) client on camunda-demo-identity-provider - the chart's own values schema has
+      # web-modeler is a public (PKCE) client on keycunda - the chart's own values schema has
       # no client-secret field for it either, confirmed against the real camunda-platform 14.7.0
       # chart defaults (`helm show values camunda/camunda-platform --version 14.7.0`).
       webModeler:
@@ -102,9 +102,9 @@ identity:
   contextPath: "/identity"
   fullURL: "https://${CAMUNDA_DOMAIN}/identity"
   enabled: true
-  # No `firstUser` block: users now live in camunda-demo-identity-provider, not in an Identity-managed Keycloak
-  # realm. The first admin user is seeded by camunda-demo-identity-provider itself (DEMO_NAME/DEMO_EMAIL
-  # /DEMO_PASSWORD in template-camunda-demo-identity-provider.yaml), not by this Helm chart.
+  # No `firstUser` block: users now live in keycunda, not in an Identity-managed Keycloak
+  # realm. The first admin user is seeded by keycunda itself (DEMO_NAME/DEMO_EMAIL
+  # /DEMO_PASSWORD in template-keycunda.yaml), not by this Helm chart.
   # Identity needs its own relational database only in GENERIC OIDC mode (in Keycloak mode its
   # authorization/mapping-rule data lived inside Keycloak's own realm instead) - confirmed by
   # `helm template` against this exact chart version, since neither the docs nor the values.yaml
@@ -236,13 +236,13 @@ webModeler:
         value: "${GITLAB_URL}"
     configuration: |
       # This block is Web Modeler's own internal Spring config, passed straight through. No
-      # client-secret is set here on purpose: camunda-demo-identity-provider registers "web-modeler" as a public
+      # client-secret is set here on purpose: keycunda registers "web-modeler" as a public
       # (PKCE) client, matching the chart's own values schema, which has no secret field for it.
       camunda:
         identity:
           base-url: "http://camunda-identity:80/identity"
           issuer: "https://${CAMUNDA_DOMAIN}/auth"
-          issuerBackendUrl: "http://camunda-demo-identity-provider/auth"
+          issuerBackendUrl: "http://keycunda/auth"
           type: "GENERIC"
 
         modeler:
@@ -252,7 +252,7 @@ webModeler:
           security:
             jwt:
               issuer:
-                backend-url: "http://camunda-demo-identity-provider/auth"
+                backend-url: "http://keycunda/auth"
               audience:
                 internal-api: "web-modeler-api"
                 public-api: "web-modeler-public-api"
@@ -318,7 +318,7 @@ webModeler:
             resourceserver:
               jwt:
                 issuer-uri: "https://${CAMUNDA_DOMAIN}/auth"
-                jwk-set-uri: "http://camunda-demo-identity-provider/auth/oauth2/jwks"
+                jwk-set-uri: "http://keycunda/auth/oauth2/jwks"
 
         servlet:
           multipart:

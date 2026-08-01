@@ -1,0 +1,41 @@
+---
+# Grants Keycunda's pod ServiceAccount just enough Kubernetes API access for Secrets Management >
+# "Apply to cluster" (see keycunda's secret/ClusterSecretsApplier.java): create/replace the named
+# Secret, patch the connectors Deployment's envFrom, delete the connectors pod to force a restart,
+# and wait for the rollout. No cluster-scoped permissions - everything is namespaced to "camunda".
+# No ${VAR} placeholders, so this is applied directly, without envsubst.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycunda
+  namespace: camunda
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycunda-cluster-secrets
+  namespace: camunda
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycunda-cluster-secrets
+  namespace: camunda
+subjects:
+  - kind: ServiceAccount
+    name: keycunda
+    namespace: camunda
+roleRef:
+  kind: Role
+  name: keycunda-cluster-secrets
+  apiGroup: rbac.authorization.k8s.io

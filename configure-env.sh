@@ -48,7 +48,7 @@ fi
 # can never clobber them.
 ES_VERSION=8.19.9
 PG_VERSION=16
-IDENTITY_PROVIDER_IMAGE=ghcr.io/jeltechnologies/camunda-demo-identity-provider:latest
+KEYCUNDA_IMAGE=ghcr.io/jeltechnologies/keycunda:latest
 
 echo "============================================================"
 echo " Camunda configuration"
@@ -74,7 +74,7 @@ BEHIND_REVERSE_PROXY=${input_reverse_proxy:-$DEFAULT_BEHIND_REVERSE_PROXY}
 
 echo ""
 echo "============================================================"
-echo " Identity Provider: first (admin) user"
+echo " Keycunda: first (admin) user"
 echo "============================================================"
 echo ""
 
@@ -143,7 +143,7 @@ export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-export IDENTITY_PROVIDER_IMAGE="${IDENTITY_PROVIDER_IMAGE}"
+export KEYCUNDA_IMAGE="${KEYCUNDA_IMAGE}"
 export DEMO_NAME="${DEMO_NAME}"
 export DEMO_EMAIL="${DEMO_EMAIL}"
 export ES_VERSION="${ES_VERSION}"

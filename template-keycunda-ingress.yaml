@@ -1,0 +1,147 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+# /keycunda is a URL-only alias for the whole admin portal ("/auth pure for Identity Management,
+# this path for the other functions" - "Keycunda's landing page must be at /keycunda"). Purely an
+# nginx path rewrite - Keycunda's own servlet context-path stays "/auth" (so the OIDC endpoints
+# Orchestration/Web Modeler already depend on - issuer, jwks, token URLs - are completely
+# untouched), the app has no idea either alias exists. Two separate Ingress objects, not one with
+# a branching regex: nginx-ingress's rewrite-target annotation applies to the whole Ingress
+# object, so two different rewrite targets need two objects even though both point at the same
+# Service.
+#
+# Bare "/keycunda" (optionally with a trailing slash) -> the portal/welcome page.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-portal-alias-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /auth/admin
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /keycunda/?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+# "/keycunda/secrets" (and any subpath under it) -> Secrets Management specifically. Regex
+# captures an optional subpath INCLUDING its leading slash as one group, so "/keycunda/secrets"
+# alone rewrites to exactly "/auth/admin/secrets" (no trailing slash) instead of leaving a
+# dangling "/" that Spring's routing may not treat as equivalent.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-secrets-alias-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /auth/admin/secrets$1
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /keycunda/secrets(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+# No component owns the bare "/" path (Console is /console, Web Modeler is /modeler, Keycunda
+# is /auth, etc.), so it 404'd with nothing to redirect the visitor anywhere useful. Redirects to
+# /keycunda specifically, not straight to /auth/login: /keycunda is a *protected* resource, so
+# Spring Security itself decides what happens next based on whether the visitor already has a
+# valid session - already logged in -> straight to the portal/welcome page (browser shows
+# /keycunda the whole time, the nginx rewrite to /auth/admin is invisible to it); not logged in ->
+# Spring Security's own redirect-to-login-then-back-to-what-you-asked-for kicks in, landing on
+# /auth/login first (still visible) and then wherever that mechanism sends you afterward.
+# Redirecting straight to /auth/login unconditionally (the old behavior here) skipped that check
+# entirely, so even an already-authenticated visitor saw the login form again on every "/" visit.
+# temporal-redirect (302), not permanent-redirect (301): a 301 here bit us once already - browsers
+# cache permanent redirects aggressively, so a target change wouldn't have been visible without a
+# hard refresh/incognito. pathType: Exact so this only matches "/" itself, not every other
+# prefix-routed path. nginx-ingress requires a valid backend below even though it's never reached.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: camunda-root-redirect-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/temporal-redirect: https://${CAMUNDA_DOMAIN}/keycunda
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Exact
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80

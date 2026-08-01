@@ -1,0 +1,75 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /auth
+    session:
+      cookie:
+        # Defaults would otherwise be name "SESSION" scoped to Path=/auth (mirroring the servlet
+        # context-path). Path=/auth means the browser never sends this cookie on a request to
+        # /keycunda (the nginx-rewritten Secrets Management alias - see
+        # template-keycunda-ingress.yaml): the rewrite happens server-side at the ingress, after
+        # the browser has already decided which cookies to attach based on the literal request
+        # path, so an already-logged-in admin clicking that link got silently bounced back to
+        # /login. Widening Path to "/" fixes that, but a plain, unqualified "SESSION" cookie name
+        # at Path=/ would collide with any other Camunda component on this same domain that also
+        # happens to use Spring Session's own default cookie name (several do, since they're
+        # Spring Boot apps too) - two identically-named cookies with overlapping paths get sent
+        # together in one Cookie header, and which one a server reads is undefined. A
+        # Keycunda-specific name avoids that collision entirely.
+        name: KEYCUNDA_SESSION
+        path: /
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: keycunda
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  sql:
+    init:
+      mode: always
+      # Our own users table, plus a PostgreSQL-adapted copy of Spring Authorization Server's
+      # official schema for JdbcOAuth2AuthorizationService (issued tokens survive a restart /
+      # are shared across replicas instead of living in one pod's memory). Adapted, not used
+      # directly, because the packaged schema uses "blob"/"timestamp", which the schema file's
+      # own comment says to change to "text"/"timestamptz" for PostgreSQL.
+      schema-locations:
+        - classpath:schema.sql
+        - classpath:oauth2-authorization-schema-postgresql.sql
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: always
+
+keycunda:
+  camunda-domain: ${CAMUNDA_DOMAIN}
+  # PEM-encoded PKCS8 RSA private key, shared across replicas and stable across restarts, so
+  # already-issued tokens keep validating. If unset (local dev only), a fresh ephemeral key is
+  # generated at startup - fine for one instance, wrong for anything with more than one replica.
+  jwt-signing-key-pem: ${KEYCUNDA_JWT_SIGNING_KEY_PEM:}
+  demo-user:
+    name: ${DEMO_NAME:Demo User}
+    email: ${DEMO_EMAIL:demo@example.com}
+    password: ${DEMO_PASSWORD:demo}
+  clients:
+    identity:
+      secret: ${IDENTITY_IDENTITY_CLIENT_TOKEN}
+      audience: camunda-identity-resource-server
+    orchestration:
+      secret: ${IDENTITY_ORCHESTRATION_CLIENT_TOKEN}
+      audience: orchestration-api
+    connectors:
+      secret: ${IDENTITY_CONNECTORS_CLIENT_TOKEN}
+      audience: orchestration-api
+    optimize:
+      secret: ${IDENTITY_OPTIMIZE_CLIENT_TOKEN}
+      audience: optimize-api
+    web-modeler:
+      client-api-audience: web-modeler-api
+      public-api-audience: web-modeler-public-api
+
+logging:
+  level:
+    org.springframework.security: INFO

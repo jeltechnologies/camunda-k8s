@@ -20,9 +20,9 @@ data:
     #!/bin/bash
     set -e
     psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
-      CREATE USER "camunda-demo-identity-provider" WITH PASSWORD '${PASSWORD}';
-      CREATE DATABASE "camunda-demo-identity-provider" OWNER "camunda-demo-identity-provider";
-      GRANT ALL PRIVILEGES ON DATABASE "camunda-demo-identity-provider" TO "camunda-demo-identity-provider";
+      CREATE USER "keycunda" WITH PASSWORD '${PASSWORD}';
+      CREATE DATABASE "keycunda" OWNER "keycunda";
+      GRANT ALL PRIVILEGES ON DATABASE "keycunda" TO "keycunda";
       CREATE USER webmodeler WITH PASSWORD '${PASSWORD}';
       CREATE DATABASE "web-modeler" OWNER webmodeler;
       GRANT ALL PRIVILEGES ON DATABASE "web-modeler" TO webmodeler;

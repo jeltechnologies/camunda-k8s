@@ -23,7 +23,7 @@ microk8s kubectl rollout status deployment/camunda-identity -n "${NAMESPACE}" --
 # via its identity.base-url call (separate from orchestration.security.authorizations, which is
 # disabled). Identity's mapping-rule engine has no "match everyone" operator (only EQUALS/CONTAINS
 # on a specific claim), so this keys off the "demo_user" claim that
-# camunda-demo-identity-provider's AuthorizationServerConfig stamps "true" on every human login -
+# keycunda's AuthorizationServerConfig stamps "true" on every human login -
 # the closest equivalent to a blanket grant that the schema allows.
 echo "Ensuring the 'AllUsers' mapping rule exists..."
 microk8s kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- env PGPASSWORD="${PASSWORD}" psql -U identity -d identity -v ON_ERROR_STOP=1 -c "
