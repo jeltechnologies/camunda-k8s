@@ -133,6 +133,27 @@ microk8s kubectl rollout status statefulset/camunda-postgresql -n camunda --time
 echo "PostgreSQL installed. Service: camunda-postgresql:5432"
 
 echo "=================================================================="
+echo "Ensuring PostgreSQL app users/databases exist with the current password"
+echo "=================================================================="
+# camunda-postgresql-init only runs against a fresh PGDATA volume, so a
+# database added after this box's PVC was first initialized (or a $PASSWORD
+# that changed across runs) never gets picked up on re-install. Self-heal it
+# here: create anything missing (ignore "already exists"), then always
+# re-sync each user's password to the current $PASSWORD.
+for pair in "keycunda:keycunda" "webmodeler:web-modeler" "orchestration:orchestration" "identity:identity"; do
+  db_user="${pair%%:*}"
+  db_name="${pair##*:}"
+  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "CREATE USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';" || true
+  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "CREATE DATABASE \"${db_name}\" OWNER \"${db_user}\";" || true
+  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "GRANT ALL PRIVILEGES ON DATABASE \"${db_name}\" TO \"${db_user}\";"
+  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "ALTER USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';"
+done
+
+echo "=================================================================="
 echo Setting up RBAC for Keycunda Secrets Management functions
 echo "=================================================================="
 microk8s kubectl apply -f template-keycunda-rbac.yaml
