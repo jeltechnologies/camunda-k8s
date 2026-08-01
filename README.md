@@ -116,39 +116,34 @@ Drop connector JARs into `~/camunda-connectors` on the host.
 
 ## Secrets
 
-Connector credentials (API keys, connection strings, service-account JSON keys, ...) can be
-managed two ways:
+Connector credentials (API keys, connection strings, service-account JSON keys, ...) are managed
+entirely through **Keycunda's Secrets Management page** (`/auth/admin/secrets`, admin users only).
+Kubernetes is the source of truth here, not a database: the first time you open the page in a
+browser session, it fetches the live connectors Secret and holds a working copy in your session
+while you edit it. Add/edit/delete/import only change that in-memory working copy — nothing in the
+cluster changes until you click **Apply to cluster**, since the connectors pod only ever picks up a
+change after a restart anyway, so pushing every micro-edit through immediately would accomplish
+nothing except extra API calls. Values are masked with a click-to-view toggle, sorted by key, with
+unique-key enforcement.
 
-- **Keycunda's Secrets Management page** (`/auth/admin/secrets`). Kubernetes is the source of
-  truth here, not a database: the first time you open the page in a browser session, it fetches
-  the live connectors Secret and holds a working copy in your session while you edit it.
-  Add/edit/delete/import only change that in-memory working copy — nothing in the cluster changes
-  until you click **Apply to cluster**, since the connectors pod only ever picks up a change after
-  a restart anyway, so pushing every micro-edit through immediately would accomplish nothing
-  except extra API calls. Values are masked with a click-to-view toggle, sorted by key, with
-  unique-key enforcement.
-  - **Export** the working copy as a Kubernetes `kind: Secret` manifest (matching the shape
-    `update-connector-secrets.sh` expects) or as a `.env` file.
-  - **Import** a `.yaml`/`.yml` manifest or a `.env` file into the working copy, upserting by key
-    (existing keys are updated in place, nothing already staged is removed just because it's
-    absent from the imported file). The `.env` import intentionally accepts multi-line, unquoted
-    values — e.g. a service-account JSON key pasted directly after `KEY=` — not just strict
-    single-line `KEY=VALUE` entries.
-  - **Apply to cluster** — writes the working copy to the named Kubernetes Secret, re-fetches it
-    to verify the values actually landed, wires it into the connectors Deployment's `envFrom` if
-    it isn't already, and restarts the connectors pod so it picks up the new values. Requires the
-    RBAC granted in `template-keycunda-rbac.yaml` (applied automatically by
-    `2-install-camunda-microk8s.sh`).
-  - Values are **not** encrypted by this app — they sit in the cluster exactly as any
-    `kubectl create secret` would leave them (base64 in etcd, no additional encryption layer).
-    This is a demo/learning tool, not an enterprise secrets manager; if that's not enough
-    protection for your use case, that's a signal this isn't the right tool for it.
-- **By hand** — create a `connector-secrets.yaml` Kubernetes secret manifest yourself (or use
-  Keycunda's export above to produce one), then run:
-
-  ```bash
-  ./update-connector-secrets.sh
-  ```
+- **Add / edit / delete** secrets one at a time from the list, or **paste** a Kubernetes `kind:
+  Secret` manifest or `.env` content directly into a textarea — the page auto-detects which format
+  you pasted. Either way, pasted/imported keys already present in the working copy are updated in
+  place; nothing already staged is removed just because it's absent from what you pasted.
+- **Import** a `.yaml`/`.yml` manifest or a `.env` file instead, if you'd rather upload one. The
+  `.env` import intentionally accepts multi-line, unquoted values — e.g. a service-account JSON key
+  pasted directly after `KEY=` — not just strict single-line `KEY=VALUE` entries.
+- **Export** the working copy as a Kubernetes `kind: Secret` manifest or as a `.env` file, e.g. to
+  keep an offline backup or diff against a previous version.
+- **Apply to cluster** — writes the working copy to the named Kubernetes Secret, re-fetches it to
+  verify the values actually landed, wires it into the connectors Deployment's `envFrom` if it
+  isn't already, and restarts the connectors pod so it picks up the new values. Requires the RBAC
+  granted in `template-keycunda-rbac.yaml` (applied automatically by
+  `2-install-camunda-microk8s.sh`). A "please wait" overlay stays up until the restart finishes.
+- Values are **not** encrypted by this app — they sit in the cluster exactly as any
+  `kubectl create secret` would leave them (base64 in etcd, no additional encryption layer). This
+  is a demo/learning tool, not an enterprise secrets manager; if that's not enough protection for
+  your use case, that's a signal this isn't the right tool for it.
 
 ## Files
 
@@ -166,7 +161,6 @@ managed two ways:
 | `template-postgresql.yaml` | PostgreSQL StatefulSet |
 | `template-elasticsearch.yaml` | Elasticsearch StatefulSet |
 | `template-volumes.yaml` | Persistent volumes for documents and connectors |
-| `update-connector-secrets.sh` | Deploys custom connector secrets |
 | `tail-connector-logs.sh` | Tails connector logs in the terminal, handy for debugging and troubleshooting. |
 
 ## Versions

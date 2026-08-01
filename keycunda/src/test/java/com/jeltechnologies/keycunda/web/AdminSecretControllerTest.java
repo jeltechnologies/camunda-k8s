@@ -178,6 +178,57 @@ class AdminSecretControllerTest {
     }
 
     @Test
+    void importingPastedEnvTextUpsertsNewAndExistingKeys() throws Exception {
+        mockMvc.perform(post("/admin/secrets").session(session).with(csrf())
+                .param("key", "EXISTING_KEY").param("value", "old-value"));
+
+        mockMvc.perform(post("/admin/secrets/import-text").session(session).with(csrf())
+                        .param("pastedText", "EXISTING_KEY=updated-value\nBRAND_NEW_KEY=fresh-value\n"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/secrets"));
+
+        mockMvc.perform(get("/admin/secrets").session(session))
+                .andExpect(model().attribute("secrets", hasItem(new Secret("EXISTING_KEY", "updated-value"))))
+                .andExpect(model().attribute("secrets", hasItem(new Secret("BRAND_NEW_KEY", "fresh-value"))));
+    }
+
+    @Test
+    void importingPastedYamlTextUpsertsKeys() throws Exception {
+        String yaml = "apiVersion: v1\n"
+                + "kind: Secret\n"
+                + "metadata:\n"
+                + "  name: connector-secrets\n"
+                + "stringData:\n"
+                + "  FROM_YAML: yaml-value\n";
+
+        mockMvc.perform(post("/admin/secrets/import-text").session(session).with(csrf())
+                        .param("pastedText", yaml))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/secrets"));
+
+        mockMvc.perform(get("/admin/secrets").session(session))
+                .andExpect(model().attribute("secrets", hasItem(new Secret("FROM_YAML", "yaml-value"))));
+    }
+
+    @Test
+    void importingUnparseablePastedTextShowsAnError() throws Exception {
+        mockMvc.perform(post("/admin/secrets/import-text").session(session).with(csrf())
+                        .param("pastedText", "not a key-value pair at all, just prose."))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/secrets/import"))
+                .andExpect(flash().attributeExists("error"));
+    }
+
+    @Test
+    void importingBlankPastedTextShowsAnError() throws Exception {
+        mockMvc.perform(post("/admin/secrets/import-text").session(session).with(csrf())
+                        .param("pastedText", "   "))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/admin/secrets/import"))
+                .andExpect(flash().attributeExists("error"));
+    }
+
+    @Test
     void applyToClusterMarksTheJobSuccessfulAndResyncsTheWorkingCopy() throws Exception {
         when(clusterSecretsApplier.apply(any(), anyString())).thenReturn(Map.of("FOO", "bar"));
 

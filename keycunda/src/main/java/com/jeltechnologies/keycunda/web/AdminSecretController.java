@@ -7,7 +7,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
-import com.jeltechnologies.keycunda.config.KeycundaProperties;
 import com.jeltechnologies.keycunda.secret.ApplyJobStatus;
 import com.jeltechnologies.keycunda.secret.ClusterSecretsApplier;
 import com.jeltechnologies.keycunda.secret.DuplicateSecretKeyException;
@@ -23,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -57,20 +57,17 @@ public class AdminSecretController {
     private final SecretEnvCodec secretEnvCodec;
     private final ClusterSecretsApplier clusterSecretsApplier;
     private final ApplyJobStatus applyJobStatus;
-    private final KeycundaProperties keycundaProperties;
     // Single-threaded: apply-to-cluster runs are rare, admin-triggered, and mutate shared cluster
     // state (the connectors Deployment/pod) - serializing them avoids two runs racing each other.
     private final ExecutorService applyExecutor = Executors.newSingleThreadExecutor();
 
     public AdminSecretController(SecretsWorkingCopy secretsWorkingCopy, SecretYamlCodec secretYamlCodec,
-            SecretEnvCodec secretEnvCodec, ClusterSecretsApplier clusterSecretsApplier, ApplyJobStatus applyJobStatus,
-            KeycundaProperties keycundaProperties) {
+            SecretEnvCodec secretEnvCodec, ClusterSecretsApplier clusterSecretsApplier, ApplyJobStatus applyJobStatus) {
         this.secretsWorkingCopy = secretsWorkingCopy;
         this.secretYamlCodec = secretYamlCodec;
         this.secretEnvCodec = secretEnvCodec;
         this.clusterSecretsApplier = clusterSecretsApplier;
         this.applyJobStatus = applyJobStatus;
-        this.keycundaProperties = keycundaProperties;
     }
 
     @PreDestroy
@@ -92,7 +89,6 @@ public class AdminSecretController {
         ensureLoaded();
         model.addAttribute("secrets", secretsWorkingCopy.list());
         model.addAttribute("defaultSecretName", MANAGED_SECRET_NAME);
-        model.addAttribute("consoleUrl", "https://" + keycundaProperties.camundaDomain() + "/console");
         return "admin/secrets";
     }
 
@@ -220,6 +216,44 @@ public class AdminSecretController {
             return "redirect:/admin/secrets/import";
         }
         return "redirect:/admin/secrets";
+    }
+
+    @PostMapping("/admin/secrets/import-text")
+    public String importPastedText(@RequestParam String pastedText, RedirectAttributes redirectAttributes) {
+        ensureLoaded();
+        if (!StringUtils.hasText(pastedText)) {
+            redirectAttributes.addFlashAttribute("error", "Paste some YAML or .env content to import.");
+            return "redirect:/admin/secrets/import";
+        }
+        try {
+            Map<String, String> entries = parsePastedSecrets(pastedText);
+            long alreadyPresent = entries.keySet().stream().filter(key -> secretsWorkingCopy.find(key).isPresent()).count();
+            entries.forEach(secretsWorkingCopy::upsert);
+            long added = entries.size() - alreadyPresent;
+            redirectAttributes.addFlashAttribute("message",
+                    added + " secret(s) added, " + alreadyPresent + " updated (not yet applied to the cluster).");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Could not parse the pasted text as a Kubernetes Secret manifest or a .env file.");
+            return "redirect:/admin/secrets/import";
+        }
+        return "redirect:/admin/secrets";
+    }
+
+    // Tries the Kubernetes Secret YAML shape first (secretYamlCodec.parse throws if the content
+    // doesn't have that shape or has no data/stringData entries), then falls back to .env - the
+    // same auto-detection a human would do by eye, since pasted text carries no filename/extension
+    // to key off of the way the file-upload import above does.
+    private Map<String, String> parsePastedSecrets(String text) {
+        try {
+            return secretYamlCodec.parse(text);
+        } catch (RuntimeException notYaml) {
+            Map<String, String> entries = secretEnvCodec.parse(text);
+            if (entries.isEmpty()) {
+                throw new IllegalArgumentException("Recognized neither a Kubernetes Secret manifest nor .env content.");
+            }
+            return entries;
+        }
     }
 
     @PostMapping("/admin/secrets/apply-to-cluster")

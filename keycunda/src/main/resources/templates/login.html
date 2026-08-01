@@ -37,17 +37,14 @@
 <body>
     <div class="top-bar">
         <a class="logo" th:href="@{/admin}">
-            <img th:src="@{/images/c-logo.png}" alt="Keycunda"/>
-            <span class="app-name">Keycunda</span>
+            <img th:src="@{/images/c-logo.png}" alt="Camunda"/>
+            <span class="app-name">Camunda</span>
         </a>
-        <div class="right">
-            <a class="btn-secondary" th:href="@{/admin/users}">Manage Users</a>
-        </div>
     </div>
 
     <div class="login-content">
         <div class="login-card">
-            <h1 th:text="${manageUsersFlow} ? 'User Management' : 'Welcome to Keycunda'">Welcome to Keycunda</h1>
+            <h1 th:text="${manageUsersFlow} ? 'User Management' : 'Welcome to Camunda'">Welcome to Camunda</h1>
             <p class="error" th:if="${param.error}">Invalid email or password.</p>
             <form method="post" th:action="@{/login}">
                 <label for="email">Email</label>

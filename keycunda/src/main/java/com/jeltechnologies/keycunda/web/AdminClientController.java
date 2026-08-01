@@ -58,7 +58,6 @@ public class AdminClientController {
     @GetMapping("/admin/clients")
     public String list(Model model) {
         model.addAttribute("clients", clientRepository.findAll());
-        model.addAttribute("consoleUrl", "https://" + keycundaProperties.camundaDomain() + "/console");
         return "admin/clients";
     }
 

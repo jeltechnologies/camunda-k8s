@@ -32,9 +32,7 @@ public class ApplyJobStatus {
     private final AtomicReference<Job> current = new AtomicReference<>();
 
     public void markRunning() {
-        current.set(new Job(State.RUNNING,
-                "Applying secrets to the cluster and restarting the connectors pod - this can take a minute or two...",
-                null));
+        current.set(new Job(State.RUNNING, "Applying secrets and restarting connectors...", null));
     }
 
     public void markSuccess(String message, Map<String, String> verifiedSecrets) {

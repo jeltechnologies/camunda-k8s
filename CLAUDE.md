@@ -32,7 +32,6 @@ not present it as a production-hardened component.
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
 | `keycunda/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
 | `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or an `keycunda-v*` tag. |
-| `update-connector-secrets.sh` | Applies optional `connector-secrets.yaml`, patches the connectors Deployment with `envFrom`, restarts the pod. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
 | `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via keycunda's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
@@ -94,8 +93,11 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
    for each
 9. `helm uninstall camunda || true`, delete the connectors PV/PVC, regenerate values, recreate
    host dirs + PVs, `helm install camunda camunda/camunda-platform --wait --timeout 20m`
-10. `./update-connector-secrets.sh`
-11. `./seed-identity-mapping-rules.sh`
+10. `./seed-identity-mapping-rules.sh`
+
+Connector secrets are no longer applied by the install script at all — that's now entirely a
+post-install, admin-triggered action via Keycunda's Secrets Management page (see the "Secrets
+Management" architecture note below and the README's "Secrets" section).
 
 Re-running is the supported upgrade path: only the Helm release is torn down. The Elasticsearch,
 PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place, so
@@ -282,11 +284,13 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   "fixed" into it. Import always upserts by key; nothing already staged is ever removed by an
   import just because it's absent from the imported file.
 - **"Apply to cluster" (`secret/ClusterSecretsApplier.java`) talks to the Kubernetes API directly
-  via the fabric8 `kubernetes-client` Java library, not by shelling out to `update-connector-secrets.sh`
-  from inside the pod.** That script needs `microk8s kubectl` and a host shell context neither of
-  which exist inside the Keycunda container - reusing it as-is was never actually
-  possible, so this is a from-scratch reimplementation of the same delete/create-Secret,
-  patch-Deployment-envFrom, delete-pod, wait-for-rollout steps, not a wrapper around the script.
+  via the fabric8 `kubernetes-client` Java library, not by shelling out to a script from inside the
+  pod.** An earlier iteration of this feature was a plain bash script
+  (`update-connector-secrets.sh`, since removed - it needed `microk8s kubectl` and a host shell
+  context, neither of which exist inside the Keycunda container, so reusing it as-is was never
+  actually possible) run manually as an install step; `ClusterSecretsApplier` is a from-scratch
+  reimplementation of the same delete/create-Secret, patch-Deployment-envFrom, delete-pod,
+  wait-for-rollout steps, triggered from the admin UI instead of a separate manual script run.
   After writing the Secret, `apply()` re-fetches it and compares against what was submitted before
   doing anything else, throwing if they don't match - the explicit "verify it actually loaded"
   step this feature was built around, not just a write-and-hope. Needs its own RBAC: a
@@ -295,12 +299,12 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   get/list/create/update/delete on `secrets`, get/list/patch on `deployments`, and get/list/delete
   on `pods` - all namespaced to `camunda`, defined in `template-keycunda-rbac.yaml` and
   applied by `2-install-camunda-microk8s.sh` before the Keycunda Deployment itself (the
-  Deployment references the ServiceAccount by name, so it must already exist). Unlike the bash
-  script's unconditional JSON-patch append (which would add a duplicate `envFrom` entry on every
-  re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
+  Deployment references the ServiceAccount by name, so it must already exist). Unlike the old
+  script's unconditional JSON-patch append (which would have added a duplicate `envFrom` entry on
+  every re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
   references the target Secret name before patching, so repeated applies stay idempotent. The
-  connectors Deployment/pod are found by a case-insensitive name match containing "connector"
-  (same fuzzy-match approach `update-connector-secrets.sh` already uses), not a hardcoded name.
+  connectors Deployment/pod are found by a case-insensitive name match containing "connector", not
+  a hardcoded name.
 
   The apply itself runs on a background thread from `AdminSecretController` (a dedicated
   single-thread `ExecutorService`, so two clicks in a row can't race each other) with progress

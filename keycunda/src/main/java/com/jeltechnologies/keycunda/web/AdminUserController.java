@@ -2,7 +2,6 @@ package com.jeltechnologies.keycunda.web;
 
 import java.util.UUID;
 
-import com.jeltechnologies.keycunda.config.KeycundaProperties;
 import com.jeltechnologies.keycunda.user.User;
 import com.jeltechnologies.keycunda.user.UserRepository;
 
@@ -23,21 +22,15 @@ public class AdminUserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final KeycundaProperties keycundaProperties;
 
-    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder,
-            KeycundaProperties keycundaProperties) {
+    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.keycundaProperties = keycundaProperties;
     }
 
     @GetMapping("/admin/users")
     public String list(Model model) {
         model.addAttribute("users", userRepository.findAll());
-        // Reached only while already authenticated (this whole path requires ROLE_ADMIN), so
-        // "back to Camunda" goes straight to Console rather than through /login again.
-        model.addAttribute("consoleUrl", "https://" + keycundaProperties.camundaDomain() + "/console");
         return "admin/users";
     }
 
