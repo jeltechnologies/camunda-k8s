@@ -71,10 +71,16 @@ spec:
                 port:
                   number: 80
 ---
-# "/keycunda/secrets" (and any subpath under it) -> Secrets Management specifically. Regex
-# captures an optional subpath INCLUDING its leading slash as one group, so "/keycunda/secrets"
-# alone rewrites to exactly "/auth/admin/secrets" (no trailing slash) instead of leaving a
-# dangling "/" that Spring's routing may not treat as equivalent.
+# "/keycunda/secrets", "/keycunda/users" and "/keycunda/clients" (and any subpath under each) ->
+# Secrets/Users/Clients Management specifically - the same friendly-alias treatment, one Ingress
+# object per target since rewrite-target is per-Ingress-object. Regex captures an optional subpath
+# INCLUDING its leading slash as one group, so e.g. "/keycunda/secrets" alone rewrites to exactly
+# "/auth/admin/secrets" (no trailing slash) instead of leaving a dangling "/" that Spring's routing
+# may not treat as equivalent. /auth itself is meant to stay login/OIDC-only now - see nav.html,
+# which links Users/Clients/Secrets via these plain /keycunda/* paths rather than the app's own
+# /auth context-path (add-user.html/edit-user.html/add-client.html/edit-client.html's internal
+# form actions and redirects still round-trip through /auth/admin/... under the hood, same as
+# Secrets already did - only the entry-point links were meant to move, not every internal hop).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -100,6 +106,70 @@ spec:
       http:
         paths:
           - path: /keycunda/secrets(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-users-alias-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /auth/admin/users$1
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /keycunda/users(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-clients-alias-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /auth/admin/clients$1
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /keycunda/clients(/.*)?$
             pathType: ImplementationSpecific
             backend:
               service:

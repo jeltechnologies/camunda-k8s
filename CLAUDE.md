@@ -115,8 +115,9 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   (`ES_VERSION`, `PG_VERSION`, `KEYCUNDA_IMAGE`) and as `DEFAULT_*` prompts for the Camunda Helm chart
   and app version. `KEYCUNDA_IMAGE` is deliberately **not** prompted, unlike the Camunda-side versions
   — Keycunda is expected to need no end-user tuning once it's running, so bumping it
-  is a code change (this constant), not something to surface in the wizard. If you bump any of
-  these, **update the Versions table in `README.md` to match** — it is maintained by hand.
+  is a code change (this constant), not something to surface in the wizard. README.md is
+  user-facing and deliberately stays high-level (no versions table, no internals) — this file is
+  where version pins and other implementation detail belong, not README.md.
 
 ## Architecture facts that are easy to get wrong
 
@@ -258,6 +259,19 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   you need to understand what changed between that pass and this one. **One thing deliberately did
   not change:** the OIDC endpoints still live at `/auth` — that's Camunda's own convention for
   this role, not Keycunda's brand name, so it stays regardless of what the app itself is called.
+  `/auth` itself is meant to be login/OIDC only now, though — every human-facing admin page
+  (portal, Users, Clients, Secrets) is reached through a friendly `/keycunda`/`/keycunda/users`/
+  `/keycunda/clients`/`/keycunda/secrets` alias instead, each its own nginx Ingress object in
+  `template-keycunda-ingress.yaml` (`rewrite-target` is per-Ingress-object, so one alias path needs
+  one object) rewriting server-side to `/auth/admin...` before the request reaches the app — the
+  app itself has no idea any of these aliases exist, it only ever sees `/auth/admin/...`.
+  `admin/fragments/nav.html` links Users/Clients/Secrets via these plain `/keycunda/*` paths
+  (not `th:href="@{...}"`, which would resolve against the app's own `/auth` context-path and
+  defeat the point). This only covers entry-point navigation, not every internal hop: the
+  add/edit/delete forms and controller redirects on those pages still round-trip through
+  `/auth/admin/...` under the hood (same as Secrets already did before Users/Clients got the same
+  treatment), so the address bar does flip to `/auth/...` once you submit a form rather than just
+  click a nav link.
   The portal is organized into two areas: **Identity Management** (Users, Clients) and **Secrets
   Management** (the connectors Kubernetes Secret, described next) — deliberately not framed as an
   open-ended "Cluster Management" category anymore, since the portal shouldn't imply more
@@ -276,8 +290,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   choice, not an oversight: an earlier version of this feature stored secrets encrypted (AES-GCM)
   in this app's own Postgres database with Kubernetes as a derived export target, but that's
   needless complexity for what CLAUDE.md already frames as a demo/learning tool, not an enterprise
-  secrets manager - see the README's "Secrets" section for the user-facing version of this
-  tradeoff. The `.env` import parser (`SecretEnvCodec`) is deliberately non-standard: any line that
+  secrets manager. The `.env` import parser (`SecretEnvCodec`) is deliberately non-standard: any line that
   isn't itself a new `KEY=` assignment is treated as a continuation of the previous key's value
   (newline preserved), so a multi-line, unquoted value - e.g. a GCP service-account JSON key pasted
   straight after `KEY=` - round-trips correctly. This is not strict dotenv syntax and should not be

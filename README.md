@@ -80,4 +80,4 @@ Drop connector JARs into `~/camunda-connectors` on the host.
 
 ## Secrets
 
-Secrets are managed with Keymunda, accessible at https://your-camunda/keycunda
+Secrets are managed with Keycunda, accessible at https://your-camunda/keycunda

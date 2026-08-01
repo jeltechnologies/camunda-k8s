@@ -12,9 +12,11 @@
         .welcome-panel p {
             line-height: 1.5;
         }
-        .welcome-panel ul {
-            padding-left: 1.2rem;
-            line-height: 1.6;
+        .continue-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 0.75rem;
         }
         .disclaimer {
             margin-top: 1.5rem;
@@ -33,23 +35,18 @@
 
     <div class="content">
         <div class="panel welcome-panel">
-            <h1>Welcome to Keycunda</h1>
-            <p>
-                Keycunda is the OIDC identity provider for this Camunda 8 demo/learning environment.
-                It replaces Keycloak with a small, purpose-built alternative for exactly what a demo
-                box needs - nothing more.
-            </p>
-            <div th:if="${isAdmin}">
-                <p>Use the links in the top bar to get to:</p>
-                <ul>
-                    <li><strong>Identity Management</strong> - human user accounts and the OAuth2
-                        client-credentials applications ("Clients") external integrations
-                        authenticate as.</li>
-                    <li><strong>Secrets Management</strong> - an editable working copy of the
-                        connectors deployment's Kubernetes Secret, importable/exportable and
-                        applied to the cluster on demand.</li>
-                </ul>
+            <h1>Welcome to Camunda</h1>
+            <p>Keycunda handles sign-in and secrets for this Camunda 8 environment.</p>
+
+            <h2>Continue to Camunda</h2>
+            <div class="continue-links">
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
             </div>
+
             <div class="disclaimer">
                 <p>
                     Keycunda contains Identity Management and Kubernetes Secrets Management for

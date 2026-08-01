@@ -48,17 +48,18 @@
                 <a href="/keycunda">Keycunda</a>
             </div>
         </details>
-        <!-- Plain "/keycunda"/"/keycunda/secrets", not th:url @{...}: these deliberately step
-             outside Keycunda's own /auth servlet context-path. The ingress rewrites them
-             server-side to /auth/admin and /auth/admin/secrets respectively before the request
-             ever reaches the app - see template-keycunda-ingress.yaml. -->
+        <!-- Plain "/keycunda", "/keycunda/users", etc., not th:url @{...}: these deliberately step
+             outside Keycunda's own /auth servlet context-path, which is meant to stay login/OIDC
+             only now. The ingress rewrites them server-side to /auth/admin, /auth/admin/users,
+             /auth/admin/clients and /auth/admin/secrets respectively before the request ever
+             reaches the app - see template-keycunda-ingress.yaml. -->
         <a class="logo" href="/keycunda">
             <img th:src="@{/images/c-logo.png}" alt="Keycunda"/>
             <span class="app-name">Keycunda</span>
         </a>
         <nav th:if="${isAdmin}">
-            <a th:href="@{/admin/users}" th:classappend="${active == 'users'} ? 'active'">Users</a>
-            <a th:href="@{/admin/clients}" th:classappend="${active == 'clients'} ? 'active'">Clients</a>
+            <a href="/keycunda/users" th:classappend="${active == 'users'} ? 'active'">Users</a>
+            <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">Clients</a>
             <span class="nav-divider"></span>
             <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
         </nav>
