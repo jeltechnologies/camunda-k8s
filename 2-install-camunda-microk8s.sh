@@ -143,10 +143,18 @@ echo "=================================================================="
 for pair in "keycunda:keycunda" "webmodeler:web-modeler" "orchestration:orchestration" "identity:identity"; do
   db_user="${pair%%:*}"
   db_name="${pair##*:}"
-  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "CREATE USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';" || true
-  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "CREATE DATABASE \"${db_name}\" OWNER \"${db_user}\";" || true
+  if microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "CREATE USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';" >/dev/null 2>&1; then
+    echo "Role ${db_user} created"
+  else
+    echo "Role ${db_user} exists"
+  fi
+  if microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
+    "CREATE DATABASE \"${db_name}\" OWNER \"${db_user}\";" >/dev/null 2>&1; then
+    echo "Database ${db_name} created"
+  else
+    echo "Database ${db_name} exists"
+  fi
   microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
     "GRANT ALL PRIVILEGES ON DATABASE \"${db_name}\" TO \"${db_user}\";"
   microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
@@ -168,8 +176,27 @@ echo "Waiting for Keycunda to be ready..."
 microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=5m
 echo "Keycunda installed. Service: keycunda.camunda:80/auth"
 
-envsubst '${CAMUNDA_DOMAIN}' \
-  < template-keycunda-ingress.yaml | microk8s kubectl apply -f -
+echo "=================================================================="
+echo "Removing legacy pre-Keycunda identity provider resources, if present"
+echo "=================================================================="
+# A box installed before the Keycloak/"Demo Identity Provider"/Caddy -> Keycunda
+# rename can still have a "camunda-demo-identity-provider" Deployment/Service/
+# Ingress lying around - nothing in this repo templates that name anymore, but
+# its Ingress claims the same host+path as keycunda-ingress (/auth), which
+# breaks nginx routing for both. Safe to remove unconditionally: keycunda has
+# fully replaced it.
+microk8s kubectl delete ingress camunda-demo-identity-provider-ingress -n camunda --ignore-not-found
+microk8s kubectl delete deployment camunda-demo-identity-provider -n camunda --ignore-not-found
+microk8s kubectl delete svc camunda-demo-identity-provider -n camunda --ignore-not-found
+
+echo "=================================================================="
+echo "Installing Keycunda ingress"
+echo "=================================================================="
+# Delete-then-apply instead of a plain apply, so stale/conflicting rules from
+# a previous run never linger - the ingress is always recreated fresh.
+rendered_keycunda_ingress=$(envsubst '${CAMUNDA_DOMAIN}' < template-keycunda-ingress.yaml)
+echo "${rendered_keycunda_ingress}" | microk8s kubectl delete -f - --ignore-not-found
+echo "${rendered_keycunda_ingress}" | microk8s kubectl apply -f -
 
 echo "=================================================================="
 echo Uninstalling previous Camunda installation if present
