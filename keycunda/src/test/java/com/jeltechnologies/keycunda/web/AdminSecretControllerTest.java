@@ -84,6 +84,31 @@ class AdminSecretControllerTest {
                 .andExpect(model().attribute("secretsMap", Map.of("LIVE_KEY", "live-value")));
     }
 
+    @Test
+    void selfManagedExportKeepsTheSecretPrefix() throws Exception {
+        when(clusterSecretsApplier.fetch(anyString())).thenReturn(Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143"));
+
+        mockMvc.perform(get("/admin/secrets/export.env"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("SECRET_INBOUND_MAIL_IMAP_PORT=16143")));
+
+        mockMvc.perform(get("/admin/secrets/export.env").param("target", "self-managed"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("SECRET_INBOUND_MAIL_IMAP_PORT=16143")));
+    }
+
+    @Test
+    void saasExportStripsTheSecretPrefix() throws Exception {
+        when(clusterSecretsApplier.fetch(anyString()))
+                .thenReturn(Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143", "ALREADY_UNPREFIXED", "value"));
+
+        mockMvc.perform(get("/admin/secrets/export.env").param("target", "saas"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("INBOUND_MAIL_IMAP_PORT=16143")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("SECRET_INBOUND_MAIL_IMAP_PORT"))))
+                .andExpect(content().string(containsString("ALREADY_UNPREFIXED=value")));
+    }
+
     /** Regression test: the page's client-side fetch() calls must use context-path-aware URLs
      * (Thymeleaf @{...}), not bare string literals - a bare '/admin/secrets/...' skips the app's
      * "/auth" servlet context-path, which nginx's ingress has no rule for at all, so the request

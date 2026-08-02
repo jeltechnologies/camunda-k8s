@@ -64,6 +64,13 @@ public class AdminSecretController {
     // SecretYamlCodec.DEFAULT_SECRET_NAME for why.
     private static final String MANAGED_SECRET_NAME = SecretYamlCodec.DEFAULT_SECRET_NAME;
 
+    // Camunda 8.9+'s self-managed connector-runtime only resolves environment-variable-backed
+    // secrets whose name carries this prefix (EnvironmentSecretProvider) - SaaS's Console-managed
+    // secrets have no such convention, since SaaS never exposes secrets as raw container env vars
+    // to begin with. Mirrored in secrets.html's client-side auto-prefixing (KEY_PREFIX); used here
+    // only to strip it back off for a "Camunda SaaS" export - self-managed exports keep it as-is.
+    private static final String SELF_MANAGED_SECRET_PREFIX = "SECRET_";
+
     private final SecretYamlCodec secretYamlCodec;
     private final SecretEnvCodec secretEnvCodec;
     private final ClusterSecretsApplier clusterSecretsApplier;
@@ -96,15 +103,31 @@ public class AdminSecretController {
 
     @GetMapping("/admin/secrets/export.yaml")
     public ResponseEntity<String> exportYaml(
-            @RequestParam(defaultValue = SecretYamlCodec.DEFAULT_SECRET_NAME) String secretName) {
-        String yaml = secretYamlCodec.export(toSortedList(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME)), secretName);
+            @RequestParam(defaultValue = SecretYamlCodec.DEFAULT_SECRET_NAME) String secretName,
+            @RequestParam(defaultValue = "self-managed") String target) {
+        Map<String, String> forTarget = stripPrefixForSaas(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME), target);
+        String yaml = secretYamlCodec.export(toSortedList(forTarget), secretName);
         return download(yaml, "connector-secrets.yaml", "application/x-yaml");
     }
 
     @GetMapping("/admin/secrets/export.env")
-    public ResponseEntity<String> exportEnv() {
-        String env = secretEnvCodec.export(toSortedList(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME)));
+    public ResponseEntity<String> exportEnv(@RequestParam(defaultValue = "self-managed") String target) {
+        Map<String, String> forTarget = stripPrefixForSaas(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME), target);
+        String env = secretEnvCodec.export(toSortedList(forTarget));
         return download(env, "secrets.env", "text/plain");
+    }
+
+    /** "self-managed" (the default) exports keys as-is; "saas" strips the SECRET_ prefix back off,
+     * since Camunda SaaS's Console-managed secrets have no such convention. */
+    private static Map<String, String> stripPrefixForSaas(Map<String, String> secrets, String target) {
+        if (!"saas".equals(target)) {
+            return secrets;
+        }
+        Map<String, String> stripped = new TreeMap<>();
+        secrets.forEach((key, value) -> stripped.put(
+                key.startsWith(SELF_MANAGED_SECRET_PREFIX) ? key.substring(SELF_MANAGED_SECRET_PREFIX.length()) : key,
+                value));
+        return stripped;
     }
 
     /** Parses an uploaded .yaml/.yml/.env file and hands the entries back as JSON - it never
