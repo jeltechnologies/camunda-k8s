@@ -281,26 +281,56 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   Management** (the connectors Kubernetes Secret, described next) — deliberately not framed as an
   open-ended "Cluster Management" category anymore, since the portal shouldn't imply more
   functions are coming before they actually exist.
-- **Secrets Management (`secret/`, `web/AdminSecretController.java`) treats Kubernetes itself as the
-  source of truth - there is no database table for it.** `secret/SecretsWorkingCopy.java` is a
-  `@SessionScope` bean holding an in-memory, per-admin-session copy of the connectors Secret's
-  key/value pairs. The first time an admin opens `/admin/secrets` in a browser session,
-  `AdminSecretController.ensureLoaded()` fetches the live Secret (via
-  `ClusterSecretsApplier.fetch`) and seeds the working copy; every add/edit/delete/import after
-  that only mutates the in-memory copy, never Kubernetes directly - the connectors pod only ever
-  picks up a change after a restart anyway, so pushing every micro-edit through immediately would
-  accomplish nothing except extra API calls. Values are **not** encrypted anywhere - they sit in
-  the working copy in plaintext and, once applied, in the cluster exactly as any
-  `kubectl create secret` would leave them (base64 in etcd, no extra layer). This was a deliberate
-  choice, not an oversight: an earlier version of this feature stored secrets encrypted (AES-GCM)
-  in this app's own Postgres database with Kubernetes as a derived export target, but that's
-  needless complexity for what CLAUDE.md already frames as a demo/learning tool, not an enterprise
-  secrets manager. The `.env` import parser (`SecretEnvCodec`) is deliberately non-standard: any line that
+- **Secrets Management (`secret/`, `web/AdminSecretController.java`, `secrets.html`) treats
+  Kubernetes itself as the source of truth for reads - there is no database table for it, and no
+  HTTP session cache either.** The list page fetches the live connectors Secret fresh via
+  `ClusterSecretsApplier.fetch` on every single load, full stop - reloading the page is the only way
+  to be sure you're looking at what's actually in the cluster. An earlier version staged edits in a
+  `@SessionScope` bean (`SecretsWorkingCopy`, since deleted) seeded once per browser session and
+  only pushed back on an explicit "Apply to cluster" click. That cache went stale in a way that cost
+  real debugging time: a Keycunda upgrade changed which Secret name is managed (see
+  `SecretYamlCodec.DEFAULT_SECRET_NAME` below), and an admin's already-open browser session kept
+  showing the old Secret's contents indefinitely, because nothing ever forced a re-fetch once a
+  session had loaded once.
+
+  A second version of this feature (briefly) went to the opposite extreme - every add/edit/delete/
+  import applied to Kubernetes and restarted the connectors pod immediately, with no staging at
+  all - correct, but a poor fit for actually editing several secrets in a row (a restart-and-wait
+  per keystroke). **The current design keeps reads always-live but moves staging out of the server
+  entirely, into the browser**: `secrets.html` bootstraps a plain JS object from the page's initial
+  live snapshot (via Thymeleaf JavaScript inlining - `th:inline="javascript"`, `secretsMap` model
+  attribute), and add/edit/delete/import all mutate that in-memory JS object and re-render the
+  table client-side - no server round trip, no restart, nothing written anywhere. Import
+  (`POST /admin/secrets/import` / `import-text`) is now a parse-only JSON API: it decodes the
+  uploaded/pasted YAML or .env content and hands the entries straight back to the browser to merge,
+  it never touches Kubernetes. The **only** endpoint that writes anything is
+  `POST /admin/secrets/apply-to-cluster`, which takes the browser's *entire* current working set as
+  a JSON body (not an incremental diff) and submits it wholesale through the same background-job/
+  status-page mechanism described below. Reloading the list page afterward re-fetches live from
+  Kubernetes again, so staleness can never survive longer than the current, unsaved browser tab -
+  closing the tab without clicking "Apply to cluster" simply discards the edits, same as closing a
+  spreadsheet without saving. Values are **not** encrypted anywhere - they sit in the cluster
+  exactly as any `kubectl create secret` would leave them (base64 in etcd, no extra layer). This was
+  a deliberate choice, not an oversight: an earlier version of this feature stored secrets encrypted
+  (AES-GCM) in this app's own Postgres database with Kubernetes as a derived export target, but
+  that's needless complexity for what CLAUDE.md already frames as a demo/learning tool, not an
+  enterprise secrets manager. The `.env` import parser (`SecretEnvCodec`) is deliberately non-standard: any line that
   isn't itself a new `KEY=` assignment is treated as a continuation of the previous key's value
   (newline preserved), so a multi-line, unquoted value - e.g. a GCP service-account JSON key pasted
   straight after `KEY=` - round-trips correctly. This is not strict dotenv syntax and should not be
-  "fixed" into it. Import always upserts by key; nothing already staged is ever removed by an
-  import just because it's absent from the imported file.
+  "fixed" into it. Import always upserts by key into the browser's current working set; nothing
+  already present is ever removed by an import just because it's absent from the imported file.
+  **The managed Secret's name (`SecretYamlCodec.DEFAULT_SECRET_NAME`) is `"connector-secrets"`, not
+  `"camunda-connector-secrets"`** - found the hard way after an install where the old
+  `update-connector-secrets.sh` script (see below) had already wired the connectors Deployment's
+  `envFrom` to a Secret named `connector-secrets` on a previous run, but a since-fixed version of
+  this constant defaulted to `camunda-connector-secrets` instead, so the admin UI silently created
+  and edited a *different*, disconnected Secret that the connectors pod never read from - values
+  added through the page never reached the pod, with no error anywhere to suggest why. Whatever
+  this constant is set to must match the name the real Deployment's `envFrom` needs; if you ever
+  need to confirm which Secret name is actually live, `kubectl get deployment camunda-connectors -n
+  camunda -o jsonpath='{.spec.template.spec.containers[0].envFrom}'` is the ground truth, not
+  a recollection of which script or UI was used last.
 - **"Apply to cluster" (`secret/ClusterSecretsApplier.java`) talks to the Kubernetes API directly
   via the fabric8 `kubernetes-client` Java library, not by shelling out to a script from inside the
   pod.** An earlier iteration of this feature was a plain bash script
@@ -324,19 +354,37 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   connectors Deployment/pod are found by a case-insensitive name match containing "connector", not
   a hardcoded name.
 
+  **This imperative `envFrom` patch is not by itself durable across a reinstall, and that gap was
+  a second real bug behind connector secrets silently not reaching the pod.** `2-install-camunda-
+  microk8s.sh`'s supported reinstall path is `helm uninstall camunda` followed by a fresh
+  `helm install` on every run (see "Install flow" above) - that recreates the connectors Deployment
+  from the Helm chart's rendered values with no memory of any prior `kubectl`-level patch, so the
+  `envFrom` reference `ClusterSecretsApplier` had added disappeared on every reinstall, silently,
+  with no error anywhere. Fixed by also declaring the same reference directly in
+  `template-values-camunda.yaml`'s `connectors.envFrom` (the chart supports it natively), marked
+  `optional: true` so a fresh install - before this Secret has ever been created via the Secrets
+  Management page - doesn't leave the connectors pod stuck in `ContainerCreating`. Both halves
+  matter for different reasons: the Helm value makes the reference survive every reinstall from the
+  start, while `ClusterSecretsApplier.ensureEnvFromReference`'s imperative check-and-patch stays in
+  place as a defensive idempotent no-op (useful for an environment mid-upgrade that hasn't re-run
+  the full install script yet). If you ever suspect this is broken again, the ground truth is
+  `kubectl get deployment camunda-connectors -n camunda -o jsonpath='{.spec.template.spec.containers[0].envFrom}'`
+  and `kubectl exec deploy/camunda-connectors -n camunda -- env` - not a recollection of which
+  secret name was used last.
+
   The apply itself runs on a background thread from `AdminSecretController` (a dedicated
-  single-thread `ExecutorService`, so two clicks in a row can't race each other) with progress
-  tracked in `secret/ApplyJobStatus.java` - a single in-memory mutable slot, not persisted, which
-  is fine only because the pod runs at `replicas: 1`; a pod restart mid-apply is meant to read as
-  "nothing running" rather than resurrect a stale job. The status page polls via a plain
-  `<meta http-equiv="refresh">` (no JavaScript) until the job leaves the RUNNING state. **Critical
-  constraint found the hard way: that background thread must never touch `SecretsWorkingCopy`
-  directly.** It has no HTTP request/session bound to it, so resolving the session-scoped proxy
-  throws `IllegalStateException: Scope 'session' is not active for the current thread`. That's why
-  `ApplyJobStatus.Job` carries the verified, freshly-fetched secret map as plain data, and why the
-  actual `secretsWorkingCopy.load(...)` resync happens in `AdminSecretController.applyStatus()`
-  (the GET handler for the status page) instead of inside the background thread's lambda - that
-  handler runs on a normal request thread, where the session-scoped bean resolves fine.
+  single-thread `ExecutorService`, so two "Apply to cluster" clicks submitted close together can't
+  race each other) with progress tracked in `secret/ApplyJobStatus.java` - a single in-memory
+  mutable slot, not persisted, which is fine only because the pod runs at `replicas: 1`; a pod
+  restart mid-apply is meant to read as "nothing running" rather than resurrect a stale job.
+  `apply-status.html` (the polling page navigated to after clicking "Apply to cluster") still
+  polls via a plain `<meta http-equiv="refresh">` with no JavaScript, matching the rest of this
+  app's zero-JS convention - `secrets.html` itself is the one deliberate exception to that
+  convention now, since client-side staging needs it. This used to
+  also be where a resync-the-session-working-copy step lived, with a real constraint around it (the
+  background thread has no HTTP session bound to it, so touching a `@SessionScope` bean from there
+  threw `IllegalStateException: Scope 'session' is not active for the current thread`) - that whole
+  concern disappeared along with the working copy itself, since there's nothing left to resync.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`

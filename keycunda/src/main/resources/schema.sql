@@ -39,5 +39,5 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
 ALTER TABLE oauth_clients ADD COLUMN IF NOT EXISTS secret VARCHAR(255);
 ALTER TABLE oauth_clients ADD COLUMN IF NOT EXISTS audience VARCHAR(500);
 
--- No table for Secrets Management: Kubernetes is the source of truth there, not this database -
--- see secret/Secret.java and secret/SecretsWorkingCopy.java.
+-- No table for Secrets Management: Kubernetes is the source of truth there, not this database and
+-- not an HTTP session either - see secret/Secret.java and web/AdminSecretController.java.

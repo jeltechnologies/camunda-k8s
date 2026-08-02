@@ -18,8 +18,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Secrets Management: reads and writes the connectors Kubernetes Secret directly -
- * Kubernetes is the source of truth for Secrets Management (see {@link SecretsWorkingCopy}), not a
- * local database. Mirrors {@code update-connector-secrets.sh}'s own delete/create/patch/restart/
+ * Kubernetes is the source of truth for Secrets Management, not a local database or an HTTP
+ * session (see {@code AdminSecretController}, which fetches fresh here on every request rather
+ * than caching between them). Mirrors {@code update-connector-secrets.sh}'s own delete/create/patch/restart/
  * wait steps, just via the fabric8 Kubernetes client instead of shelling out to {@code kubectl} -
  * see the top-level CLAUDE.md for why (this app's container has no {@code kubectl} binary, and
  * re-implementing the script for in-cluster use would have meant a second, hard-to-test copy of
@@ -50,7 +51,8 @@ public class ClusterSecretsApplier {
     }
 
     /** Reads the live Secret's key/value pairs - empty map if it doesn't exist yet (first-time
-     * use). Used to seed {@link SecretsWorkingCopy} on first visit to the Secrets page. */
+     * use). Called fresh on every Secrets page load and before every mutation - see
+     * {@code AdminSecretController}. */
     public Map<String, String> fetch(String secretName) {
         io.fabric8.kubernetes.api.model.Secret existing =
                 client.secrets().inNamespace(NAMESPACE).withName(secretName).get();
@@ -58,8 +60,8 @@ public class ClusterSecretsApplier {
     }
 
     /** Writes, verifies, wires up and restarts - returns the verified, freshly-fetched contents
-     * so the caller (see AdminSecretController) can resync {@link SecretsWorkingCopy} to the
-     * confirmed live state without a second round trip. */
+     * so the caller (see AdminSecretController) has the confirmed live state without a second
+     * round trip, if it needs it. */
     public Map<String, String> apply(List<Secret> secrets, String secretName) {
         Map<String, String> intended = toMap(secrets);
         applySecret(intended, secretName);

@@ -178,6 +178,18 @@ connectors:
     requests:
       cpu: 50m
       memory: 256Mi
+  # Wired here, not only via Keycunda's imperative envFrom patch (ClusterSecretsApplier -
+  # see keycunda/.../secret/ClusterSecretsApplier.java), because 2-install-camunda-microk8s.sh's
+  # supported reinstall path is `helm uninstall camunda` + a fresh `helm install` on every run -
+  # that recreates this Deployment from the chart with no memory of any prior imperative patch, so
+  # the secretRef silently disappeared on every reinstall until this was declared here. Name must
+  # match SecretYamlCodec.DEFAULT_SECRET_NAME exactly. optional: true so a fresh install (before
+  # this Secret has ever been created via Keycunda's Secrets Management page) doesn't leave the
+  # connectors pod stuck in ContainerCreating for a Secret that doesn't exist yet.
+  envFrom:
+    - secretRef:
+        name: connector-secrets
+        optional: true
   env:
     - name: LOADER_PATH
       value: "/opt/custom/connectors"
