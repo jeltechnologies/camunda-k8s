@@ -35,10 +35,12 @@
 
     <div class="content">
         <div class="panel welcome-panel">
-            <h1>Welcome to Camunda</h1>
-            <p>Keycunda handles sign-in and secrets for this Camunda 8 environment.</p>
+            <h1>Welcome to Camunda - The open platform for agentic orchestration</h1>
+            <p>
+                Orchestrate AI agents, people, and systems across end-to-end business processes —
+                with the trust, governance, and control that mission-critical operations demand.
+            </p>
 
-            <h2>Continue to Camunda</h2>
             <div class="continue-links">
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
@@ -49,11 +51,14 @@
 
             <div class="disclaimer">
                 <p>
-                    Keycunda contains Identity Management and Kubernetes Secrets Management for
-                    Camunda 8 on a single Ubuntu box, for experimenting, learning and demos.
-                    Keycunda cannot be used in production, because this approach lacks the
-                    robustness, scale, high availability and license needed in enterprise
-                    environments.
+                    This is Keycunda, identity and secrets management for single box deployments.
+                    See the source on <a href="https://github.com/jeltechnologies/camunda-k8s"
+                        target="_blank" rel="noopener noreferrer">GitHub</a>.
+                    Camunda itself is built to power mission-critical orchestration at real scale,
+                    on a properly provisioned, licensed, high-availability cluster - that's where
+                    it truly excels. This single Ubuntu box is a learning and demo environment
+                    only, and isn't a substitute for a real deployment: it lacks the robustness,
+                    scale, high availability and license that enterprise environments need.
                 </p>
                 <p>
                     Keycunda is developed by Camunda's partners or independent third-party

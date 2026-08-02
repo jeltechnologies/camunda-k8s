@@ -334,7 +334,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   camunda -o jsonpath='{.spec.template.spec.containers[0].envFrom}'` is the ground truth, not
   a recollection of which script or UI was used last.
 - **Every secret key added through the Secrets page gets a `SECRET_` prefix automatically if it
-  doesn't already have one - not a Keycunda convention, a Camunda 8.9+ requirement.** Camunda's
+  doesn't already have one - not a Keycunda convention, a Camunda requirement.** Camunda's
   self-managed connector-runtime (`EnvironmentSecretProvider`) only resolves an environment-
   variable-backed secret whose name carries this exact prefix - it's a security hardening added in
   8.9 so an arbitrary container env var (`PATH`, `JAVA_HOME`, ...) can't accidentally be exposed as

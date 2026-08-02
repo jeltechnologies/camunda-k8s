@@ -1,8 +1,11 @@
 # Camunda 8 Self Contained Installation
 
-A fully automated installation of Camunda 8 on a single Ubuntu box  for experimenting, learning and demos.
+A fully automated installation of Camunda 8 on a single Ubuntu box for experimenting, learning and demos.
 
-**This cannot be used in production**, because this approach lacks the robustness, scale, high availbility and license needed in enterprise environments.
+Camunda itself is built to power mission-critical orchestration at real scale, on a properly
+provisioned, licensed, high-availability cluster - that's where it truly excels. **This project
+cannot be used in production**, because a single Ubuntu box lacks the robustness, scale, high
+availability and license that enterprise environments need.
 
 ## Why this exists
 
