@@ -49,7 +49,10 @@ public class AdminSecretController {
 
     // The one Kubernetes Secret this working copy manages - fixed, not admin-configurable, to
     // keep the "what's the source of truth" story simple for a demo/learning tool: one managed
-    // connector secret, same name update-connector-secrets.sh already defaults to.
+    // connector secret, named to match what a connectors Deployment migrating from the old
+    // update-connector-secrets.sh script already has wired into its envFrom - see
+    // SecretYamlCodec.DEFAULT_SECRET_NAME for why that's "connector-secrets", not
+    // "camunda-connector-secrets".
     private static final String MANAGED_SECRET_NAME = SecretYamlCodec.DEFAULT_SECRET_NAME;
 
     private final SecretsWorkingCopy secretsWorkingCopy;

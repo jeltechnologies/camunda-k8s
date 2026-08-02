@@ -75,7 +75,7 @@
 
     <div class="content">
         <div class="panel form-panel">
-            <h1>Edit client</h1>
+            <h1>Edit API client</h1>
             <p class="message" th:if="${message}" th:text="${message}"></p>
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <form method="post" th:action="@{/admin/clients/{id}/edit(id=${client.id})}">
@@ -105,10 +105,16 @@
                 <label>Secret</label>
                 <div class="secret-row">
                     <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
-                    <span class="secret-value" th:unless="${client.secret}">Not available - click "Generate new".</span>
+                    <span class="secret-value" th:unless="${client.secret}">Hidden - already viewed once. Click "Generate new" for a replacement.</span>
+                    <button type="submit" class="btn-secondary" th:if="${client.secret}"
+                            th:formaction="@{/admin/clients/{id}/hide-secret(id=${client.id})}">I've copied this</button>
                     <button type="submit" class="btn-secondary"
                             th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Generate new</button>
                 </div>
+                <p class="note" th:if="${client.secret}">
+                    This secret is shown once. Copy it now - it will not be shown again once you click
+                    "I've copied this" or generate a new one.
+                </p>
 
                 <div class="button-row">
                     <button type="submit">OK</button>

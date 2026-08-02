@@ -212,10 +212,15 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   resource server (Orchestration's REST API included) rejects the token as wrong-audience. Set it
   to `orchestration-api` for a client that needs to call Orchestration, matching what the fixed
   `orchestration`/`connectors` clients get from `keycunda.clients.orchestration.audience`.
-  Also unlike user passwords, a client's plaintext secret **is** kept (the `secret` column,
-  alongside `secret_hash`) and stays visible on the clients list/edit page indefinitely — a
-  deliberate demo-grade choice, since these secrets need to be pasted into whatever external system
-  authenticates as that client.
+  Also unlike user passwords, a client's plaintext secret **is** stored in the clear (the `secret`
+  column, alongside `secret_hash`) — but only transiently, as a one-time reveal. It's populated on
+  creation and on every "Generate new", shown on the "API clients" edit page (renamed from
+  "Clients" — see `nav.html`) exactly until the admin clicks "I've copied this"
+  (`AdminClientController.hideSecret` → `ClientRepository.clearSecret`), which nulls the column and
+  leaves only `secret_hash` behind; there is no way to look the plaintext up again short of
+  regenerating (which invalidates the old value). Chosen over indefinite on-screen storage even in
+  this demo-grade app, since these secrets get pasted into external systems and indefinite
+  recoverability is unnecessary residual exposure once the admin has copied it.
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
   .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"

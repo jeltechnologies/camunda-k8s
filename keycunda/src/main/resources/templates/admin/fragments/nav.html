@@ -59,7 +59,7 @@
         </a>
         <nav th:if="${isAdmin}">
             <a href="/keycunda/users" th:classappend="${active == 'users'} ? 'active'">Users</a>
-            <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">Clients</a>
+            <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">API clients</a>
             <span class="nav-divider"></span>
             <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
         </nav>

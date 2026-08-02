@@ -138,6 +138,18 @@ public class AdminClientController {
         return "redirect:/admin/clients/" + id + "/edit";
     }
 
+    @PostMapping("/admin/clients/{id}/hide-secret")
+    public String hideSecret(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
+        if (clientRepository.findById(id).isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Client not found.");
+            return "redirect:/admin/clients";
+        }
+        clientRepository.clearSecret(id);
+        redirectAttributes.addFlashAttribute("message",
+                "Secret hidden - it will not be shown again. Click \"Generate new\" for a replacement.");
+        return "redirect:/admin/clients/" + id + "/edit";
+    }
+
     @PostMapping("/admin/clients/{id}/delete")
     public String delete(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
         clientRepository.findById(id).ifPresentOrElse(client -> {

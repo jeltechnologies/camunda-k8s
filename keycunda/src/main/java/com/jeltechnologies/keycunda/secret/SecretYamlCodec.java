@@ -21,8 +21,19 @@ import org.yaml.snakeyaml.Yaml;
 @Component
 public class SecretYamlCodec {
 
-    /** Matches update-connector-secrets.sh's own fallback name when a file doesn't specify one. */
-    public static final String DEFAULT_SECRET_NAME = "camunda-connector-secrets";
+    /**
+     * {@code update-connector-secrets.sh} only ever fell back to "camunda-connector-secrets" when
+     * a {@code connector-secrets.yaml} had no parseable {@code metadata.name} - in practice every
+     * real file had one, matching the script's own {@code SECRETS_FILE} convention, i.e. literally
+     * "connector-secrets". Defaulting to the fallback name instead of the name real installs
+     * actually ended up with meant a fresh Keycunda install created/managed a *different* Secret
+     * than the one already wired into the connectors Deployment's {@code envFrom} - the connectors
+     * pod kept reading the old "connector-secrets" while this UI edited a new, disconnected
+     * "camunda-connector-secrets" that nothing consumed. Found by an admin migrating from the old
+     * script whose connector kept reporting missing env vars despite the values being visibly
+     * present in what Keycunda showed as applied.
+     */
+    public static final String DEFAULT_SECRET_NAME = "connector-secrets";
 
     private final Yaml yaml;
 

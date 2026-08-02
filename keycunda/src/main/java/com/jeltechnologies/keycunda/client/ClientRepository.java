@@ -70,6 +70,17 @@ public class ClientRepository {
                 .update();
     }
 
+    /**
+     * Clears the plaintext {@code secret} column, leaving {@code secret_hash} untouched - the
+     * client keeps authenticating fine, it's just no longer recoverable from the UI. Called once
+     * an admin confirms they've copied a freshly generated secret; see AdminClientController.
+     */
+    public void clearSecret(UUID id) {
+        jdbcClient.sql("UPDATE oauth_clients SET secret = NULL WHERE id = :id")
+                .param("id", id)
+                .update();
+    }
+
     public void deleteById(UUID id) {
         jdbcClient.sql("DELETE FROM oauth_clients WHERE id = :id").param("id", id).update();
     }
