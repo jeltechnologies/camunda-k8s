@@ -1,6 +1,7 @@
 package com.jeltechnologies.keycunda.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -12,6 +13,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -80,6 +82,33 @@ class AdminSecretControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(model().attribute("secrets", hasItem(new Secret("LIVE_KEY", "live-value"))))
                 .andExpect(model().attribute("secretsMap", Map.of("LIVE_KEY", "live-value")));
+    }
+
+    /** Regression test: the page's client-side fetch() calls must use context-path-aware URLs
+     * (Thymeleaf @{...}), not bare string literals - a bare '/admin/secrets/...' skips the app's
+     * "/auth" servlet context-path, which nginx's ingress has no rule for at all, so the request
+     * 404s at nginx itself before ever reaching this app. See secrets.html's IMPORT_FILE_URL/
+     * IMPORT_TEXT_URL/APPLY_URL/APPLY_STATUS_URL constants.
+     *
+     * <p>{@code .contextPath("/auth")} is required here: MockMvc's fake requests report an empty
+     * context path by default (there's no real embedded Tomcat applying {@code
+     * server.servlet.context-path} the way a live deployment does), so without it Thymeleaf's
+     * {@code @{...}} link-building would render with no prefix at all regardless of whether the
+     * template is correct - true for every other {@code @{...}}-based form in this app too, not
+     * just this one, so asserting against the default request would prove nothing. */
+    @Test
+    void pageScriptUsesContextPathAwareUrlsForItsFetchCalls() throws Exception {
+        when(clusterSecretsApplier.fetch(anyString())).thenReturn(Map.of());
+
+        // Thymeleaf's JavaScript inlining escapes every "/" as "\/" (to prevent a "</script>"
+        // breakout if a secret value ever contained that literal text) - the rendered constant is
+        // "\/auth\/admin\/secrets\/import", not the unescaped path.
+        mockMvc.perform(get("/auth/admin/secrets").contextPath("/auth"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/import\"")))
+                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/import-text\"")))
+                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/apply-to-cluster\"")))
+                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/apply-status\"")));
     }
 
     @Test

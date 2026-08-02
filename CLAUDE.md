@@ -300,7 +300,9 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   entirely, into the browser**: `secrets.html` bootstraps a plain JS object from the page's initial
   live snapshot (via Thymeleaf JavaScript inlining - `th:inline="javascript"`, `secretsMap` model
   attribute), and add/edit/delete/import all mutate that in-memory JS object and re-render the
-  table client-side - no server round trip, no restart, nothing written anywhere. Import
+  table client-side - no server round trip, no restart, nothing written anywhere. "Delete all"
+  clears the whole in-browser object at once (after a confirm dialog) - the fast path for starting
+  over from a clean slate, e.g. immediately followed by importing a fresh file. Import
   (`POST /admin/secrets/import` / `import-text`) is now a parse-only JSON API: it decodes the
   uploaded/pasted YAML or .env content and hands the entries straight back to the browser to merge,
   it never touches Kubernetes. The **only** endpoint that writes anything is
@@ -339,7 +341,15 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   actually possible) run manually as an install step; `ClusterSecretsApplier` is a from-scratch
   reimplementation of the same delete/create-Secret, patch-Deployment-envFrom, delete-pod,
   wait-for-rollout steps, triggered from the admin UI instead of a separate manual script run.
-  After writing the Secret, `apply()` re-fetches it and compares against what was submitted before
+  **`applySecret` explicitly deletes the Secret before creating it fresh, rather than an
+  upsert-style `createOrReplace`** - this was the documented intent from the start (see "same
+  delete/create-Secret ... steps" just above) but the code actually called `createOrReplace` until
+  this was tightened up, leaving an unverified assumption that a replace would implicitly drop any
+  key no longer in the submitted set. An explicit delete removes any doubt: whatever's submitted -
+  including an empty set, via "Delete all" then "Apply to cluster" - is exactly what the Secret
+  contains afterward, never a leftover key from a prior apply or from something created outside
+  this app entirely (e.g. a stray manual `kubectl create secret`). Deleting a Secret that doesn't
+  exist yet is a harmless no-op. After writing the Secret, `apply()` re-fetches it and compares against what was submitted before
   doing anything else, throwing if they don't match - the explicit "verify it actually loaded"
   step this feature was built around, not just a write-and-hope. Needs its own RBAC: a
   `keycunda` ServiceAccount (referenced via `serviceAccountName` in

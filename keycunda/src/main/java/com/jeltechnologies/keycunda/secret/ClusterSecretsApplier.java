@@ -59,9 +59,9 @@ public class ClusterSecretsApplier {
         return existing == null ? Map.of() : decode(existing);
     }
 
-    /** Writes, verifies, wires up and restarts - returns the verified, freshly-fetched contents
-     * so the caller (see AdminSecretController) has the confirmed live state without a second
-     * round trip, if it needs it. */
+    /** Deletes, writes, verifies, wires up and restarts - returns the verified, freshly-fetched
+     * contents so the caller (see AdminSecretController) has the confirmed live state without a
+     * second round trip, if it needs it. */
     public Map<String, String> apply(List<Secret> secrets, String secretName) {
         Map<String, String> intended = toMap(secrets);
         applySecret(intended, secretName);
@@ -81,7 +81,15 @@ public class ClusterSecretsApplier {
         return map;
     }
 
+    /** Deletes the existing Secret object outright before creating it fresh, rather than an
+     * upsert-style {@code createOrReplace} - so a key that's no longer in the submitted set (the
+     * admin deleted it in the browser, or "Delete all" cleared everything before Apply) is
+     * guaranteed gone afterward, not just implicitly relied upon to be replaced away. Mirrors
+     * {@code update-connector-secrets.sh}'s own delete-then-apply sequence exactly, rather than
+     * an upsert whose "old keys definitely disappear" guarantee was never actually verified.
+     * Deleting a Secret that doesn't exist yet (first-ever apply) is a harmless no-op. */
     private void applySecret(Map<String, String> stringData, String secretName) {
+        client.secrets().inNamespace(NAMESPACE).withName(secretName).delete();
         io.fabric8.kubernetes.api.model.Secret k8sSecret = new SecretBuilder()
                 .withNewMetadata()
                     .withName(secretName)
@@ -90,7 +98,7 @@ public class ClusterSecretsApplier {
                 .withType("Opaque")
                 .withStringData(stringData)
                 .build();
-        client.secrets().inNamespace(NAMESPACE).resource(k8sSecret).createOrReplace();
+        client.secrets().inNamespace(NAMESPACE).resource(k8sSecret).create();
     }
 
     /** Reads the Secret straight back and compares it against what was just submitted, per the

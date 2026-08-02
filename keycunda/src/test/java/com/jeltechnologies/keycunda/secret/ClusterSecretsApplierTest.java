@@ -149,6 +149,28 @@ class ClusterSecretsApplierTest {
     }
 
     @Test
+    void removesKeysNoLongerInTheDesiredSetOnReapply() {
+        createReadyConnectorsDeployment();
+
+        applier.apply(List.of(secret("OLD_KEY", "old-value"), secret("KEEP_KEY", "keep-value")), "test-connector-secrets");
+        applier.apply(List.of(secret("KEEP_KEY", "keep-value"), secret("NEW_KEY", "new-value")), "test-connector-secrets");
+
+        Map<String, String> fetched = applier.fetch("test-connector-secrets");
+        assertThat(fetched).containsEntry("KEEP_KEY", "keep-value").containsEntry("NEW_KEY", "new-value");
+        assertThat(fetched).doesNotContainKey("OLD_KEY");
+    }
+
+    @Test
+    void applyingAnEmptySetLeavesTheSecretWithNoKeys() {
+        createReadyConnectorsDeployment();
+
+        applier.apply(List.of(secret("SOON_GONE", "value")), "test-connector-secrets");
+        applier.apply(List.of(), "test-connector-secrets");
+
+        assertThat(applier.fetch("test-connector-secrets")).isEmpty();
+    }
+
+    @Test
     void applyReturnsTheVerifiedContentsForTheCallerToResyncWith() {
         createReadyConnectorsDeployment();
 
