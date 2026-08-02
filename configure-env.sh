@@ -48,7 +48,7 @@ fi
 # can never clobber them.
 ES_VERSION=8.19.9
 PG_VERSION=16
-KEYCUNDA_IMAGE=ghcr.io/jeltechnologies/keycunda:latest
+KEYCUNDA_IMAGE=ghcr.io/jeltechnologies/keycunda:1.0.2
 
 echo "============================================================"
 echo " Camunda configuration"
