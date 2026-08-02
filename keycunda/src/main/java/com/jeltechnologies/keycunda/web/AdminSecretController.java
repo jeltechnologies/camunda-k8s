@@ -196,6 +196,18 @@ public class AdminSecretController {
         return "admin/apply-status";
     }
 
+    /** JSON twin of {@link #applyStatus}, polled by secrets.html's in-page modal instead of
+     * navigating to the (still-available, no-JS-friendly) status page above. */
+    @GetMapping(value = "/admin/secrets/apply-status.json", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, String> applyStatusJson() {
+        ApplyJobStatus.Job job = applyJobStatus.current();
+        if (job == null) {
+            return Map.of("state", "NONE");
+        }
+        return Map.of("state", job.state().name(), "message", job.message());
+    }
+
     private static List<Secret> toSortedList(Map<String, String> map) {
         return new TreeMap<>(map).entrySet().stream().map(e -> new Secret(e.getKey(), e.getValue())).toList();
     }

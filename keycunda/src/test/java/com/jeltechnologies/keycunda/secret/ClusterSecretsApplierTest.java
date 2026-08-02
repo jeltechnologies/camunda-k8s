@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 
 import io.fabric8.kubernetes.api.model.NamespaceBuilder;
-import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -27,7 +26,6 @@ class ClusterSecretsApplierTest {
 
     private static final String NAMESPACE = "camunda";
     private static final String DEPLOYMENT_NAME = "camunda-connectors";
-    private static final String POD_NAME = "camunda-connectors-abc123";
 
     KubernetesClient client;
 
@@ -44,9 +42,11 @@ class ClusterSecretsApplierTest {
         return new Secret(key, value);
     }
 
-    /** A Deployment whose status already reports "ready", so ClusterSecretsApplier's post-apply
-     * waitUntilReady() returns immediately instead of polling for a real rollout that this fake
-     * API server has no controller to ever produce. */
+    /** A Deployment whose status already reports "ready" - including a very high
+     * observedGeneration - so ClusterSecretsApplier's post-apply rollout wait
+     * (isFullyRolledOut) is satisfied immediately regardless of whatever generation this fake API
+     * server (which has no real Deployment controller advancing status on its own) assigns after
+     * the rollout-restart patch. */
     private Deployment createReadyConnectorsDeployment() {
         Deployment deployment = new DeploymentBuilder()
                 .withNewMetadata().withName(DEPLOYMENT_NAME).withNamespace(NAMESPACE).endMetadata()
@@ -62,20 +62,12 @@ class ClusterSecretsApplierTest {
                 .endSpec()
                 .withNewStatus()
                     .withReplicas(1)
+                    .withUpdatedReplicas(1)
                     .withAvailableReplicas(1)
+                    .withObservedGeneration(1_000_000L)
                 .endStatus()
                 .build();
         return client.apps().deployments().inNamespace(NAMESPACE).resource(deployment).create();
-    }
-
-    private void createConnectorsPod() {
-        client.pods().inNamespace(NAMESPACE).resource(new PodBuilder()
-                        .withNewMetadata().withName(POD_NAME).withNamespace(NAMESPACE).endMetadata()
-                        .withNewSpec()
-                            .addNewContainer().withName("connectors").withImage("example/connectors:latest").endContainer()
-                        .endSpec()
-                        .build())
-                .create();
     }
 
     @Test
@@ -117,13 +109,66 @@ class ClusterSecretsApplierTest {
     }
 
     @Test
-    void deletesTheExistingConnectorsPodToForceARestart() {
+    void triggersARolloutRestartInsteadOfDeletingThePodDirectly() {
         createReadyConnectorsDeployment();
-        createConnectorsPod();
 
         applier.apply(List.of(secret("FOO", "bar")), "test-connector-secrets");
 
-        assertThat(client.pods().inNamespace(NAMESPACE).withName(POD_NAME).get()).isNull();
+        // "kubectl.kubernetes.io/restartedAt" is the same pod-template annotation
+        // `kubectl rollout restart` itself sets - fabric8's .rolling().restart() equivalent.
+        // Deleting the pod directly (the original approach) never touched the template at all,
+        // which is exactly what let a stale, already-ready Deployment status race past the
+        // post-apply wait before the new pod had actually started - see isFullyRolledOut below.
+        Deployment updated = client.apps().deployments().inNamespace(NAMESPACE).withName(DEPLOYMENT_NAME).get();
+        assertThat(updated.getSpec().getTemplate().getMetadata().getAnnotations())
+                .containsKey("kubectl.kubernetes.io/restartedAt");
+    }
+
+    @Test
+    void isFullyRolledOutRequiresObservedGenerationToHaveCaughtUp() {
+        Deployment deployment = new DeploymentBuilder()
+                .withNewSpec().withReplicas(1).endSpec()
+                .withNewStatus()
+                    .withReplicas(1).withUpdatedReplicas(1).withAvailableReplicas(1)
+                    .withObservedGeneration(1L)
+                .endStatus()
+                .build();
+
+        // Status still reflects the OLD generation - exactly the race a stale-but-ready status
+        // produces right after a rollout-restart patch, before the controller has caught up.
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(deployment, 2L)).isFalse();
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(deployment, 1L)).isTrue();
+    }
+
+    @Test
+    void isFullyRolledOutRequiresReplicaCountsToMatchDesired() {
+        Deployment deployment = new DeploymentBuilder()
+                .withNewSpec().withReplicas(1).endSpec()
+                .withNewStatus()
+                    .withReplicas(1).withUpdatedReplicas(0).withAvailableReplicas(1)
+                    .withObservedGeneration(5L)
+                .endStatus()
+                .build();
+
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(deployment, 5L)).isFalse();
+    }
+
+    @Test
+    void isFullyRolledOutToleratesAMissingTargetGenerationDefensively() {
+        Deployment deployment = new DeploymentBuilder()
+                .withNewSpec().withReplicas(1).endSpec()
+                .withNewStatus()
+                    .withReplicas(1).withUpdatedReplicas(1).withAvailableReplicas(1)
+                .endStatus()
+                .build();
+
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(deployment, null)).isTrue();
+    }
+
+    @Test
+    void isFullyRolledOutIsFalseForANullOrIncompleteDeployment() {
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(null, 1L)).isFalse();
+        assertThat(ClusterSecretsApplier.isFullyRolledOut(new DeploymentBuilder().build(), 1L)).isFalse();
     }
 
     @Test

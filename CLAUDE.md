@@ -339,7 +339,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   (`update-connector-secrets.sh`, since removed - it needed `microk8s kubectl` and a host shell
   context, neither of which exist inside the Keycunda container, so reusing it as-is was never
   actually possible) run manually as an install step; `ClusterSecretsApplier` is a from-scratch
-  reimplementation of the same delete/create-Secret, patch-Deployment-envFrom, delete-pod,
+  reimplementation of the same delete/create-Secret, patch-Deployment-envFrom, restart,
   wait-for-rollout steps, triggered from the admin UI instead of a separate manual script run.
   **`applySecret` explicitly deletes the Secret before creating it fresh, rather than an
   upsert-style `createOrReplace`** - this was the documented intent from the start (see "same
@@ -354,15 +354,38 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   step this feature was built around, not just a write-and-hope. Needs its own RBAC: a
   `keycunda` ServiceAccount (referenced via `serviceAccountName` in
   `template-keycunda.yaml`) bound to a Role granting
-  get/list/create/update/delete on `secrets`, get/list/patch on `deployments`, and get/list/delete
-  on `pods` - all namespaced to `camunda`, defined in `template-keycunda-rbac.yaml` and
-  applied by `2-install-camunda-microk8s.sh` before the Keycunda Deployment itself (the
-  Deployment references the ServiceAccount by name, so it must already exist). Unlike the old
-  script's unconditional JSON-patch append (which would have added a duplicate `envFrom` entry on
-  every re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
+  get/list/create/update/delete on `secrets` and get/list/patch on `deployments` - no `pods`
+  access needed at all (see the rollout-restart fix just below for why) - all namespaced to
+  `camunda`, defined in `template-keycunda-rbac.yaml` and applied by
+  `2-install-camunda-microk8s.sh` before the Keycunda Deployment itself (the Deployment
+  references the ServiceAccount by name, so it must already exist). Unlike the old script's
+  unconditional JSON-patch append (which would have added a duplicate `envFrom` entry on every
+  re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
   references the target Secret name before patching, so repeated applies stay idempotent. The
-  connectors Deployment/pod are found by a case-insensitive name match containing "connector", not
-  a hardcoded name.
+  connectors Deployment is found by a case-insensitive name match containing "connector", not a
+  hardcoded name.
+
+  **The restart itself is a `kubectl rollout restart`-equivalent (fabric8's
+  `.rolling().restart()`, patching `spec.template.metadata.annotations["kubectl.kubernetes.io/
+  restartedAt"]`) - not a direct pod delete, which is what this originally did and which had a
+  real, reported bug in it.** Deleting the connectors pod directly never touches the Deployment's
+  `spec.template` at all, so `metadata.generation` never changes either - from the Deployment
+  controller's point of view, nothing "rolled out", it just reactively recreated a pod the
+  ReplicaSet noticed was missing. That mattered because the post-apply wait
+  (`ClusterSecretsApplier.isFullyRolledOut`) needs something reliable to wait *for*: fabric8's own
+  built-in `waitUntilReady()`/`isDeploymentReady()` only compares desired vs. available replica
+  counts, and never looks at `status.observedGeneration` - so right after deleting the pod, the
+  Deployment's status could still transiently report the *old* (already-ready) counts for a
+  moment, and the wait would return almost instantly, before the new pod had actually started.
+  Symptom actually hit in practice: an admin added a secret value, "Apply to cluster" reported
+  success suspiciously fast, and the connector still couldn't see the new value - the pod was
+  never really replaced in time. Fixed by (a) triggering a real rollout-restart, which does bump
+  `metadata.generation`, and (b) replacing the wait with a hand-rolled poll
+  (`ClusterSecretsApplier.isFullyRolledOut`, unit-tested directly since the in-JVM CRUD mock
+  server used by `ClusterSecretsApplierTest` has no real controller to advance
+  `status.observedGeneration` on its own) that requires `status.observedGeneration` to have
+  caught up to the generation produced by *this specific* restart, in addition to the replica
+  counts fabric8's own check already looks at.
 
   **This imperative `envFrom` patch is not by itself durable across a reinstall, and that gap was
   a second real bug behind connector secrets silently not reaching the pod.** `2-install-camunda-
@@ -387,10 +410,18 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   race each other) with progress tracked in `secret/ApplyJobStatus.java` - a single in-memory
   mutable slot, not persisted, which is fine only because the pod runs at `replicas: 1`; a pod
   restart mid-apply is meant to read as "nothing running" rather than resurrect a stale job.
-  `apply-status.html` (the polling page navigated to after clicking "Apply to cluster") still
-  polls via a plain `<meta http-equiv="refresh">` with no JavaScript, matching the rest of this
-  app's zero-JS convention - `secrets.html` itself is the one deliberate exception to that
-  convention now, since client-side staging needs it. This used to
+  **`secrets.html` shows this progress (and its final result) in an in-page themed modal now**,
+  polling `GET /admin/secrets/apply-status.json` (a plain `{state, message}` JSON twin of
+  `ApplyJobStatus.Job`) every 1.5s via `fetch()`, rather than navigating to a separate page - a
+  nicer UX than the browser's own dialogs, and consistent with the same modal now also replacing
+  `window.confirm()` for "Delete all" and per-row "Delete" (`showConfirmModal`/`showWaitModal`/
+  `showResultModal` in `secrets.html`'s script). The modal's "Close" button reloads the page rather
+  than just hiding itself, specifically so the table re-fetches live from Kubernetes and reflects
+  what was actually just applied. `apply-status.html`/`GET /admin/secrets/apply-status` (the
+  original full-page version, still polling via a plain `<meta http-equiv="refresh">` with no
+  JavaScript) is kept as-is and still reachable directly - a working fallback for a client with
+  JavaScript disabled, and one less thing to migrate. `secrets.html` itself is the one deliberate
+  exception to this app's zero-JS convention, since client-side staging needs it. This used to
   also be where a resync-the-session-working-copy step lived, with a real constraint around it (the
   background thread has no HTTP session bound to it, so touching a `@SessionScope` bean from there
   threw `IllegalStateException: Scope 'session' is not active for the current thread`) - that whole

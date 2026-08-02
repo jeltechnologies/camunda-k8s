@@ -108,7 +108,7 @@ class AdminSecretControllerTest {
                 .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/import\"")))
                 .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/import-text\"")))
                 .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/apply-to-cluster\"")))
-                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/apply-status\"")));
+                .andExpect(content().string(containsString("\\/auth\\/admin\\/secrets\\/apply-status.json\"")));
     }
 
     @Test
@@ -211,6 +211,11 @@ class AdminSecretControllerTest {
 
         mockMvc.perform(get("/admin/secrets/apply-status"))
                 .andExpect(status().isOk());
+
+        mockMvc.perform(get("/admin/secrets/apply-status.json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.state").value("ERROR"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("boom")));
     }
 
     private ArgumentCaptor<List<Secret>> captureApplied() {
