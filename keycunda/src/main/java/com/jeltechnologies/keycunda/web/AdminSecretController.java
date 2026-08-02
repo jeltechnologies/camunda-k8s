@@ -45,7 +45,9 @@ import org.springframework.web.multipart.MultipartFile;
  * {@link #applyToCluster}; that's the only point where a write, a verification re-fetch, an
  * envFrom check and a connectors pod restart happen. Reloading the page afterward re-fetches live
  * from Kubernetes again, so what's on screen can never be stale for longer than the current,
- * unsaved browser tab.
+ * unsaved browser tab. {@link #exportYaml}/{@link #exportEnv} follow the same "what you see is
+ * what you get" principle - they're POSTed the browser's current working set too (not a fresh
+ * Kubernetes fetch), so a download reflects unapplied edits exactly as shown on screen.
  */
 @Controller
 public class AdminSecretController {
@@ -101,18 +103,24 @@ public class AdminSecretController {
         return "admin/secrets";
     }
 
-    @GetMapping("/admin/secrets/export.yaml")
-    public ResponseEntity<String> exportYaml(
+    /** Exports whatever the browser currently has staged - not a live Kubernetes fetch - so a
+     * download reflects unapplied edits exactly as shown on screen, the same way "Apply to
+     * cluster" submits the current working set rather than re-reading it from the cluster. */
+    @PostMapping(value = "/admin/secrets/export.yaml", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> exportYaml(@RequestBody Map<String, String> secretsMap,
             @RequestParam(defaultValue = SecretYamlCodec.DEFAULT_SECRET_NAME) String secretName,
             @RequestParam(defaultValue = "self-managed") String target) {
-        Map<String, String> forTarget = stripPrefixForSaas(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME), target);
+        Map<String, String> forTarget = stripPrefixForSaas(secretsMap, target);
         String yaml = secretYamlCodec.export(toSortedList(forTarget), secretName);
         return download(yaml, "connector-secrets.yaml", "application/x-yaml");
     }
 
-    @GetMapping("/admin/secrets/export.env")
-    public ResponseEntity<String> exportEnv(@RequestParam(defaultValue = "self-managed") String target) {
-        Map<String, String> forTarget = stripPrefixForSaas(clusterSecretsApplier.fetch(MANAGED_SECRET_NAME), target);
+    @PostMapping(value = "/admin/secrets/export.env", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> exportEnv(@RequestBody Map<String, String> secretsMap,
+            @RequestParam(defaultValue = "self-managed") String target) {
+        Map<String, String> forTarget = stripPrefixForSaas(secretsMap, target);
         String env = secretEnvCodec.export(toSortedList(forTarget));
         return download(env, "secrets.env", "text/plain");
     }

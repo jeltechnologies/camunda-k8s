@@ -344,23 +344,37 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   showed `EnvironmentSecretProvider` explicitly rejecting it and naming the fix ("Rename it to
   'SECRET_INBOUND_MAIL_IMAP_PORT'"). Camunda SaaS has no equivalent requirement, since SaaS never
   exposes secrets as raw container env vars at all - they go through Console's own managed Secrets
-  store instead, a different backend entirely. `secrets.html`'s `ensurePrefixed()`/`KEY_PREFIX`
-  (mirrored server-side as `AdminSecretController.SELF_MANAGED_SECRET_PREFIX`, used only for the
-  SaaS export below) applies this automatically on add, edit (renaming a key), and import (file or
-  pasted), so an admin never has to know/remember the convention - a one-time info modal
-  (`notePrefixAddedIfFirstTime`, gated by an in-page `hasShownPrefixNotice` flag that resets on
-  reload, deliberately not persisted anywhere more durable) explains it the first time it actually
-  happens on a given page load, not on every single add. The BPMN's own `{{secrets.NAME}}`
-  references never need to change - the prefix lives purely in the underlying env var/Kubernetes
-  Secret key, not in what the process asks for by name.
+  store instead, a different backend entirely. `secrets.html`'s `normalizeKey()` (uppercases the
+  typed key - Kubernetes/shell convention - then applies `ensurePrefixed()`/`KEY_PREFIX`, mirrored
+  server-side as `AdminSecretController.SELF_MANAGED_SECRET_PREFIX`, used only for the SaaS export
+  below) runs on add, edit (renaming a key), and import (file or pasted), so an admin never has to
+  know/remember either convention. Whenever the prefix specifically had to be added (not just the
+  uppercasing), `notePrefixAdded()` shows an info modal explaining why - deliberately **every**
+  time this happens, not once-per-session; that repetition is an intentional design choice, not
+  an oversight to dedupe. The BPMN's own `{{secrets.NAME}}` references never need to change - the
+  prefix lives purely in the underlying env var/Kubernetes Secret key, not in what the process
+  asks for by name.
 
-  **The Export panel's "Self-Managed"/"Camunda SaaS" target selector exists because of this same
-  asymmetry.** A self-managed export keeps keys as-is (`SECRET_`-prefixed, ready to feed back into
-  this same stack); a SaaS-targeted export strips that prefix back off
+  **The Export panel's "Camunda Self Managed"/"Camunda Software as a Service (Saas)" target
+  selector exists because of this same asymmetry.** Self Managed exports keys as-is
+  (`SECRET_`-prefixed, ready to feed back into this same stack); SaaS strips that prefix back off
   (`AdminSecretController.stripPrefixForSaas`) before generating the `.yaml`/`.env`, since pasting
   a `SECRET_`-prefixed name into SaaS Console's Secrets screen would just create a secret Console
   itself never needed prefixed - the process's `{{secrets.NAME}}` reference is what actually has to
-  match Console's secret name there.
+  match Console's secret name there. One shared radio group (not a `<select>` per format) steers
+  both download buttons via `th:formaction`-style JS wiring (`exportSecrets` reads whichever radio
+  is checked), rather than duplicating the choice per button.
+
+  **Export is POSTed the browser's current in-memory working set, not a fresh Kubernetes fetch -**
+  `exportYaml`/`exportEnv` take `@RequestBody Map<String, String>` instead of calling
+  `ClusterSecretsApplier.fetch`, so a download reflects exactly what's shown on screen, including
+  unapplied edits, the same "what you see is what you get" principle "Apply to cluster" already
+  followed. Since a JS `fetch()` POST can't trigger a native browser download the way a `<form
+  method="get">` navigation could, `secrets.html`'s `downloadTextAsFile` builds a `Blob` from the
+  response text and clicks a throwaway `<a download>` element instead - the actual YAML/`.env`
+  serialization still happens server-side, reusing `SecretYamlCodec`'s SnakeYAML-based escaping
+  (correct for values with quotes/colons/newlines) rather than a hand-rolled JS equivalent that
+  would risk getting that escaping subtly wrong.
 - **"Apply to cluster" (`secret/ClusterSecretsApplier.java`) talks to the Kubernetes API directly
   via the fabric8 `kubernetes-client` Java library, not by shelling out to a script from inside the
   pod.** An earlier iteration of this feature was a plain bash script

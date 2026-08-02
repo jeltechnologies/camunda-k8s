@@ -86,23 +86,32 @@ class AdminSecretControllerTest {
 
     @Test
     void selfManagedExportKeepsTheSecretPrefix() throws Exception {
-        when(clusterSecretsApplier.fetch(anyString())).thenReturn(Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143"));
+        Map<String, String> pageState = Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143");
 
-        mockMvc.perform(get("/admin/secrets/export.env"))
+        mockMvc.perform(post("/admin/secrets/export.env").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(pageState)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("SECRET_INBOUND_MAIL_IMAP_PORT=16143")));
 
-        mockMvc.perform(get("/admin/secrets/export.env").param("target", "self-managed"))
+        mockMvc.perform(post("/admin/secrets/export.env").with(csrf())
+                        .param("target", "self-managed")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(pageState)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("SECRET_INBOUND_MAIL_IMAP_PORT=16143")));
+
+        verify(clusterSecretsApplier, never()).fetch(anyString());
     }
 
     @Test
     void saasExportStripsTheSecretPrefix() throws Exception {
-        when(clusterSecretsApplier.fetch(anyString()))
-                .thenReturn(Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143", "ALREADY_UNPREFIXED", "value"));
+        Map<String, String> pageState = Map.of("SECRET_INBOUND_MAIL_IMAP_PORT", "16143", "ALREADY_UNPREFIXED", "value");
 
-        mockMvc.perform(get("/admin/secrets/export.env").param("target", "saas"))
+        mockMvc.perform(post("/admin/secrets/export.env").with(csrf())
+                        .param("target", "saas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(pageState)))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("INBOUND_MAIL_IMAP_PORT=16143")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(containsString("SECRET_INBOUND_MAIL_IMAP_PORT"))))
