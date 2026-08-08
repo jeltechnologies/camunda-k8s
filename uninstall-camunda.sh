@@ -90,17 +90,15 @@ echo "=================================================================="
 microk8s kubectl delete configmap nginx-ingress-tcp-microk8s-conf --namespace ingress --ignore-not-found
 
 echo "=================================================================="
-echo "Removing local host directories"
+echo "Keeping ~/camunda-docs and ~/camunda-connectors"
 echo "=================================================================="
-if [[ -d ~/camunda-docs ]]; then
-  echo "Removing ~/camunda-docs"
-  rm -rf ~/camunda-docs
-fi
-
-if [[ -d ~/camunda-connectors ]]; then
-  echo "Removing ~/camunda-connectors"
-  rm -rf ~/camunda-connectors
-fi
+# Deliberately not deleted: these are the user's own documents and custom
+# connector JARs, not generated state. 2-install-camunda-microk8s.sh
+# recreates the PVs pointing at these same paths on every install, so
+# whatever's already here gets automatically redeployed on the next
+# install rather than having to be re-added by hand.
+[[ -d ~/camunda-docs ]] && echo "~/camunda-docs left in place" || true
+[[ -d ~/camunda-connectors ]] && echo "~/camunda-connectors left in place" || true
 
 echo "=================================================================="
 echo "Removing /etc/hosts entries"
@@ -130,20 +128,6 @@ for entry in "${ENTRIES_TO_REMOVE[@]}"; do
   fi
 done
 
-echo "=================================================================="
-echo "Removing generated files"
-echo "=================================================================="
-if [[ -f ./install-env.sh ]]; then
-  echo "Removing install-env.sh"
-  rm -f ./install-env.sh
-fi
-
-if [[ -f ./values-camunda.yaml ]]; then
-  echo "Removing values-camunda.yaml"
-  rm -f ./values-camunda.yaml
-fi
-
-echo ""
 echo "=================================================================="
 echo "Cleanup complete!"
 echo "=================================================================="

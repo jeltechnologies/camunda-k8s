@@ -45,6 +45,13 @@ This scripts have been tested in Proxmox virtual machines. I use very modest har
 - Minimal 8 GB memory (16 GB recommended)
 - Minimum 4 vCPU.
 - 32 GB disk (64 GB recommemded)
+- A static IP address and a static hostname, set before you install. MicroK8s bakes both into its
+  cluster certificates at install time; changing either one afterwards (e.g. a DHCP lease reassigning
+  the IP) breaks TLS between the Kubernetes API server and the node and is not something you can fix
+  by editing config — the fix is reinstalling. If you do need to change the IP or hostname later, run
+  `./uninstall-microk8s.sh` first (removes MicroK8s, Helm and everything else `1-install-microk8s.sh`
+  set up, including any Camunda installation on top of it), change the IP/hostname at the OS level,
+  then start over from `./1-install-microk8s.sh`.
 
 ### Network access to the web applications
 - The easiest way to reach the web application is by installing Camunda on Ubuntu Desktop. You can then use the web browser inside the virtual machine, or use Remote Desktop Connection. To reach the server from other machines in your network, you must change the hosts files of these machines. You will get warnings on self signed certificates, which is normal.
@@ -69,6 +76,28 @@ The second script will prompt for your Helm chart version. Choose one of the pub
 [Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
 
 After this the script prompts for domain, password, and optional Ollama/GitLab settings, then install everything automatically. Expect 15–20 minutes on first run.
+
+## Uninstalling
+
+Two scripts are provided, for two different levels of teardown:
+
+- **`./uninstall-camunda-microk8s.sh`** removes all Camunda components and their data — the Helm
+  release, the `camunda` namespace (Keycunda, PostgreSQL, Elasticsearch and everything else in it),
+  so **all data in PostgreSQL is lost**. MicroK8s itself is left installed, so you can immediately
+  run `./2-install-camunda-microk8s.sh` again for a clean reinstall.
+- **`./uninstall-microk8s.sh`** removes MicroK8s, Helm and everything else `1-install-microk8s.sh`
+  set up. Since this deletes the whole Kubernetes cluster, **it also removes Camunda and its data**
+  the same as the script above — there is no way to keep Camunda running without MicroK8s under it.
+  Use this one when you need to change the machine's static IP address or hostname (see
+  [Requirements](#requirements)): MicroK8s bakes both into its cluster certificates at install time
+  with no supported way to change them afterwards, so the fix is to remove it entirely, change the
+  IP/hostname at the OS level, and run `./1-install-microk8s.sh` again from scratch.
+
+Both scripts leave `~/camunda-docs` and `~/camunda-connectors` in place. These hold your own
+documents and custom connector JARs, not generated state — `2-install-camunda-microk8s.sh` recreates
+the volumes pointing at these same folders on every install, so whatever's already there is
+redeployed automatically without having to be re-added by hand. Delete them yourself if you actually
+want a clean slate.
 
 ## Architecture
 
