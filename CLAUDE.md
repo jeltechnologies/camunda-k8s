@@ -30,6 +30,7 @@ not present it as a production-hardened component.
 | `install-fix-hosts.sh` | Adds `/etc/hosts` entries (skipped when behind a reverse proxy). Needs root. |
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
+| `template-values-camunda-8.10.yaml` | 8.10-line (Helm chart 15.x) counterpart to `template-values-camunda.yaml` — see "Two Helm value templates, one per Camunda major line" below. |
 | `keycunda/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
 | `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or a `keycunda-v*`/`v*` tag. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
@@ -41,7 +42,8 @@ not present it as a production-hardened component.
 Generated files are **gitignored and overwritten on every install**. Never edit them:
 
 ```
-template-values-camunda.yaml                    --envsubst-->  values-camunda.yaml     (gitignored)
+template-values-camunda.yaml       (8.9/chart 14.x)  --envsubst-->  values-camunda.yaml  (gitignored)
+template-values-camunda-8.10.yaml  (8.10/chart 15.x+) --envsubst-->  values-camunda.yaml  (gitignored)
 template-elasticsearch.yaml                     --envsubst-->  piped straight to kubectl apply
 template-postgresql.yaml                        --envsubst-->  piped straight to kubectl apply
 template-keycunda.yaml    --envsubst-->  piped straight to kubectl apply
@@ -74,7 +76,86 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 - keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
 - keycunda-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
-- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED}`
+- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
+  shared by whichever of `template-values-camunda.yaml` / `template-values-camunda-8.10.yaml` gets
+  picked (see below), so a new variable needs step 3 done in both files if it's not version-specific.
+
+### Two Helm value templates, one per Camunda major line
+
+`template-values-camunda.yaml` targets the 8.9 chart line (Helm chart 14.x, the default).
+`template-values-camunda-8.10.yaml` targets 8.10 (chart 15.x+, currently alpha).
+`2-install-camunda-microk8s.sh` picks between them by comparing `HELM_CHART_VERSION`'s major
+version against 15 — **not** `CAMUNDA_APP_VERSION` — since the chart's `values.yaml` schema is
+what the template actually has to match, and the two version numbers aren't always in lockstep
+pre-GA.
+
+The 8.10 file is a **full copy** of the 8.9 one, not a diff/overlay: neither Helm values nor the
+identity chart's `identity.configuration` mechanism support merging a partial override into a
+nested list/map from a different source (confirmed the hard way — see below). Keep unrelated
+changes mirrored between the two files by hand; diverge only where a chart/app version genuinely
+requires it, and comment every such spot.
+
+Known differences today, both in `template-values-camunda-8.10.yaml`:
+- **Fixed**: `identity.env` carries six `IDENTITY_MAPPINGRULES_0_*` entries working around a
+  startup crash in Identity 8.10.0-alpha4.2. Root cause (found by extracting and decompiling the
+  running `identity.jar` — `BOOT-INF/classes/application.yaml`, and
+  `io.camunda.identity.impl.oidc.initializer.OidcMappingRuleInitializer`/
+  `MappingRuleInitializerService`/`AbstractOidcMappingRuleServiceImpl`): the jar's own bundled
+  default config unconditionally defines one mapping rule ("OC Cluster Endpoint Access") granting
+  the role "Web Modeler Public API - Cluster Ping" — a role that only actually gets created when
+  Camunda Hub cluster-ping is enabled. The chart's `identity/configmap.yaml` template correctly
+  omits that role when ping is disabled (our case — this is a single-box demo, no Hub
+  connectivity) but never correspondingly clears the mapping rule referencing it, so Identity
+  crash-loops on every startup with `appliedRoleNames.notFound` — not a race, reproduced
+  identically across 7 consecutive restarts. All six `IDENTITY_MAPPINGRULES_0_*` fields must be
+  set together (not just the broken `APPLIEDROLENAMES_0`): Spring Boot doesn't merge one field
+  from an env var into the classpath YAML's entry at the same list index — once any field at that
+  index comes from a higher-priority source, the *entire* element is sourced from there, so a
+  partial override leaves the untouched fields null (confirmed — it turned
+  `appliedRoleNames.notFound` into a second crash, `IllegalArgumentException: The given id must
+  not be null`). The override points the rule at the existing "Orchestration" role instead of the
+  missing one — deliberately the least-privileged choice, since it's Orchestration's own service
+  account mapping to its own role, adding nothing beyond what that account already has via its
+  direct M2M permission grant.
+- **Fixed, two parts**: `orchestration.security.authentication.oidc` and `connectors` both used to
+  crash-loop with a PKIX path-building failure — a new-in-8.10 code path
+  (`io.camunda.security.spring.oidc.ScopedJwtDecoderFactory`/`ScopedClientRegistrationFactory`,
+  and `io.camunda.client.impl.oauth.OAuthCredentialsProviderBuilder` for connectors) fetches
+  `${issuer}/.well-known/openid-configuration` over public HTTPS. See the comment above
+  `orchestration.security.authentication.oidc` in `template-values-camunda-8.10.yaml` for the full
+  trace. Two independent things were both required to fix it:
+  1. **Trust**: `global.tls.caBundle` (also in `template-values-camunda-8.10.yaml`, top of
+     `global:`) — the chart's own purpose-built mechanism for this, not a hand-rolled
+     initContainer: reuses each component's own image (already ships `keytool`), rebuilds a
+     combined truststore into an `emptyDir`, and wires `JAVA_TOOL_OPTIONS` — all automatic once
+     `global.tls.caBundle.secret.existingSecret` is set, confirmed by reading
+     `templates/orchestration/statefulset.yaml` / `templates/connectors/deployment.yaml` (both
+     call the `caBundleInitContainer`/`caBundleJavaToolOptionsEnv`/`caBundleTruststoreVolumeMount`
+     helpers unconditionally, gated only on this being non-empty). Points at the same
+     `tls-secret-${CAMUNDA_DOMAIN}` secret `create-certifcate.sh` already creates and nginx-ingress
+     already serves — no separate CA secret needed; `keytool` will import a self-signed leaf as a
+     trusted entry fine, it doesn't require a proper `CA:true` basicConstraint.
+  2. **Reachability**: fixing #1 alone traded "unable to find valid certification path" for
+     "signature check failed" — a *different* self-signed cert, same CN, was actually being
+     served. Root cause: `BEHIND_REVERSE_PROXY=true` means `$CAMUNDA_DOMAIN` resolves via real
+     public DNS to an external reverse proxy in front of this box, so a pod's own outbound call to
+     `https://$CAMUNDA_DOMAIN/auth/...` leaves the cluster, goes out to the internet, and comes
+     back in through that external hop — which terminates TLS with its own cert rather than
+     passing through to this box's nginx-ingress. Confirmed with `openssl s_client` from inside a
+     pod: connecting to `$CAMUNDA_DOMAIN:443` served a different fingerprint than
+     `tls-secret-$CAMUNDA_DOMAIN`; connecting directly to the node's own internal IP with the same
+     SNI served the expected one (nginx-ingress-microk8s-controller listens on hostPort 80/443, so
+     it's reachable via the node's IP). Fixed in `2-install-camunda-microk8s.sh`, right after the
+     TLS certs are created: when `BEHIND_REVERSE_PROXY=true`, it overrides MicroK8s's CoreDNS
+     `Corefile` with a `hosts { <node-internal-ip> $CAMUNDA_DOMAIN }` block (`fallthrough` for
+     everything else) so in-cluster pods resolve the domain to this node instead of round-tripping
+     out — landing on this box's own nginx-ingress and the cert `global.tls.caBundle` trusts. Full
+     Corefile replace, not a surgical patch of the live ConfigMap (see the comment in the script
+     for why that's an acceptable tradeoff here). Applies regardless of `HELM_CHART_VERSION` -
+     harmless on 8.9 since nothing there makes this outbound call, and pods reaching their own
+     public domain without an unnecessary round trip through an external proxy is the correct
+     topology either way, not an 8.10-only patch. Verified end-to-end on the live cluster: every
+     pod in the `camunda` namespace reached `1/1 Running`, 0 restarts.
 
 ## Install flow (`2-install-camunda-microk8s.sh`)
 

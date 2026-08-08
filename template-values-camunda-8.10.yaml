@@ -1,0 +1,632 @@
+# Camunda 8.10 (Helm chart 15.x, e.g. HELM_CHART_VERSION=15.0.0-alpha4) variant of
+# template-values-camunda.yaml. 2-install-camunda-microk8s.sh picks this file over the 8.9 one
+# whenever HELM_CHART_VERSION's major version is >= 15. Keep the two files in sync for anything
+# that isn't version-specific - this one is a full copy of the 8.9 template, not a diff/overlay,
+# because the chart's `identity.configuration` mechanism (and Helm values generally) don't support
+# partial overrides of nested list/map structures - see the `identity.env` block below for a
+# concrete case where that bit us. Diverge only where 8.10's chart or app behavior actually
+# requires it, and comment every such spot with what breaks on the other version if you're not
+# sure - these are easy to lose track of across a copy-paste.
+global:
+  documentStore:
+    activeStoreId: "local"
+    type:
+      aws:
+        enabled: false
+      gcp:
+        enabled: false
+      inmemory:
+        enabled: false
+      local:
+        enabled: true
+        storeId: "LOCAL"
+        class: "io.camunda.document.store.local.LocalDocumentStoreProvider"
+        basePath: "/camunda-docs"
+
+  identity:
+    # GENERIC = talk to any standards-compliant OIDC provider instead of the bundled Keycloak.
+    # See https://docs.camunda.io/docs/self-managed/deployment/helm/configure/authentication-and-authorization/generic-oidc-provider/
+    # keycunda (template-keycunda.yaml) issues the tokens. Client IDs/audiences below
+    # were verified against `helm show values camunda/camunda-platform --version 14.7.0` - re-check
+    # if you bump HELM_CHART_VERSION, since field names have moved between chart versions before
+    # (e.g. orchestration.security.authentication.oidc.issuer, not "issuerUrl").
+    auth:
+      enabled: true
+      type: "GENERIC"
+      publicIssuerUrl: "https://${CAMUNDA_DOMAIN}/auth"
+      issuerBackendUrl: "http://keycunda/auth"
+      authUrl: "https://${CAMUNDA_DOMAIN}/auth/oauth2/authorize"
+      tokenUrl: "http://keycunda/auth/oauth2/token"
+      jwksUrl: "http://keycunda/auth/oauth2/jwks"
+      identity:
+        clientId: "camunda-identity"
+        audience: "camunda-identity-resource-server"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-identity-client-token"
+        # Without this, Management Identity's own authorization DB never bootstraps an admin - its
+        # default initialClaimName is "oid" (Microsoft Entra's claim), which our tokens never carry,
+        # so no user ever matches and nobody gets any role/permission in Identity's own store. This
+        # is what Web Modeler actually checks via its `identity.base-url` call below (separate from
+        # orchestration.security.initialization, which only bootstraps Orchestration/Zeebe's own
+        # RBAC store) - without it, Web Modeler shows "Access denied to organization ..." /
+        # "Could not fetch your shared resources" for every user, forever. Mirrors the chart's own
+        # commented example for generic OIDC providers (`helm show values`, "Microsoft Entra example").
+        initialClaimName: "preferred_username"
+        initialClaimValue: "${DEMO_EMAIL}"
+      # web-modeler is a public (PKCE) client on keycunda - the chart's own values schema has
+      # no client-secret field for it either, confirmed against the real camunda-platform 14.7.0
+      # chart defaults (`helm show values camunda/camunda-platform --version 14.7.0`).
+      webModeler:
+        clientId: "web-modeler"
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/modeler"
+        clientApiAudience: "web-modeler-api"
+        publicApiAudience: "web-modeler-public-api"
+      console:
+        clientId: "console"
+        audience: "console-api"
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/console"
+      optimize:
+        clientId: "optimize"
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/optimize"
+        audience: "optimize-api"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-optimize-client-token"
+      orchestration:
+        clientId: "orchestration"
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
+        audience: "orchestration-api"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-orchestration-client-token"
+      connectors:
+        clientId: "orchestration"
+        audience: "orchestration-api"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-connectors-client-token"
+
+  security:
+    authentication:
+      method: oidc
+
+  host: "${CAMUNDA_DOMAIN}"
+  ingress:
+    enabled: true
+    className: public
+    tls:
+      enabled: true
+      secretName: "tls-secret-${CAMUNDA_DOMAIN}"
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+      nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+
+  # Fixes the PKIX/"unable to find valid certification path" crash-loop on orchestration (zeebe
+  # gateway) and connectors that's specific to 8.10 (see the long comment above
+  # orchestration.security.authentication.oidc below for the full trace and root cause). This is
+  # the chart's own purpose-built mechanism for exactly this - global.tls.caBundle - not a
+  # hand-rolled initContainer: it reuses each component's own image (already has keytool),
+  # rebuilds a combined truststore (component's default cacerts + this CA) into an emptyDir at
+  # /var/camunda/tls-truststore/cacerts, and wires JAVA_TOOL_OPTIONS to point at it - all
+  # automatic once this secret reference is set, confirmed by reading
+  # templates/orchestration/statefulset.yaml and templates/connectors/deployment.yaml (both
+  # already call camundaPlatform.caBundleInitContainer/caBundleJavaToolOptionsEnv/
+  # caBundleTruststoreVolumeMount unconditionally, gated only on this being non-empty - no
+  # per-component wiring needed here). Reuses the existing self-signed leaf cert secret
+  # (create-certifcate.sh, also referenced above at ingress.tls.secretName) instead of a separate
+  # CA secret - keytool will happily import a self-signed leaf as a trusted entry, it doesn't
+  # require a proper CA:true basicConstraint. autoRollout is deliberately left at its default
+  # (false): it needs `get` on Secrets via Helm's `lookup` at upgrade time, which this install
+  # flow's Helm identity may not have, and `create-certifcate.sh` regenerating the cert is a rare,
+  # manual, already-visible action - a `kubectl rollout restart` on orchestration/connectors after
+  # that is an acceptable manual step, not worth the extra RBAC surface.
+  tls:
+    caBundle:
+      secret:
+        existingSecret: "tls-secret-${CAMUNDA_DOMAIN}"
+        existingSecretKey: "tls.crt"
+
+identity:
+  contextPath: "/identity"
+  fullURL: "https://${CAMUNDA_DOMAIN}/identity"
+  enabled: true
+  # No `firstUser` block: users now live in keycunda, not in an Identity-managed Keycloak
+  # realm. The first admin user is seeded by keycunda itself (DEMO_NAME/DEMO_EMAIL
+  # /DEMO_PASSWORD in template-keycunda.yaml), not by this Helm chart.
+  # Identity needs its own relational database only in GENERIC OIDC mode (in Keycloak mode its
+  # authorization/mapping-rule data lived inside Keycloak's own realm instead) - confirmed by
+  # `helm template` against this exact chart version, since neither the docs nor the values.yaml
+  # comments call this out. Without it, Identity crashes on startup trying to build a JDBC
+  # connection from entirely blank host/port/database defaults.
+  externalDatabase:
+    enabled: true
+    host: "camunda-postgresql"
+    port: 5432
+    username: "identity"
+    database: "identity"
+    secret:
+      existingSecret: "camunda-credentials"
+      existingSecretKey: "identity-postgresql-password"
+  env:
+    - name: IDENTITY_CLIENTID
+      value: "camunda-identity"
+    # Works around a startup crash that's specific to Identity 8.10.0-alpha4.2 (this chart line -
+    # confirmed by extracting and decompiling the running identity.jar). Identity's own bundled
+    # default application.yaml unconditionally defines one mapping rule - "OC Cluster Endpoint
+    # Access", matching claim sub=service-account-<orchestration client id> - granting the role
+    # "Web Modeler Public API - Cluster Ping". That role only actually gets created when Camunda
+    # Hub cluster-ping is enabled (orchestration.hub.ping.endpoint /
+    # global.identity.auth.orchestration.hubPingAuthorizationEnabled, both unset here, and
+    # deliberately so - this is a single-box demo with no Camunda Hub connectivity): the chart's
+    # own identity/configmap.yaml template gates that role behind the same condition, but never
+    # correspondingly clears the mapping rule itself when the condition is false. Every restart
+    # then dies in OidcMappingRuleInitializer (io.camunda.identity.impl.oidc.initializer,
+    # confirmed via the identity pod's crash logs) with "appliedRoleNames.notFound", because it
+    # tries to look up a role that was never created - CrashLoopBackOff on every attempt, not a
+    # transient race (verified against 7 consecutive restarts).
+    # IDENTITY_MAPPINGRULES_<index>_* env vars are Identity's documented way to define/override
+    # mapping rules (see https://github.com/camunda/camunda-docs/issues/3990) - but ALL fields for
+    # an index must be given, not just the broken one: the identity ConfigMap's own header comment
+    # warns "it's not possible to mix between the configuration and environment variable for the
+    # same object like arrays and maps", and this was confirmed the hard way - overriding only
+    # APPLIEDROLENAMES_0 traded "appliedRoleNames.notFound" for a second crash ("The given id must
+    # not be null"), because Spring Boot's relaxed binding doesn't merge one field from env vars
+    # into the classpath YAML's entry at the same index - the env-var source, once it defines
+    # anything at index 0, replaces that entire array element, leaving every field we didn't also
+    # set as null. So this redeclares the whole entry (name/claim/operator/rule-type unchanged from
+    # the jar default) and only actually changes the role. "Orchestration" is deliberately chosen
+    # over any more powerful role (e.g. ManagementIdentity) - it's Orchestration's own client
+    # mapping to its own role, so it adds no privilege beyond what that service account already has
+    # via its direct M2M permission grant. If a future alpha/GA build seeds the missing role or
+    # fixes the gap, this override becomes an inert no-op (still points at a rule/index that still
+    # exists), not a new problem - safe to leave in place rather than re-conditionalize per patch
+    # version. Verified end-to-end on the live cluster: identity.mapping_rules /
+    # mapping_rules_applied_roles ended up with exactly "Default"->ManagementIdentity and
+    # "OC Cluster Endpoint Access"->Orchestration, and the pod stayed at 1/1 Running (0 restarts).
+    - name: IDENTITY_MAPPINGRULES_0_NAME
+      value: "OC Cluster Endpoint Access"
+    - name: IDENTITY_MAPPINGRULES_0_CLAIMNAME
+      value: "sub"
+    - name: IDENTITY_MAPPINGRULES_0_CLAIMVALUE
+      value: "service-account-orchestration"
+    - name: IDENTITY_MAPPINGRULES_0_OPERATOR
+      value: "EQUALS"
+    - name: IDENTITY_MAPPINGRULES_0_RULETYPE
+      value: "ROLE"
+    - name: IDENTITY_MAPPINGRULES_0_APPLIEDROLENAMES_0
+      value: "Orchestration"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+optimize:
+  enabled: true
+  contextPath: "/optimize"
+  database:
+    elasticsearch:
+      enabled: true
+      external: true
+      url:
+        protocol: "http"
+        host: "camunda-elasticsearch-master"
+        port: 9200
+  env:
+    - name: CAMUNDA_OPTIMIZE_ELASTICSEARCH_SETTINGS_INDEX_PREFIX
+      value: "optimize-dev"
+    - name: CAMUNDA_OPTIMIZE_ZEEBE_NAME
+      value: "dev-zeebe"
+    - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+      value: "https://${CAMUNDA_DOMAIN}/auth"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+connectors:
+  enabled: true
+  security:
+    authentication:
+      method: oidc
+      oidc:
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-connectors-client-token"
+  contextPath: "/connectors"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+  # Wired here, not only via Keycunda's imperative envFrom patch (ClusterSecretsApplier -
+  # see keycunda/.../secret/ClusterSecretsApplier.java), because 2-install-camunda-microk8s.sh's
+  # supported reinstall path is `helm uninstall camunda` + a fresh `helm install` on every run -
+  # that recreates this Deployment from the chart with no memory of any prior imperative patch, so
+  # the secretRef silently disappeared on every reinstall until this was declared here. Name must
+  # match SecretYamlCodec.DEFAULT_SECRET_NAME exactly. optional: true so a fresh install (before
+  # this Secret has ever been created via Keycunda's Secrets Management page) doesn't leave the
+  # connectors pod stuck in ContainerCreating for a Secret that doesn't exist yet.
+  envFrom:
+    - secretRef:
+        name: connector-secrets
+        optional: true
+  env:
+    - name: LOADER_PATH
+      value: "/opt/custom/connectors"
+  extraVolumes:
+    - name: custom-connectors
+      persistentVolumeClaim:
+        claimName: camunda-connectors-custom
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: custom-connectors
+      mountPath: /opt/custom
+    - name: camunda-docs
+      mountPath: /camunda-docs
+
+webModeler:
+  enabled: true
+  contextPath: "/modeler"
+  restapi:
+    externalDatabase:
+      url: "jdbc:postgresql://camunda-postgresql:5432/web-modeler"
+      username: "webmodeler"
+      secret:
+        existingSecret: "camunda-credentials"
+        existingSecretKey: "webmodeler-postgresql-user-password"
+    mail:
+      fromAddress: noreply@example.com
+    clusters:
+      - id: "default-cluster"
+        name: "camunda-zeebe"
+        version: "${CAMUNDA_APP_VERSION}"
+        authentication: "BEARER_TOKEN"
+        authorizations:
+          enabled: false
+        url:
+          grpc: "grpc://camunda-zeebe-gateway.camunda.svc.cluster.local:26500"
+          rest: "http://camunda-zeebe-gateway.camunda.svc.cluster.local:8080/orchestration"
+          web-app: "https://${CAMUNDA_DOMAIN}"
+    env:
+      - name: CAMUNDA_MODELER_RESOURCE_IMPORT_ALLOW_PRIVATE_IP_ADDRESS
+        value: "true"
+      - name: FEATURE_AI_ENABLED
+        value: "${OLLAMA_ENABLED}"
+      - name: RESTAPI_BPMN_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_FEEL_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_FORM_COPILOT_DEFAULT_LLM_PROVIDER
+        value: OLLAMA
+      - name: RESTAPI_COPILOT_OLLAMA_DEFAULT_MODEL_ID
+        value: "${OLLAMA_MODEL}"
+      - name: RESTAPI_COPILOT_OLLAMA_BASE_URL
+        value: "${OLLAMA_URL}"
+      - name: CAMUNDA_MODELER_GITSYNC_GITLAB_BASEURL
+        value: "${GITLAB_URL}"
+    configuration: |
+      # This block is Web Modeler's own internal Spring config, passed straight through. No
+      # client-secret is set here on purpose: keycunda registers "web-modeler" as a public
+      # (PKCE) client, matching the chart's own values schema, which has no secret field for it.
+      camunda:
+        identity:
+          base-url: "http://camunda-identity:80/identity"
+          issuer: "https://${CAMUNDA_DOMAIN}/auth"
+          issuerBackendUrl: "http://keycunda/auth"
+          type: "GENERIC"
+
+        modeler:
+          feature:
+            play-enabled: "true"
+
+          security:
+            jwt:
+              issuer:
+                backend-url: "http://keycunda/auth"
+              audience:
+                internal-api: "web-modeler-api"
+                public-api: "web-modeler-public-api"
+
+          mail:
+            from-address: "noreply@example.com"
+            from-name: "Camunda 8"
+
+          oauth2:
+            client-id: "web-modeler"
+            token:
+              # Web Modeler has no separate claim for the display "name" field - whatever claim is
+              # configured here fills both "username" and the profile "name" shown in the UI. User
+              # matching itself is keyed off "sub" (iam_id), not this claim, so it's safe to point
+              # this at the free-text display name instead of the login identifier. Was
+              # "preferred_username" (our email claim), which correctly matches Camunda's chart
+              # default docs warning: "usernames may appear as email-style identifiers" - and made
+              # the profile show the email in both the name and email fields instead of a real name.
+              username-claim: "name"
+
+          pusher:
+            host: "camunda-web-modeler-websockets"
+            port: "8060"
+            app-id: "web-modeler-app"
+            key: "web-modeler-app-key"
+            secret: "web-modeler-app-secret"
+            client:
+              host: "${CAMUNDA_DOMAIN}"
+              port: "443"
+              path: "/modeler-ws"
+              force-tls: "true"
+
+          server:
+            url: "https://${CAMUNDA_DOMAIN}/modeler"
+            https-only: "true"
+          # `components` (per-app grpc/rest/webapp/readiness) and the older single `url` block are
+          # mutually exclusive - confirmed the hard way, via Spring's own validation message on
+          # startup: "must not have both 'url' and 'components' configured; use one or the other"
+          # (io.camunda.modeler.configuration.cluster.ClusterProperties$Cluster, extracted from
+          # hub-config-self-managed-*.jar inside the web-modeler-restapi pod). The old flat `url`
+          # block (still used in template-values-camunda.yaml/8.9, and previously here too) has NO
+          # readiness field at all - confirmed via ClusterConfigSyncMapper's MapStruct mapping
+          # (readinessUrl only ever sources from component.urls.readiness, never from
+          # config.url.*) - so Web Modeler's Clusters page can never determine cluster health
+          # through that shape; ClusterStatusService.fetchStatusesByAppId returns AppStatus.UNKNOWN
+          # without even making a network call when readinessUrl is blank (confirmed by extracting
+          # and reading that class directly), which the UI renders as "Unhealthy" despite the
+          # Zeebe gateway/broker being fully healthy. `type: orchestration` is
+          # ClusterAppType.ORCHESTRATION's getConfigurationValue() (confirmed valid - Spring's
+          # ValidClusterAppTypeValidator would otherwise fail loudly with "not a recognized cluster
+          # app type" and list every valid value, which it did not). The readiness URL points at
+          # the same internal actuator endpoint the chart's own auto-generated release-info
+          # ConfigMap uses for this exact component (`camunda-camunda-platform-release`, see
+          # `helm template`'s configmap-release.yaml) - confirmed end-to-end by checking
+          # cluster_apps.readiness_url in Postgres after a real config sync, then confirming Web
+          # Modeler's Clusters page showed Zeebe healthy in the browser.
+          clusters:
+            - authentication: BEARER_TOKEN
+              authorizations:
+                enabled: false
+              id: default-cluster
+              name: camunda-zeebe
+              version: ${CAMUNDA_APP_VERSION}
+              components:
+                - name: orchestration
+                  type: orchestration
+                  version: ${CAMUNDA_APP_VERSION}
+                  urls:
+                    grpc: grpc://camunda-zeebe-gateway.camunda.svc.cluster.local:26500
+                    rest: http://camunda-zeebe-gateway.camunda.svc.cluster.local:8080/orchestration
+                    webapp: https://${CAMUNDA_DOMAIN}
+                    readiness: http://camunda-zeebe.camunda:9600/orchestration/actuator/health/readiness
+
+      spring:
+        datasource:
+          url: "jdbc:postgresql://camunda-postgresql:5432/web-modeler"
+          username: "webmodeler"
+
+        mail:
+          host: ""
+          port: 587
+          properties:
+            mail.smtp.auth: false
+            mail.smtp.starttls.enable: true
+            mail.smtp.starttls.required: true
+
+        security:
+          oauth2:
+            resourceserver:
+              jwt:
+                issuer-uri: "https://${CAMUNDA_DOMAIN}/auth"
+                jwk-set-uri: "http://keycunda/auth/oauth2/jwks"
+
+        servlet:
+          multipart:
+            max-file-size: "10MB"
+            max-request-size: "10MB"
+
+      # --- FIX (8.9): Web Modeler restapi now runs on Tomcat instead of Undertow,
+      # and it also owns the browser-facing login/session flow that used to live
+      # in the removed "webapp" component. Tomcat does not trust X-Forwarded-Proto
+      # from the nginx ingress by default the way Undertow did, so with
+      # `https-only: true` above it kept generating https redirects on a request
+      # it believed was still plain HTTP -> redirect loop / ERR_TOO_MANY_REDIRECTS.
+      # `native` tells Spring Boot to let Tomcat's built-in RemoteIpValve read
+      # X-Forwarded-Proto/-Host/-Port/-For from the ingress and treat the
+      # connection as HTTPS correctly.
+      server:
+        servlet:
+          context-path: "/modeler"
+        forward-headers-strategy: native
+
+      management:
+        server:
+          base-path: "/modeler"
+
+      logging:
+        level:
+          io.camunda.modeler: INFO
+          io.grpc: INFO
+
+      zeebe:
+        client:
+          maxMetadataSize: 32768
+
+    extraVolumes:
+      - name: camunda-docs
+        persistentVolumeClaim:
+          claimName: camunda-docs-pvc
+    extraVolumeMounts:
+      - name: camunda-docs
+        mountPath: /camunda-docs
+  websockets:
+    contextPath: "/modeler-ws"
+    pusher:
+      app-id: "web-modeler-app"
+      key: "web-modeler-app-key"
+      secret: "web-modeler-app-secret"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+
+orchestration:
+  enabled: true
+  clusterSize: "1"
+  partitionCount: "1"
+  replicationFactor: "1"
+  contextPath: "/orchestration"
+  ingress:
+    grpc:
+      enabled: true
+      className: public
+      host: "${ZEEBE_DOMAIN}"
+      tls:
+        enabled: true
+        secretName: "tls-secret-${ZEEBE_DOMAIN}"
+  # On 8.10.0-alpha4.2 (chart 15.0.0-alpha4), with only `oidc.issuer` set (no explicit
+  # authUrl/tokenUrl/jwksUrl - same as the working 8.9 config below), the gateway crash-loops with
+  # PKIX path building failed / unable to find valid certification path, fetching
+  # https://${CAMUNDA_DOMAIN}/auth/.well-known/openid-configuration and hitting our self-signed
+  # cert (create-certifcate.sh), which the JVM's default trust store doesn't trust. Confirmed via
+  # `kubectl logs --previous camunda-zeebe-0`: the call chain is
+  # io.camunda.security.spring.oidc.ScopedJwtDecoderFactory.buildIssuerAwareDecoder ->
+  # ScopedClientRegistrationFactory.createFromProviderMap -> Spring's
+  # ClientRegistrations.fromOidcIssuerLocation, invoked from
+  # PhysicalTenantHandlerFactory.build - a new-in-8.10 class name (multi-tenant/"topology" gateway
+  # support), so this outbound discovery-over-public-HTTPS-issuer behavior looks new to 8.10, not
+  # a config regression carried over from 8.9. connectors (io.camunda.client's
+  # OAuthCredentialsProviderBuilder.fetchWellKnownConfiguration) fails identically for the same
+  # reason. Fixed via global.tls.caBundle above (not here) - see that comment for how.
+  security:
+    authentication:
+      unprotectedApi: false
+      method: oidc
+      oidc:
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/orchestration"
+        issuer: "https://${CAMUNDA_DOMAIN}/auth"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "identity-orchestration-client-token"
+    authorizations:
+      enabled: false
+    # Camunda's own RBAC keys initial-admin assignment off orchestration.security.authentication
+    # .usernameClaim (default: preferred_username). Our identity provider puts the user's email
+    # there (see AuthorizationServerConfig's token customizer) - "demo"/"demo@demo.com" from the
+    # chart's own defaults would never match a real login, so it's overridden here to line up
+    # with the actual seeded admin (DEMO_EMAIL/DEMO_NAME/PASSWORD). Currently moot in practice
+    # since authorizations.enabled is false above (no role checks are enforced yet), but wiring
+    # it correctly now avoids a silent mismatch if that's ever turned on. The "connectors" user
+    # and client entries are chart defaults, left as-is.
+    initialization:
+      users:
+        - username: connectors
+          password: connector
+          name: Connector User
+          email: connector@demo.com
+        - username: "${DEMO_EMAIL}"
+          password: "${PASSWORD}"
+          name: "${DEMO_NAME}"
+          email: "${DEMO_EMAIL}"
+      defaultRoles:
+        admin:
+          users:
+            - "${DEMO_EMAIL}"
+        connectors:
+          users:
+            - connectors
+          clients:
+            - connectors
+  exporters:
+    camunda:
+      enabled: false
+    rdbms:
+      enabled: true
+  data:
+    secondaryStorage:
+      type: "rdbms"
+      rdbms:
+        url: "jdbc:postgresql://camunda-postgresql:5432/orchestration"
+        username: "orchestration"
+        secret:
+          existingSecret: "camunda-credentials"
+          existingSecretKey: "orchestration-postgresql-password"
+  index:
+    prefix: dev-camunda
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+  env:
+    - name: SPRINGDOC_SWAGGERUI_ENABLED
+      value: "${SWAGGER_ENABLED}"
+    # 8.10-only: a new gateway-side "cluster-admin" API (io.camunda.authentication.clusteradmin -
+    # confirmed by extracting camunda-authentication-8.10.0-alpha4.jar, no equivalent package
+    # exists in the 8.9 chart line) gates /cluster/v2/** (including /cluster/v2/status, a richer
+    # cluster health/status endpoint) behind ROLE_CLUSTER_ADMIN. With no
+    # camunda.security.cluster-admin.oidc.* matcher configured, the gateway logs on every
+    # startup: "No cluster-admin OIDC matchers configured ... every bearer token will be denied
+    # on /cluster/v2/**" - and Web Modeler's Clusters page (which forwards the logged-in user's
+    # own token, same BEARER_TOKEN mechanism as webModeler.restapi.clusters below) reported Zeebe
+    # as unhealthy as a result, even though the broker/gateway itself was fully healthy (verified
+    # directly via /orchestration/actuator/health and /orchestration/v2/topology). Confirmed fixed
+    # by calling /orchestration/cluster/v2/status with the web-modeler user's own token: 403
+    # before this env var, 204 after.
+    #
+    # The list-of-objects binding target is `io.camunda.configuration.ClusterAdminClaim` (also
+    # confirmed by extracting the jar - specifically configuration-8.10.0-alpha4.jar, NOT the
+    # camunda-authentication one above, which has its own differently-named, unrelated runtime
+    # ClusterAdminClaim/ClaimRule type built from this one at startup). It's a Java record with
+    # fields `name`/`value` - NOT `claimName`/`claimValue` as the authentication jar's runtime
+    # type would suggest, and easy to get wrong by decompiling the wrong jar (done twice here
+    # before landing on the right one): a single "name;value" string throws
+    # ConverterNotFoundException (no String converter registered for the list element type), and
+    # CLAIMNAME/CLAIMVALUE indexed keys throw UnboundConfigurationPropertiesException (right
+    # index, wrong field names) - both crash-loop the gateway, so get this exactly right before
+    # changing it. Scoped to just the seeded admin via preferred_username=DEMO_EMAIL - the same
+    # claim/value Identity's own initialClaimName/initialClaimValue bootstrap already uses to
+    # identify that one admin - rather than the broader demo_user=true claim the "AllUsers"
+    # mapping rule grants everyone, since cluster-admin is a materially more privileged
+    # capability than baseline app access.
+    - name: CAMUNDA_SECURITY_CLUSTERADMIN_OIDC_CLAIMS_0_NAME
+      value: "preferred_username"
+    - name: CAMUNDA_SECURITY_CLUSTERADMIN_OIDC_CLAIMS_0_VALUE
+      value: "${DEMO_EMAIL}"
+  extraVolumes:
+    - name: camunda-docs
+      persistentVolumeClaim:
+        claimName: camunda-docs-pvc
+  extraVolumeMounts:
+    - name: camunda-docs
+      mountPath: /camunda-docs
+  extraConfiguration:
+    - file: mcp-gateway.yaml
+      content: |
+        camunda:
+          mcp:
+            enabled: true
+
+console:
+  enabled: true
+  contextPath: "/console"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi

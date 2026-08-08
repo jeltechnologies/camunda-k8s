@@ -74,6 +74,74 @@ fi
 ./create-certifcate.sh "${CAMUNDA_DOMAIN}" -n camunda
 ./create-certifcate.sh "${ZEEBE_DOMAIN}"   -n camunda
 
+# BEHIND_REVERSE_PROXY=true means install-fix-hosts.sh deliberately did NOT point
+# $CAMUNDA_DOMAIN at this box in /etc/hosts (see that script) - by design, since the domain's
+# real public DNS record points at an external reverse proxy (Cloudflare, Pangolin, etc.) in
+# front of this box, and a browser/CLI on the box itself is meant to go through that proxy like
+# any other client. Fine for browser traffic, but Camunda 8.10 introduced components that make
+# their OWN outbound HTTPS call to https://$CAMUNDA_DOMAIN/auth/.well-known/openid-configuration
+# from inside a pod (see the long comment above orchestration.security.authentication.oidc in
+# template-values-camunda-8.10.yaml) - and that pod-originated request leaves the cluster, goes
+# out to the internet, and comes back in through the SAME external reverse proxy, which terminates
+# TLS with its own cert rather than passing through to this box's nginx-ingress. Confirmed on this
+# box with openssl s_client: connecting to $CAMUNDA_DOMAIN:443 from inside a pod serves a
+# different self-signed cert (different fingerprint, same CN) than the one in
+# tls-secret-$CAMUNDA_DOMAIN that global.tls.caBundle (template-values-camunda-8.10.yaml) trusts -
+# trusting that wrong cert isn't an option we control from here. Connecting directly to this
+# node's own internal IP instead, with the same SNI, serves the expected cert - confirmed
+# identical fingerprint to tls-secret-$CAMUNDA_DOMAIN. So: override CoreDNS cluster-wide so
+# $CAMUNDA_DOMAIN resolves in-cluster to this node's internal IP instead of leaving the cluster,
+# landing on this box's own nginx-ingress (nginx-ingress-microk8s-controller listens on hostPort
+# 80/443, reachable via the node's own IP - confirmed the same way) and terminating TLS with the
+# cert global.tls.caBundle already trusts. Only $CAMUNDA_DOMAIN is overridden, not $ZEEBE_DOMAIN -
+# no component was found making an equivalent outbound call to the gRPC gateway's own domain, so
+# there's nothing yet proven to need it. Applies regardless of HELM_CHART_VERSION: harmless on 8.9
+# (nothing there makes this outbound call, so the override is simply unused), and this is the
+# general fix for any future component that does the same thing pods reaching their own public
+# domain, not routing back out through an external hop, is the correct topology either way, not an
+# 8.10-only patch. Full Corefile replace, not surgical text-patch of the live ConfigMap: MicroK8s's
+# default Corefile is a well-known, static structure (confirmed by reading the live ConfigMap
+# before writing this), and this install script already unconditionally recreates other resources
+# the same way (e.g. camunda-credentials below) - safe here for the same reason, but see the
+# "hosts" block below before assuming this is safe on a cluster with other CoreDNS customizations.
+if [[ "${BEHIND_REVERSE_PROXY:-false}" == "true" ]]; then
+  echo "=================================================================="
+  echo "Behind reverse proxy - pointing \$CAMUNDA_DOMAIN at this node in CoreDNS"
+  echo "=================================================================="
+  NODE_INTERNAL_IP=$(microk8s kubectl get node -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+  echo "Node internal IP: ${NODE_INTERNAL_IP}"
+  microk8s kubectl create configmap coredns -n kube-system \
+    --from-literal=Corefile="$(cat <<COREFILE
+.:53 {
+    errors
+    health {
+      lameduck 5s
+    }
+    ready
+    hosts {
+      ${NODE_INTERNAL_IP} ${CAMUNDA_DOMAIN}
+      fallthrough
+    }
+    log . {
+      class error
+    }
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+      pods insecure
+      fallthrough in-addr.arpa ip6.arpa
+    }
+    prometheus :9153
+    forward . /etc/resolv.conf
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+COREFILE
+)" --dry-run=client -o yaml | microk8s kubectl apply -f -
+  microk8s kubectl rollout restart deployment coredns -n kube-system
+  microk8s kubectl rollout status deployment coredns -n kube-system --timeout=60s
+fi
+
 echo "=================================================================="
 echo Setting passwords for the cluster
 echo "=================================================================="
@@ -196,8 +264,18 @@ microk8s kubectl delete pv  camunda-connectors-pv           --ignore-not-found
 echo "=================================================================="
 echo Generating Helm values from template
 echo "=================================================================="
+# template-values-camunda.yaml targets the 8.9 chart line (14.x). The 8.10 chart line (15.x+)
+# needs its own template - see the header comment in template-values-camunda-8.10.yaml for why a
+# full copy was used instead of an overlay/diff. Selected on HELM_CHART_VERSION's major version,
+# not CAMUNDA_APP_VERSION, since the Helm chart is what these templates' values.yaml schema
+# actually has to match.
+camunda_values_template="template-values-camunda.yaml"
+if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
+  camunda_values_template="template-values-camunda-8.10.yaml"
+fi
+echo "Using Helm values template: ${camunda_values_template}"
 envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}' \
-  < template-values-camunda.yaml > values-camunda.yaml
+  < "$camunda_values_template" > values-camunda.yaml
 
 echo "=================================================================="
 echo Creating host directories for Camunda volumes
