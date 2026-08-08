@@ -189,8 +189,20 @@ spec:
 # entirely, so even an already-authenticated visitor saw the login form again on every "/" visit.
 # temporal-redirect (302), not permanent-redirect (301): a 301 here bit us once already - browsers
 # cache permanent redirects aggressively, so a target change wouldn't have been visible without a
-# hard refresh/incognito. pathType: Exact so this only matches "/" itself, not every other
-# prefix-routed path. nginx-ingress requires a valid backend below even though it's never reached.
+# hard refresh/incognito. pathType: Prefix, not Exact, and deliberately so even though it then also
+# catches stray/unknown paths (which just redirect to /keycunda too - a harmless, arguably nicer
+# fallback than a bare 404). Exact was tried first and is broken on this controller: once ANY other
+# Ingress on the same host uses use-regex (several /keycunda/* aliases below do), nginx-ingress
+# forces the whole host's location set into regex mode and, in that mode, silently synthesizes its
+# own empty-backend catch-all `location ~* "^/"` for the host - which collides with this rule's own
+# compiled-to-regex "^/" and, since nginx picks the first identical regex location in file order,
+# wins over it every time (confirmed live: the synthetic one showed up attributed to different,
+# unrelated Ingress objects across repeated re-applies, so it isn't something we can out-order by
+# renaming/reordering our own manifests). Prefix "/" never gets compiled down to that exact "^/"
+# collision shape, so it sidesteps the bug entirely - confirmed with the synthetic location gone
+# and every existing path (/keycunda*, /modeler, /orchestration, /identity, /optimize, /connectors)
+# still resolving correctly. nginx-ingress requires a valid backend below even though it's never
+# reached.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -209,7 +221,7 @@ spec:
       http:
         paths:
           - path: /
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: keycunda
