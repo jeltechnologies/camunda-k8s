@@ -177,19 +177,6 @@ microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=5m
 echo "Keycunda installed. Service: keycunda.camunda:80/auth"
 
 echo "=================================================================="
-echo "Removing legacy pre-Keycunda identity provider resources, if present"
-echo "=================================================================="
-# A box installed before the Keycloak/"Demo Identity Provider"/Caddy -> Keycunda
-# rename can still have a "camunda-demo-identity-provider" Deployment/Service/
-# Ingress lying around - nothing in this repo templates that name anymore, but
-# its Ingress claims the same host+path as keycunda-ingress (/auth), which
-# breaks nginx routing for both. Safe to remove unconditionally: keycunda has
-# fully replaced it.
-microk8s kubectl delete ingress camunda-demo-identity-provider-ingress -n camunda --ignore-not-found
-microk8s kubectl delete deployment camunda-demo-identity-provider -n camunda --ignore-not-found
-microk8s kubectl delete svc camunda-demo-identity-provider -n camunda --ignore-not-found
-
-echo "=================================================================="
 echo "Installing Keycunda ingress"
 echo "=================================================================="
 # Delete-then-apply instead of a plain apply, so stale/conflicting rules from
