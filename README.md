@@ -107,6 +107,16 @@ PostgreSQL, Elasticsearch) are deployed before the Camunda Helm chart is install
 ingress controller handles TLS termination and routes all traffic by path prefix — no NodePorts
 or port forwarding anywhere.
 
+## Limitations
+
+It is possible to also run plain Docker containers on the same box alongside MicroK8s (e.g. for
+unrelated tools or simulators), but they must use `network_mode: host` only — never the Docker
+default bridge network. Starting a container on a bridge network creates a new network interface
+on the host, which MicroK8s can mistake for a node IP change and react to by restarting its own
+services, briefly killing every running Camunda pod (PostgreSQL included) and triggering a
+cascading restart of the whole platform. Host networking creates no new interface, so it doesn't
+trigger this.
+
 ## Custom connectors
 
 Drop connector JARs into `~/camunda-connectors` on the host. 
