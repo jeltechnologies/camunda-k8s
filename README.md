@@ -72,8 +72,9 @@ sudo reboot
 ./2-install-camunda-microk8s.sh
 ```
 
-The second script will prompt for your Helm chart version. Choose one of the published versions from 
-[Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
+The second script fetches the [Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
+and lets you pick the latest alpha or latest stable Camunda/Helm chart version with one keystroke,
+or enter both manually (also the fallback if the page can't be reached).
 
 After this the script prompts for domain, password, and optional Ollama/GitLab settings, then install everything automatically. Expect 15–20 minutes on first run.
 

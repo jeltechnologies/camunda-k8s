@@ -97,6 +97,28 @@ global:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
       nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 
+  # Fixes the same PKIX/"unable to find valid certification path" crash-loop on orchestration and
+  # connectors documented at length in template-values-camunda-8.10.yaml - proven NOT an 8.10-only
+  # issue after all: 8.9.14 crash-loops identically (WebSecurityConfig$OidcConfiguration
+  # .clientRegistrationRepository -> ClientRegistrationFactory.createClientRegistration ->
+  # ClientRegistrations.fromIssuerLocation), so orchestration's OIDC client-registration bean has
+  # apparently always made this outbound call to https://${CAMUNDA_DOMAIN}/auth/.well-known/
+  # openid-configuration, at least as of this patch version - the "harmless on 8.9, nothing there
+  # makes this call" assumption in the CoreDNS override comment (2-install-camunda-microk8s.sh) and
+  # in the orchestration.security.authentication.oidc comment in the 8.10 template was wrong. Same
+  # fix, same mechanism: global.tls.caBundle is the chart's own purpose-built mechanism for this,
+  # reusing each component's own image (already has keytool) to rebuild a combined truststore into
+  # an emptyDir and wire JAVA_TOOL_OPTIONS - all automatic once this secret reference is set. See
+  # the longer comment on this same block in template-values-camunda-8.10.yaml for the full trace
+  # and confirmation of how templates/orchestration/statefulset.yaml and
+  # templates/connectors/deployment.yaml wire it up. Reuses the existing self-signed leaf cert
+  # secret (create-certifcate.sh) - keytool will import a self-signed leaf as a trusted entry fine.
+  tls:
+    caBundle:
+      secret:
+        existingSecret: "tls-secret-${CAMUNDA_DOMAIN}"
+        existingSecretKey: "tls.crt"
+
 
 identity:
   contextPath: "/identity"

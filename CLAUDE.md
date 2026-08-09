@@ -117,18 +117,27 @@ Known differences today, both in `template-values-camunda-8.10.yaml`:
   missing one — deliberately the least-privileged choice, since it's Orchestration's own service
   account mapping to its own role, adding nothing beyond what that account already has via its
   direct M2M permission grant.
-- **Fixed, two parts**: `orchestration.security.authentication.oidc` and `connectors` both used to
-  crash-loop with a PKIX path-building failure — a new-in-8.10 code path
-  (`io.camunda.security.spring.oidc.ScopedJwtDecoderFactory`/`ScopedClientRegistrationFactory`,
-  and `io.camunda.client.impl.oauth.OAuthCredentialsProviderBuilder` for connectors) fetches
-  `${issuer}/.well-known/openid-configuration` over public HTTPS. See the comment above
-  `orchestration.security.authentication.oidc` in `template-values-camunda-8.10.yaml` for the full
-  trace. Two independent things were both required to fix it:
-  1. **Trust**: `global.tls.caBundle` (also in `template-values-camunda-8.10.yaml`, top of
-     `global:`) — the chart's own purpose-built mechanism for this, not a hand-rolled
-     initContainer: reuses each component's own image (already ships `keytool`), rebuilds a
-     combined truststore into an `emptyDir`, and wires `JAVA_TOOL_OPTIONS` — all automatic once
-     `global.tls.caBundle.secret.existingSecret` is set, confirmed by reading
+- **Fixed, two parts, and NOT 8.10-only — also hit on 8.9.14**: `orchestration.security
+  .authentication.oidc` and `connectors` both crash-loop with a PKIX path-building failure fetching
+  `${issuer}/.well-known/openid-configuration` over public HTTPS. On 8.10.0-alpha4.2 the call chain
+  is `io.camunda.security.spring.oidc.ScopedJwtDecoderFactory`/`ScopedClientRegistrationFactory` →
+  `PhysicalTenantHandlerFactory.build` (a new-in-8.10, multi-tenant/"topology" gateway class) and
+  `io.camunda.client.impl.oauth.OAuthCredentialsProviderBuilder` for connectors — originally
+  assumed 8.10-only because of that class name. **Disproven 2026-08-09**: 8.9.14 crash-loops
+  identically, via a different, plain (no multi-tenancy) call chain —
+  `io.camunda.authentication.config.WebSecurityConfig$OidcConfiguration
+  .clientRegistrationRepository` → `ClientRegistrationFactory.createClientRegistration` → Spring's
+  `ClientRegistrations.fromIssuerLocation` — so orchestration's OIDC client-registration bean has
+  apparently always made this same outbound discovery call; 8.10 just adds a second call site
+  alongside it, not a wholly new behavior. See the comment above `orchestration.security
+  .authentication.oidc` in `template-values-camunda-8.10.yaml`, and the matching `global.tls
+  .caBundle` comment in `template-values-camunda.yaml`, for the full traces. Two independent things
+  are both required to fix it, in **both** value templates now:
+  1. **Trust**: `global.tls.caBundle` (top of `global:` in both `template-values-camunda.yaml` and
+     `template-values-camunda-8.10.yaml`) — the chart's own purpose-built mechanism for this, not a
+     hand-rolled initContainer: reuses each component's own image (already ships `keytool`),
+     rebuilds a combined truststore into an `emptyDir`, and wires `JAVA_TOOL_OPTIONS` — all
+     automatic once `global.tls.caBundle.secret.existingSecret` is set, confirmed by reading
      `templates/orchestration/statefulset.yaml` / `templates/connectors/deployment.yaml` (both
      call the `caBundleInitContainer`/`caBundleJavaToolOptionsEnv`/`caBundleTruststoreVolumeMount`
      helpers unconditionally, gated only on this being non-empty). Points at the same
@@ -151,11 +160,12 @@ Known differences today, both in `template-values-camunda-8.10.yaml`:
      everything else) so in-cluster pods resolve the domain to this node instead of round-tripping
      out — landing on this box's own nginx-ingress and the cert `global.tls.caBundle` trusts. Full
      Corefile replace, not a surgical patch of the live ConfigMap (see the comment in the script
-     for why that's an acceptable tradeoff here). Applies regardless of `HELM_CHART_VERSION` -
-     harmless on 8.9 since nothing there makes this outbound call, and pods reaching their own
-     public domain without an unnecessary round trip through an external proxy is the correct
-     topology either way, not an 8.10-only patch. Verified end-to-end on the live cluster: every
-     pod in the `camunda` namespace reached `1/1 Running`, 0 restarts.
+     for why that's an acceptable tradeoff here). Applies regardless of `HELM_CHART_VERSION` —
+     confirmed necessary on both lines now, and pods reaching their own public domain without an
+     unnecessary round trip through an external proxy is the correct topology either way. Verified
+     end-to-end on the live cluster on 8.10: every pod in the `camunda` namespace reached `1/1
+     Running`, 0 restarts. **8.9.14 with the now-added `global.tls.caBundle` block has not yet been
+     re-verified end-to-end on the live cluster — do that on the next install run.**
 
 ## Install flow (`2-install-camunda-microk8s.sh`)
 

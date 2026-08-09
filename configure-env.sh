@@ -18,8 +18,6 @@ DEFAULT_BEHIND_REVERSE_PROXY=false
 DEFAULT_SWAGGER_ENABLED=false
 
 if [[ -f ./install-env.sh ]]; then
-  echo ""
-  echo "  Found existing install-env.sh — using previous values as defaults."
   source ./install-env.sh
 
   DEFAULT_CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
@@ -50,6 +48,99 @@ ES_VERSION=8.19.9
 PG_VERSION=16
 KEYCUNDA_IMAGE=ghcr.io/jeltechnologies/keycunda:latest
 
+VERSION_MATRIX_URL="https://helm.camunda.io/camunda-platform/version-matrix/"
+MTX_ALPHA_CHART=""; MTX_ALPHA_CAMUNDA=""
+MTX_STABLE_CHART=""; MTX_STABLE_CAMUNDA=""
+MATRIX_HTML=$(curl -sSL --max-time 10 --fail "${VERSION_MATRIX_URL}" 2>/dev/null || true)
+
+if [[ -n "${MATRIX_HTML}" ]]; then
+  # The page lists minors newest-first, each as an <h2> followed by a <table>/<tbody> of
+  # chart releases (newest release first within that table). The first <h2> mentioning
+  # "Alpha" is the latest alpha minor; the first <h2> mentioning "Standard support until"
+  # is the latest stable minor. Their tables' first <tr> is each one's latest chart release.
+  MATRIX_VARS=$(printf '%s\n' "${MATRIX_HTML}" | awk '
+    function strip(s) { gsub(/<[^>]*>/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    BEGIN { mode=""; alpha_done=0; stable_done=0; in_tbody=0; in_tr=0 }
+    {
+      line=$0
+      if (line ~ /<h2 /) {
+        htext=strip(line)
+        in_tbody=0; in_tr=0
+        if (!alpha_done && htext ~ /Alpha/) { mode="ALPHA" }
+        else if (!stable_done && htext ~ /Standard support until/) {
+          mode="STABLE"
+        }
+        else { mode="" }
+        next
+      }
+      if (mode=="") next
+      if (line ~ /<tbody>/) { in_tbody=1; next }
+      if (line ~ /<\/tbody>/) { in_tbody=0; mode=""; next }
+      if (in_tbody && line ~ /<tr>/) { in_tr=1; tdcount=0; td1=""; td2=""; next }
+      if (in_tr && line ~ /<td>/) {
+        tdcount++
+        val=strip(line)
+        if (tdcount==1) td1=val; else if (tdcount==2) td2=val
+        next
+      }
+      if (in_tr && line ~ /<\/tr>/) {
+        if (mode=="ALPHA" && !alpha_done) { alpha_chart=td1; alpha_camunda=td2; alpha_done=1 }
+        else if (mode=="STABLE" && !stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
+        in_tr=0; mode=""
+        next
+      }
+    }
+    END {
+      print "MTX_ALPHA_CHART=" alpha_chart
+      print "MTX_ALPHA_CAMUNDA=" alpha_camunda
+      print "MTX_STABLE_CHART=" stable_chart
+      print "MTX_STABLE_CAMUNDA=" stable_camunda
+    }
+  ')
+
+  # Parsed line-by-line (never eval'd) since MATRIX_VARS ultimately derives from fetched web
+  # content - keep it inert even if the page's markup ever changed unexpectedly.
+  while IFS='=' read -r mtx_key mtx_value; do
+    case "${mtx_key}" in
+      MTX_ALPHA_CHART) MTX_ALPHA_CHART="${mtx_value}" ;;
+      MTX_ALPHA_CAMUNDA) MTX_ALPHA_CAMUNDA="${mtx_value}" ;;
+      MTX_STABLE_CHART) MTX_STABLE_CHART="${mtx_value}" ;;
+      MTX_STABLE_CAMUNDA) MTX_STABLE_CAMUNDA="${mtx_value}" ;;
+    esac
+  done <<< "${MATRIX_VARS}"
+fi
+
+echo "Select the version of Camunda you would like to install"
+if [[ -n "${MTX_ALPHA_CHART}" && -n "${MTX_ALPHA_CAMUNDA}" && -n "${MTX_STABLE_CHART}" && -n "${MTX_STABLE_CAMUNDA}" ]]; then
+  echo "  1) Latest alpha  : Camunda ${MTX_ALPHA_CAMUNDA}  (Helm chart ${MTX_ALPHA_CHART})"
+  echo "  2) Latest stable : Camunda ${MTX_STABLE_CAMUNDA}  (Helm chart ${MTX_STABLE_CHART})"
+  echo "  3) Enter versions manually"
+  echo ""
+  read -p "Choose an option (default: 2): " input_version_choice
+  version_choice=${input_version_choice:-2}
+else
+  echo "  Could not fetch/parse ${VERSION_MATRIX_URL} - enter versions manually below."
+  version_choice=3
+fi
+
+case "${version_choice}" in
+  1)
+    CAMUNDA_APP_VERSION="${MTX_ALPHA_CAMUNDA}"
+    HELM_CHART_VERSION="${MTX_ALPHA_CHART}"
+    ;;
+  2)
+    CAMUNDA_APP_VERSION="${MTX_STABLE_CAMUNDA}"
+    HELM_CHART_VERSION="${MTX_STABLE_CHART}"
+    ;;
+  *)
+    read -p "Enter Helm chart version. See ${VERSION_MATRIX_URL} (default: ${DEFAULT_HELM_CHART_VERSION}): " input_helm_version
+    HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
+
+    read -p "Enter Camunda application version (default: ${DEFAULT_CAMUNDA_APP_VERSION}): " input_app_version
+    CAMUNDA_APP_VERSION=${input_app_version:-$DEFAULT_CAMUNDA_APP_VERSION}
+    ;;
+esac
+
 echo "============================================================"
 echo " Camunda configuration"
 echo "============================================================"
@@ -60,12 +151,6 @@ CAMUNDA_DOMAIN=${input_domain:-$DEFAULT_CAMUNDA_DOMAIN}
 
 read -p "Enter password (default: ${DEFAULT_PASSWORD}): " input_password
 PASSWORD=${input_password:-$DEFAULT_PASSWORD}
-
-read -p "Enter Helm chart version. See https://helm.camunda.io/camunda-platform/version-matrix/ (default: ${DEFAULT_HELM_CHART_VERSION}): " input_helm_version
-HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
-
-read -p "Enter Camunda application version (default: ${DEFAULT_CAMUNDA_APP_VERSION}): " input_app_version
-CAMUNDA_APP_VERSION=${input_app_version:-$DEFAULT_CAMUNDA_APP_VERSION}
 
 ZEEBE_DOMAIN="zeebe.${CAMUNDA_DOMAIN}"
 

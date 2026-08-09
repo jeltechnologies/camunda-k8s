@@ -1,20 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=================================================================="
-echo "Sudo access"
-echo "=================================================================="
-# Prompt for the sudo password up front and let sudo cache it, so
-# install-fix-hosts.sh below (which needs root) doesn't stall the script
-# waiting on a password after the user has already answered every
-# configure-env.sh prompt.
-sudo echo "Please provide your sudo password"
-
 echo ==================================================================
-echo Environment
+echo Welcome to the Camunda microk8s installer
 echo ==================================================================
 ./configure-env.sh
 source ./install-env.sh
+
+sudo echo "Please provide your sudo password"
 
 echo "=================================================================="
 echo "Checking Helm version"
@@ -95,11 +88,12 @@ fi
 # 80/443, reachable via the node's own IP - confirmed the same way) and terminating TLS with the
 # cert global.tls.caBundle already trusts. Only $CAMUNDA_DOMAIN is overridden, not $ZEEBE_DOMAIN -
 # no component was found making an equivalent outbound call to the gRPC gateway's own domain, so
-# there's nothing yet proven to need it. Applies regardless of HELM_CHART_VERSION: harmless on 8.9
-# (nothing there makes this outbound call, so the override is simply unused), and this is the
-# general fix for any future component that does the same thing pods reaching their own public
-# domain, not routing back out through an external hop, is the correct topology either way, not an
-# 8.10-only patch. Full Corefile replace, not surgical text-patch of the live ConfigMap: MicroK8s's
+# there's nothing yet proven to need it. Applies regardless of HELM_CHART_VERSION: confirmed
+# necessary on 8.9.14 too (orchestration's ClientRegistrationRepository bean makes this same
+# outbound call there, not just on 8.10 as first assumed - see the caBundle comment in
+# template-values-camunda.yaml), so this is the general fix for any component that does the same
+# thing - pods reaching their own public domain, not routing back out through an external hop, is
+# the correct topology either way. Full Corefile replace, not surgical text-patch of the live ConfigMap: MicroK8s's
 # default Corefile is a well-known, static structure (confirmed by reading the live ConfigMap
 # before writing this), and this install script already unconditionally recreates other resources
 # the same way (e.g. camunda-credentials below) - safe here for the same reason, but see the

@@ -511,10 +511,14 @@ orchestration:
   # ScopedClientRegistrationFactory.createFromProviderMap -> Spring's
   # ClientRegistrations.fromOidcIssuerLocation, invoked from
   # PhysicalTenantHandlerFactory.build - a new-in-8.10 class name (multi-tenant/"topology" gateway
-  # support), so this outbound discovery-over-public-HTTPS-issuer behavior looks new to 8.10, not
-  # a config regression carried over from 8.9. connectors (io.camunda.client's
+  # support). UPDATE: turns out this is not an 8.10-only code path after all - 8.9.14 crash-loops
+  # the same way via a different class (WebSecurityConfig$OidcConfiguration
+  # .clientRegistrationRepository, no multi-tenant "topology" involved), so orchestration's plain
+  # OIDC client-registration bean has apparently always made this same outbound well-known-config
+  # call; 8.10 just adds a second call site alongside it. connectors (io.camunda.client's
   # OAuthCredentialsProviderBuilder.fetchWellKnownConfiguration) fails identically for the same
-  # reason. Fixed via global.tls.caBundle above (not here) - see that comment for how.
+  # reason. Fixed via global.tls.caBundle above (not here) - see that comment for how. The 8.9
+  # template now carries the identical caBundle block for the same reason - see the comment there.
   security:
     authentication:
       unprotectedApi: false
