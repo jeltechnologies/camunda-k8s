@@ -49,6 +49,17 @@
             display: inline-flex;
             align-items: center;
         }
+        .secret-value {
+            display: block;
+            width: 100%;
+            padding: 0.55rem 0.65rem;
+            border: 1px solid var(--gray-20);
+            background: var(--gray-10);
+            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +93,13 @@
                 <input type="text" id="customAudience" name="customAudience" th:value="${customAudience}"/>
                 <p class="note">
                     Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
+                </p>
+
+                <label>Secret</label>
+                <span class="secret-value" th:text="${secret}"></span>
+                <input type="hidden" name="secret" th:value="${secret}"/>
+                <p class="note">
+                    Generated automatically - copy it now. Also stays visible later on this client's edit page.
                 </p>
 
                 <div class="button-row">

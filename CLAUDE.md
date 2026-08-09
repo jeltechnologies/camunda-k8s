@@ -308,7 +308,13 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   deliberate asymmetry — it's the field to use if you want a friendlier display name later without
   touching the immutable client ID. All known audiences are pre-checked by default on the add page
   (unchecking the ones a client doesn't need is one click; the old design pre-checked only
-  Orchestration's).
+  Orchestration's). The secret itself is also generated up front by `newClientForm` (not deferred
+  to submit) and shown read-only on the add page via a hidden `secret` form field, so it's already
+  copyable before the client exists — the same `generateSecret()` value that gets persisted on
+  submit, not regenerated at that point. Submitting takes the admin back to the **list** page, not
+  the edit page as it used to: since the secret was already visible pre-submit, and stays visible
+  indefinitely on the edit page afterward per the always-visible design above, there's no longer a
+  reason to detour through the edit page right after creation.
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
   .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"

@@ -40,12 +40,13 @@
                 </svg>
             </summary>
             <div class="app-switcher-panel">
-                <a th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
-                <a th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
-                <a th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
                 <a th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
+                <a th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
                 <a th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
                 <a href="/keycunda">Keycunda</a>
+                <a th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
+                <a th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
             </div>
         </details>
         <!-- Plain "/keycunda", "/keycunda/users", etc., not th:url @{...}: these deliberately step

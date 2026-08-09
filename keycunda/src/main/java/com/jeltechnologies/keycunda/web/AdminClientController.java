@@ -72,11 +72,15 @@ public class AdminClientController {
         // Pre-filled so creating a client is a single click in the common case; still editable for
         // an admin who wants a specific ID.
         model.addAttribute("clientId", generateClientId());
+        // Generated up front and shown read-only on the page (see add-client.html's hidden "secret"
+        // field), so it's copyable before the client is even created - no need to submit the form
+        // and land on the edit page just to see it once.
+        model.addAttribute("secret", generateSecret());
         return "admin/add-client";
     }
 
     @PostMapping("/admin/clients")
-    public String add(@RequestParam String clientId,
+    public String add(@RequestParam String clientId, @RequestParam String secret,
             @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
             @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
@@ -85,19 +89,18 @@ public class AdminClientController {
             return "redirect:/admin/clients/new";
         }
         String audience = combineAudiences(knownAudiences, customAudience);
-        String secret = generateSecret();
-        Client client;
         try {
             // No separate display name in this UI any more - the client ID doubles as the name.
-            client = clientRepository.insert(clientId, clientId, secret, passwordEncoder.encode(secret), audience);
+            clientRepository.insert(clientId, clientId, secret, passwordEncoder.encode(secret), audience);
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A client with client ID \"" + clientId + "\" already exists.");
             return "redirect:/admin/clients/new";
         }
         redirectAttributes.addFlashAttribute("message", "Client \"" + clientId + "\" created.");
-        // To the edit page, not the list: the secret is only ever shown there (see edit-client.html
-        // and the clients list template), and the admin needs to see this one right after creating it.
-        return "redirect:/admin/clients/" + client.id() + "/edit";
+        // Back to the list, not the edit page: the secret was already shown - and copyable - on the
+        // add page itself before this submit, and it stays visible on the edit page for as long as
+        // the client exists (see edit-client.html), so there's no need to detour through it here.
+        return "redirect:/admin/clients";
     }
 
     @GetMapping("/admin/clients/{id}/edit")

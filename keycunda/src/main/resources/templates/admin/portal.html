@@ -17,12 +17,13 @@
         }
         .continue-links {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 0.6rem;
             margin-top: 0.75rem;
         }
         .continue-links a {
-            width: 190px;
+            width: 140px;
+            min-width: 140px;
             white-space: nowrap;
         }
         .disclaimer {
@@ -49,11 +50,13 @@
             </p>
 
             <div class="continue-links">
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/operate'">Operate</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/tasklist'">Tasklist</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Web Modeler</a>
             </div>
 
             <div class="disclaimer">
