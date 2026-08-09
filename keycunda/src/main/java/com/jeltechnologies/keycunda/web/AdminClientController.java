@@ -63,15 +63,20 @@ public class AdminClientController {
 
     @GetMapping("/admin/clients/new")
     public String newClientForm(Model model) {
-        model.addAttribute("knownAudiences", knownAudiences());
-        // Pre-check the overwhelmingly common case - a client created to call Orchestration's REST API.
-        model.addAttribute("selectedAudiences", Set.of(keycundaProperties.clients().orchestration().audience()));
+        Map<String, String> knownAudiences = knownAudiences();
+        model.addAttribute("knownAudiences", knownAudiences);
+        // Pre-check every known audience - unchecking the ones a client doesn't need is one click,
+        // versus having to know up front which of several components it must reach.
+        model.addAttribute("selectedAudiences", new LinkedHashSet<>(knownAudiences.values()));
         model.addAttribute("customAudience", "");
+        // Pre-filled so creating a client is a single click in the common case; still editable for
+        // an admin who wants a specific ID.
+        model.addAttribute("clientId", generateClientId());
         return "admin/add-client";
     }
 
     @PostMapping("/admin/clients")
-    public String add(@RequestParam String clientId, @RequestParam String name,
+    public String add(@RequestParam String clientId,
             @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
             @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
@@ -83,12 +88,13 @@ public class AdminClientController {
         String secret = generateSecret();
         Client client;
         try {
-            client = clientRepository.insert(clientId, name, secret, passwordEncoder.encode(secret), audience);
+            // No separate display name in this UI any more - the client ID doubles as the name.
+            client = clientRepository.insert(clientId, clientId, secret, passwordEncoder.encode(secret), audience);
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A client with client ID \"" + clientId + "\" already exists.");
             return "redirect:/admin/clients/new";
         }
-        redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" created.");
+        redirectAttributes.addFlashAttribute("message", "Client \"" + clientId + "\" created.");
         // To the edit page, not the list: the secret is only ever shown there (see edit-client.html
         // and the clients list template), and the admin needs to see this one right after creating it.
         return "redirect:/admin/clients/" + client.id() + "/edit";
@@ -138,18 +144,6 @@ public class AdminClientController {
         return "redirect:/admin/clients/" + id + "/edit";
     }
 
-    @PostMapping("/admin/clients/{id}/hide-secret")
-    public String hideSecret(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
-        if (clientRepository.findById(id).isEmpty()) {
-            redirectAttributes.addFlashAttribute("error", "Client not found.");
-            return "redirect:/admin/clients";
-        }
-        clientRepository.clearSecret(id);
-        redirectAttributes.addFlashAttribute("message",
-                "Secret hidden - it will not be shown again. Click \"Generate new\" for a replacement.");
-        return "redirect:/admin/clients/" + id + "/edit";
-    }
-
     @PostMapping("/admin/clients/{id}/delete")
     public String delete(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
         clientRepository.findById(id).ifPresentOrElse(client -> {
@@ -163,6 +157,10 @@ public class AdminClientController {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private static String generateClientId() {
+        return "client-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     /**

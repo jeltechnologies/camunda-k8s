@@ -2,12 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Keycunda</title>
+    <title>Camunda</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
         .form-panel {
-            max-width: 640px;
+            max-width: 760px;
         }
         .form-panel label {
             margin-top: 1rem;
@@ -105,15 +105,13 @@
                 <label>Secret</label>
                 <div class="secret-row">
                     <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
-                    <span class="secret-value" th:unless="${client.secret}">Hidden - already viewed once. Click "Generate new" for a replacement.</span>
-                    <button type="submit" class="btn-secondary" th:if="${client.secret}"
-                            th:formaction="@{/admin/clients/{id}/hide-secret(id=${client.id})}">I've copied this</button>
+                    <span class="secret-value" th:unless="${client.secret}">Not available. Click "Generate new" for a replacement.</span>
                     <button type="submit" class="btn-secondary"
                             th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Generate new</button>
                 </div>
                 <p class="note" th:if="${client.secret}">
-                    This secret is shown once. Copy it now - it will not be shown again once you click
-                    "I've copied this" or generate a new one.
+                    Stays visible here for as long as this client exists. Regenerating replaces it and
+                    invalidates the old one.
                 </p>
 
                 <div class="button-row">

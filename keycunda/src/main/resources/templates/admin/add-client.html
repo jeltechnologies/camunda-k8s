@@ -2,12 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Keycunda</title>
+    <title>Camunda</title>
     <link rel="icon" th:href="@{/favicon.ico}"/>
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
         .form-panel {
-            max-width: 420px;
+            max-width: 640px;
         }
         .form-panel label {
             margin-top: 1rem;
@@ -59,13 +59,13 @@
             <h1>Add API client</h1>
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <form method="post" th:action="@{/admin/clients}">
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" required="required" autofocus="autofocus"/>
-
                 <label for="clientId">Client ID</label>
-                <input type="text" id="clientId" name="clientId" required="required" pattern="[a-zA-Z0-9._-]+"/>
+                <input type="text" id="clientId" name="clientId" th:value="${clientId}"
+                       required="required" autofocus="autofocus" pattern="[a-zA-Z0-9._-]+"/>
                 <p class="note">
-                    What other systems authenticate as - letters, digits, ".", "_" or "-". Cannot be changed later.
+                    What other systems authenticate as, and this client's name in the list - letters, digits, ".",
+                    "_" or "-". Pre-filled with a generated ID; edit it if you want something specific. Cannot be
+                    changed later.
                 </p>
 
                 <label>Audience</label>
@@ -91,23 +91,5 @@
             </form>
         </div>
     </div>
-    <script th:inline="none">
-        // Client ID defaults to a slug of the name, but only until the admin types into the
-        // Client ID field directly - once they do, their input wins and the name no longer
-        // overwrites it.
-        (function () {
-            var nameInput = document.getElementById('name');
-            var clientIdInput = document.getElementById('clientId');
-            var clientIdEdited = false;
-            clientIdInput.addEventListener('input', function () {
-                clientIdEdited = true;
-            });
-            nameInput.addEventListener('input', function () {
-                if (!clientIdEdited) {
-                    clientIdInput.value = nameInput.value.toLowerCase().split(' ').join('-');
-                }
-            });
-        })();
-    </script>
 </body>
 </html>

@@ -294,14 +294,21 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   to `orchestration-api` for a client that needs to call Orchestration, matching what the fixed
   `orchestration`/`connectors` clients get from `keycunda.clients.orchestration.audience`.
   Also unlike user passwords, a client's plaintext secret **is** stored in the clear (the `secret`
-  column, alongside `secret_hash`) — but only transiently, as a one-time reveal. It's populated on
-  creation and on every "Generate new", shown on the "API clients" edit page (renamed from
-  "Clients" — see `nav.html`) exactly until the admin clicks "I've copied this"
-  (`AdminClientController.hideSecret` → `ClientRepository.clearSecret`), which nulls the column and
-  leaves only `secret_hash` behind; there is no way to look the plaintext up again short of
-  regenerating (which invalidates the old value). Chosen over indefinite on-screen storage even in
-  this demo-grade app, since these secrets get pasted into external systems and indefinite
-  recoverability is unnecessary residual exposure once the admin has copied it.
+  column, alongside `secret_hash`), populated on creation and on every "Generate new", and shown
+  indefinitely on the "API clients" edit page (renamed from "Clients" — see `nav.html`) for as long
+  as the client exists — there used to be a one-time-reveal design (an "I've copied this" button
+  nulling the column via `ClientRepository.clearSecret`), but that traded away the ability to look
+  a secret back up for a security benefit not worth the friction in a demo-grade app, so it was
+  dropped in favor of always-visible. Regenerating still replaces both `secret` and `secret_hash`
+  and invalidates the old value. The **add** page (`add-client.html`) has no separate "name" field
+  at all — `AdminClientController.newClientForm` pre-fills a randomly generated Client ID
+  (`client-XXXXXXXX`) into the one identifier field on page load, editable before submit, and the
+  client's `name` column is always set equal to its `clientId` on creation (`AdminClientController
+  .add`); the **edit** page still has a separate, independently-editable name field, which is a
+  deliberate asymmetry — it's the field to use if you want a friendlier display name later without
+  touching the immutable client ID. All known audiences are pre-checked by default on the add page
+  (unchecking the ones a client doesn't need is one click; the old design pre-checked only
+  Orchestration's).
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
   .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"
