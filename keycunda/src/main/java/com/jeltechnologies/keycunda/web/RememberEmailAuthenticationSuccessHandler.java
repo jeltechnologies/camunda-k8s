@@ -34,13 +34,15 @@ public class RememberEmailAuthenticationSuccessHandler implements Authentication
     public RememberEmailAuthenticationSuccessHandler(KeycundaProperties keycundaProperties) {
         SavedRequestAwareAuthenticationSuccessHandler handler = new SavedRequestAwareAuthenticationSuccessHandler();
         // Only used when there's no saved request to bounce back to - i.e. someone logged in by
-        // navigating straight to /login (the bare-domain-root ingress redirect - see
-        // camunda-root-redirect-ingress in template-keycunda-ingress.yaml - lands here) rather
-        // than being redirected here mid OIDC-authorize flow. Was Console, then Web Modeler;
-        // now Keycunda's own Secrets Management alias (/keycunda - see
-        // keycunda-secrets-alias-ingress in the same template), since a direct login with no
-        // saved request has no more specific destination in mind and this app is the one thing
-        // guaranteed relevant regardless of which Camunda component the admin actually wants.
+        // navigating straight to /login by hand, rather than being redirected here from some
+        // protected resource (mid OIDC-authorize flow, or via camunda-root-redirect-ingress in
+        // template-keycunda-ingress.yaml, which - since it redirects to /auth/admin, itself
+        // protected - does leave a saved request, so it bounces back to /auth/admin on success and
+        // never reaches this fallback). Was Console, then Web Modeler; now Keycunda's own portal
+        // alias (/keycunda - see keycunda-portal-alias-ingress in the same template), since a
+        // direct login with no saved request has no more specific destination in mind and this app
+        // is the one thing guaranteed relevant regardless of which Camunda component the admin
+        // actually wants.
         handler.setDefaultTargetUrl("https://" + keycundaProperties.camundaDomain() + "/keycunda");
         this.delegate = handler;
     }

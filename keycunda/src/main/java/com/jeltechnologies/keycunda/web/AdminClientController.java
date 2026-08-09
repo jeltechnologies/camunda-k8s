@@ -69,9 +69,7 @@ public class AdminClientController {
         // versus having to know up front which of several components it must reach.
         model.addAttribute("selectedAudiences", new LinkedHashSet<>(knownAudiences.values()));
         model.addAttribute("customAudience", "");
-        // Pre-filled so creating a client is a single click in the common case; still editable for
-        // an admin who wants a specific ID.
-        model.addAttribute("clientId", generateClientId());
+        model.addAttribute("clientId", "");
         // Generated up front and shown read-only on the page (see add-client.html's hidden "secret"
         // field), so it's copyable before the client is even created - no need to submit the form
         // and land on the edit page just to see it once.
@@ -178,9 +176,6 @@ public class AdminClientController {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private static String generateClientId() {
-        return "client-" + UUID.randomUUID().toString().substring(0, 8);
-    }
 
     /**
      * The audiences every fixed, code-defined Camunda component (see OidcClientsConfig) is actually

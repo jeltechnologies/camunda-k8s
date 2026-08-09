@@ -7,7 +7,7 @@
     <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
     <style>
         .form-panel {
-            max-width: 640px;
+            max-width: 760px;
         }
         .form-panel label {
             margin-top: 1rem;
@@ -32,6 +32,14 @@
         .checkbox-row label {
             margin: 0;
             font-weight: 400;
+        }
+        .secret-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .secret-row .secret-value {
+            flex: 1;
         }
         .button-row {
             display: flex;
@@ -86,8 +94,7 @@
                        required="required" autofocus="autofocus" pattern="[a-zA-Z0-9._-]+"/>
                 <p class="note">
                     What other systems authenticate as, and this client's name in the list - letters, digits, ".",
-                    "_" or "-". Pre-filled with a generated ID; edit it if you want something specific. Cannot be
-                    changed later.
+                    "_" or "-". Cannot be changed later.
                 </p>
 
                 <label>Audience</label>
@@ -107,14 +114,17 @@
                 </p>
 
                 <label>Secret</label>
-                <span class="secret-value" th:text="${secret}"></span>
+                <div class="secret-row">
+                    <span id="secretDisplay" class="secret-value" th:text="${secret}"></span>
+                    <button type="button" id="regenerateSecretButton" class="btn-secondary">Generate new</button>
+                </div>
                 <input type="hidden" id="secretValue" name="secret" th:value="${secret}"/>
 
                 <label for="c8ctlConfig">Configuration for Cocktail (c8ctl) - Camunda 8 CLI</label>
                 <p class="note" style="margin-top: 0;">
-                    Paste into a shell to register and switch to this client as a c8ctl profile. c8ctl is
-                    Camunda's command-line tool - see
-                    <a href="https://github.com/camunda/c8ctl" target="_blank" rel="noopener noreferrer">github.com/camunda/c8ctl</a>.
+                    c8ctl is Camunda's command-line tool (<a href="https://github.com/camunda/c8ctl" target="_blank" rel="noopener noreferrer">github.com/camunda/c8ctl</a>),
+                    which you need for the Camunda AI skills (<a href="https://github.com/camunda/skills" target="_blank" rel="noopener noreferrer">github.com/camunda/skills</a>).
+                    Paste into a shell to register and switch to this client as a c8ctl profile.
                 </p>
                 <textarea id="c8ctlConfig" class="config-snippet" rows="7" readonly="readonly"></textarea>
 

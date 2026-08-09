@@ -178,19 +178,25 @@ spec:
                   number: 80
 ---
 # No component owns the bare "/" path (Console is /console, Web Modeler is /modeler, Keycunda
-# is /auth, etc.), so it 404'd with nothing to redirect the visitor anywhere useful. Redirects to
-# /keycunda specifically, not straight to /auth/login: /keycunda is a *protected* resource, so
-# Spring Security itself decides what happens next based on whether the visitor already has a
-# valid session - already logged in -> straight to the portal/welcome page (browser shows
-# /keycunda the whole time, the nginx rewrite to /auth/admin is invisible to it); not logged in ->
-# Spring Security's own redirect-to-login-then-back-to-what-you-asked-for kicks in, landing on
-# /auth/login first (still visible) and then wherever that mechanism sends you afterward.
-# Redirecting straight to /auth/login unconditionally (the old behavior here) skipped that check
-# entirely, so even an already-authenticated visitor saw the login form again on every "/" visit.
+# is /auth, etc.), so it 404'd with nothing to redirect the visitor anywhere useful. Redirects
+# straight to /auth/admin (the welcome page), not the /keycunda alias: /auth/admin is a *protected*
+# resource, so Spring Security itself decides what happens next based on whether the visitor
+# already has a valid session (KEYCUNDA_SESSION, Path=/ - see the comment on
+# server.servlet.session.cookie in application.yml - so it's sent on this redirect's target
+# regardless of path) - already logged in -> the welcome page renders immediately, URL bar shows
+# /auth/admin the whole time; not logged in -> Spring Security's own redirect-to-login-then-
+# back-to-what-you-asked-for kicks in, landing on /auth/login first (still visible) and then back
+# on /auth/admin once login succeeds (SavedRequestAwareAuthenticationSuccessHandler - see
+# RememberEmailAuthenticationSuccessHandler). Redirecting straight to /auth/login unconditionally
+# (an even older behavior here) skipped that check entirely, so even an already-authenticated
+# visitor saw the login form again on every "/" visit - going to /auth/admin instead of the
+# /keycunda alias doesn't change that check, both are behind the exact same Spring Security chain,
+# it just makes the URL bar show the real path instead of the friendly one for this specific
+# root-landing case.
 # temporal-redirect (302), not permanent-redirect (301): a 301 here bit us once already - browsers
 # cache permanent redirects aggressively, so a target change wouldn't have been visible without a
 # hard refresh/incognito. pathType: Prefix, not Exact, and deliberately so even though it then also
-# catches stray/unknown paths (which just redirect to /keycunda too - a harmless, arguably nicer
+# catches stray/unknown paths (which just redirect to /auth/admin too - a harmless, arguably nicer
 # fallback than a bare 404). Exact was tried first and is broken on this controller: once ANY other
 # Ingress on the same host uses use-regex (several /keycunda/* aliases below do), nginx-ingress
 # forces the whole host's location set into regex mode and, in that mode, silently synthesizes its
@@ -209,7 +215,7 @@ metadata:
   name: camunda-root-redirect-ingress
   namespace: camunda
   annotations:
-    nginx.ingress.kubernetes.io/temporal-redirect: https://${CAMUNDA_DOMAIN}/keycunda
+    nginx.ingress.kubernetes.io/temporal-redirect: https://${CAMUNDA_DOMAIN}/auth/admin
 spec:
   ingressClassName: public
   tls:
