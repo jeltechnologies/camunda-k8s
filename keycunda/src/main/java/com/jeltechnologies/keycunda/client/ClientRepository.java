@@ -54,9 +54,8 @@ public class ClientRepository {
         return client;
     }
 
-    public void updateNameAndAudience(UUID id, String name, String audience) {
-        jdbcClient.sql("UPDATE oauth_clients SET name = :name, audience = :audience WHERE id = :id")
-                .param("name", name)
+    public void updateAudience(UUID id, String audience) {
+        jdbcClient.sql("UPDATE oauth_clients SET audience = :audience WHERE id = :id")
                 .param("audience", audience)
                 .param("id", id)
                 .update();

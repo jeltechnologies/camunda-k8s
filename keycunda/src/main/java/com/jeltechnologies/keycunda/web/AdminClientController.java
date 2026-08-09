@@ -76,6 +76,7 @@ public class AdminClientController {
         // field), so it's copyable before the client is even created - no need to submit the form
         // and land on the edit page just to see it once.
         model.addAttribute("secret", generateSecret());
+        addC8ctlConfigAttributes(model);
         return "admin/add-client";
     }
 
@@ -112,6 +113,7 @@ public class AdminClientController {
                     model.addAttribute("knownAudiences", knownAudiences);
                     model.addAttribute("selectedAudiences", selectedKnownAudiences(client.audience(), knownAudiences));
                     model.addAttribute("customAudience", customAudiencePart(client.audience(), knownAudiences));
+                    addC8ctlConfigAttributes(model);
                     return "admin/edit-client";
                 })
                 .orElseGet(() -> {
@@ -121,15 +123,16 @@ public class AdminClientController {
     }
 
     @PostMapping("/admin/clients/{id}/edit")
-    public String edit(@PathVariable UUID id, @RequestParam String name,
+    public String edit(@PathVariable UUID id,
             @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
             @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
-        if (clientRepository.findById(id).isEmpty()) {
+        Client client = clientRepository.findById(id).orElse(null);
+        if (client == null) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
         }
-        clientRepository.updateNameAndAudience(id, name, combineAudiences(knownAudiences, customAudience));
-        redirectAttributes.addFlashAttribute("message", "Client \"" + name + "\" updated.");
+        clientRepository.updateAudience(id, combineAudiences(knownAudiences, customAudience));
+        redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" updated.");
         return "redirect:/admin/clients";
     }
 
@@ -154,6 +157,19 @@ public class AdminClientController {
             redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" removed.");
         }, () -> redirectAttributes.addFlashAttribute("error", "Client not found."));
         return "redirect:/admin/clients";
+    }
+
+    /**
+     * The base/OAuth URLs c8ctl (https://github.com/camunda/c8ctl) needs to reach this
+     * installation's Orchestration REST API and Keycunda's token endpoint - shown, pre-filled, in
+     * the "c8 add profile" snippet on the add/edit client pages. Same shape as this app's own
+     * {@link KeycundaProperties#publicIssuer()} - "/orchestration" is Orchestration's
+     * {@code contextPath} in the Helm values, "/auth" is Keycunda's own fixed OIDC path.
+     */
+    private void addC8ctlConfigAttributes(Model model) {
+        String domain = keycundaProperties.camundaDomain();
+        model.addAttribute("c8ctlBaseUrl", "https://" + domain + "/orchestration");
+        model.addAttribute("c8ctlOAuthUrl", "https://" + domain + "/auth/oauth2/token");
     }
 
     private static String generateSecret() {

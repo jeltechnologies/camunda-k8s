@@ -60,6 +60,17 @@
             white-space: nowrap;
             overflow-x: auto;
         }
+        .config-snippet {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            padding: 0.55rem 0.65rem;
+            border: 1px solid var(--gray-20);
+            background: var(--gray-10);
+            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-size: 13px;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -97,10 +108,15 @@
 
                 <label>Secret</label>
                 <span class="secret-value" th:text="${secret}"></span>
-                <input type="hidden" name="secret" th:value="${secret}"/>
-                <p class="note">
-                    Generated automatically - copy it now. Also stays visible later on this client's edit page.
+                <input type="hidden" id="secretValue" name="secret" th:value="${secret}"/>
+
+                <label for="c8ctlConfig">Configuration for Cocktail (c8ctl) - Camunda 8 CLI</label>
+                <p class="note" style="margin-top: 0;">
+                    Paste into a shell to register and switch to this client as a c8ctl profile. c8ctl is
+                    Camunda's command-line tool - see
+                    <a href="https://github.com/camunda/c8ctl" target="_blank" rel="noopener noreferrer">github.com/camunda/c8ctl</a>.
                 </p>
+                <textarea id="c8ctlConfig" class="config-snippet" rows="7" readonly="readonly"></textarea>
 
                 <div class="button-row">
                     <button type="submit">OK</button>
@@ -109,5 +125,12 @@
             </form>
         </div>
     </div>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        var C8CTL_BASE_URL = /*[[${c8ctlBaseUrl}]]*/ '';
+        var C8CTL_OAUTH_URL = /*[[${c8ctlOAuthUrl}]]*/ '';
+        /*]]>*/
+    </script>
+    <script th:src="@{/js/c8ctl-config.js}"></script>
 </body>
 </html>
