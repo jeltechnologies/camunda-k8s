@@ -32,7 +32,9 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 @Configuration
 public class OidcClientsConfig {
 
-    private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(30);
+    // Demo-duration TTLs, not security-hardened defaults - long enough that a demo/workshop
+    // session doesn't need a re-login partway through.
+    private static final Duration ACCESS_TOKEN_TTL = Duration.ofHours(4);
     private static final Duration REFRESH_TOKEN_TTL = Duration.ofHours(12);
 
     @Bean

@@ -3,6 +3,10 @@ server:
   servlet:
     context-path: /auth
     session:
+      # Demo-duration session length, not a security-hardened default - matches the OAuth2
+      # access token TTL below (OidcClientsConfig.ACCESS_TOKEN_TTL) so a logged-in admin's
+      # Keycunda session and their Camunda components' tokens expire around the same time.
+      timeout: 4h
       cookie:
         # Defaults would otherwise be name "SESSION" scoped to Path=/auth (mirroring the servlet
         # context-path). Path=/auth means the browser never sends this cookie on a request to
