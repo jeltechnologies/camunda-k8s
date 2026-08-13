@@ -233,3 +233,48 @@ spec:
                 name: keycunda
                 port:
                   number: 80
+---
+# Inbound Connector receiver. Lets webhook consumers use the plain, doc-standard
+# https://${CAMUNDA_DOMAIN}/inbound/<webhook ID> URL (see
+# https://docs.camunda.io/docs/components/connectors/protocol/http-webhook/) instead of having to
+# know that this cluster's connectors component runs with a non-default context path.
+#
+# Rewrite-target IS needed here, unlike the comment this replaced assumed: the connectors
+# component runs with `connectors.contextPath: "/connectors"` (template-values-camunda.yaml /
+# template-values-camunda-8.10.yaml) - its own dispatcher only ever sees requests under
+# /connectors, so /inbound/<id> must be rewritten to /connectors/inbound/<id> before reaching the
+# app, or every webhook call 404s (confirmed live: camunda-connectors:8080/inbound/<id> -> 404,
+# camunda-connectors:8080/connectors/inbound/<id> -> 200). Same use-regex + capture-group pattern
+# as the /keycunda/* aliases above, capturing the optional webhook-ID subpath (including its
+# leading slash) as $1 so /inbound alone and /inbound/<id> both resolve correctly.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: camunda-connectors-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /connectors/inbound$1
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /inbound(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: camunda-connectors
+                port:
+                  number: 8080
