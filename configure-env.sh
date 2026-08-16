@@ -219,6 +219,13 @@ GITLAB_ENABLED=${input_gitlab_enabled:-$DEFAULT_GITLAB_ENABLED}
 if [[ "$GITLAB_ENABLED" == "true" ]]; then
   read -p "Enter GitLab base URL (default: ${DEFAULT_GITLAB_URL}): " input_gitlab_url
   GITLAB_URL=${input_gitlab_url:-$DEFAULT_GITLAB_URL}
+  while [[ "$GITLAB_URL" == */ ]]; do
+    GITLAB_URL=${GITLAB_URL%/}
+  done
+  if [[ "$GITLAB_URL" != */api/v4 ]]; then
+    GITLAB_URL="${GITLAB_URL}/api/v4"
+    echo "Note: appended /api/v4 to the GitLab URL (required by Web Modeler's Git sync): ${GITLAB_URL}"
+  fi
 else
   GITLAB_URL=""
 fi

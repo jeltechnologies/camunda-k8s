@@ -1,11 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 1-install-microk8s.sh adds $USER to the 'microk8s' group, but that only
+# takes effect in a new login session. If this shell predates that (no
+# reboot/re-login since install), re-exec ourselves under the group via
+# sg instead of failing with "Insufficient permissions to access MicroK8s".
+if getent group microk8s | grep -qw "$USER" && ! id -nG | grep -qw microk8s; then
+  echo "=================================================================="
+  echo "Applying 'microk8s' group membership for this session"
+  echo "=================================================================="
+  exec sg microk8s -c "$(printf '%q ' "$0" "$@")"
+fi
+
 echo ==================================================================
 echo Welcome to the Camunda microk8s installer
 echo ==================================================================
 ./configure-env.sh
 source ./install-env.sh
+
+if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
+  echo "=================================================================="
+  echo "Installing c8ctl and Camunda AI skills"
+  echo "=================================================================="
+  # Node.js/npm (latest LTS, required by both packages below) was already
+  # installed by 1-install-microk8s.sh. Done up front, right after the
+  # question wizard, since neither package depends on anything the rest of
+  # this script sets up - only ${CAMUNDA_DOMAIN}, already available from
+  # install-env.sh above.
+  sudo npm install -g @camunda8/cli
+  npx --yes skills add camunda/skills --skill '*'
+
+  echo "Creating example c8ctl profile 'dev' - update the client secret below"
+  echo "after creating a matching 'c8ctl' client (audience: orchestration-api)"
+  echo "at https://${CAMUNDA_DOMAIN}/keycunda/clients"
+  c8 add profile dev \
+    --baseUrl="https://${CAMUNDA_DOMAIN}/orchestration" \
+    --clientId=c8ctl \
+    --clientSecret=UPDATE_ME \
+    --audience=orchestration-api \
+    --oAuthUrl="https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
+fi
 
 sudo echo "Please provide your sudo password"
 
@@ -279,26 +313,6 @@ echo "=================================================================="
 echo Seeding Identity mapping rule for baseline demo user access
 echo "=================================================================="
 ./seed-identity-mapping-rules.sh
-
-if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
-  echo "=================================================================="
-  echo "Installing c8ctl and Camunda AI skills"
-  echo "=================================================================="
-  # Node.js/npm (latest LTS, required by both packages below) was already
-  # installed by 1-install-microk8s.sh.
-  sudo npm install -g @camunda8/cli
-  npx --yes skills add camunda/skills --skill '*'
-
-  echo "Creating example c8ctl profile 'dev' - update the client secret below"
-  echo "after creating a matching 'c8ctl' client (audience: orchestration-api)"
-  echo "at https://${CAMUNDA_DOMAIN}/keycunda/clients"
-  c8 add profile dev \
-    --baseUrl="https://${CAMUNDA_DOMAIN}/orchestration" \
-    --clientId=c8ctl \
-    --clientSecret=UPDATE_ME \
-    --audience=orchestration-api \
-    --oAuthUrl="https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
-fi
 
 echo ""
 echo "=================================================================="
