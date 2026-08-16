@@ -17,6 +17,18 @@ sudo apt full-upgrade -y
 sudo apt install -y htop curl wget git
 
 echo ============================================================
+echo "Installing Node.js (latest LTS) and npm"
+echo ============================================================
+# Ubuntu's own "npm" package drags in whatever Node major its repos ship
+# (e.g. 18.x on 24.04), which is too old for newer npm-distributed CLIs
+# (e.g. c8ctl, the Camunda AI skills installer - both require Node >=22).
+# NodeSource's "lts" alias always resolves to the current LTS release, so
+# this stays correct without a version number to bump by hand later.
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+echo "Node.js $(node -v), npm $(npm -v)"
+
+echo ============================================================
 echo Disabling swap - required for Kubernetes
 echo ============================================================
 sudo swapoff -a

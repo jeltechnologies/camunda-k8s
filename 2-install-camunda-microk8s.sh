@@ -67,37 +67,12 @@ fi
 ./create-certifcate.sh "${CAMUNDA_DOMAIN}" -n camunda
 ./create-certifcate.sh "${ZEEBE_DOMAIN}"   -n camunda
 
-# BEHIND_REVERSE_PROXY=true means install-fix-hosts.sh deliberately did NOT point
-# $CAMUNDA_DOMAIN at this box in /etc/hosts (see that script) - by design, since the domain's
-# real public DNS record points at an external reverse proxy (Cloudflare, Pangolin, etc.) in
-# front of this box, and a browser/CLI on the box itself is meant to go through that proxy like
-# any other client. Fine for browser traffic, but Camunda 8.10 introduced components that make
-# their OWN outbound HTTPS call to https://$CAMUNDA_DOMAIN/auth/.well-known/openid-configuration
-# from inside a pod (see the long comment above orchestration.security.authentication.oidc in
-# template-values-camunda-8.10.yaml) - and that pod-originated request leaves the cluster, goes
-# out to the internet, and comes back in through the SAME external reverse proxy, which terminates
-# TLS with its own cert rather than passing through to this box's nginx-ingress. Confirmed on this
-# box with openssl s_client: connecting to $CAMUNDA_DOMAIN:443 from inside a pod serves a
-# different self-signed cert (different fingerprint, same CN) than the one in
-# tls-secret-$CAMUNDA_DOMAIN that global.tls.caBundle (template-values-camunda-8.10.yaml) trusts -
-# trusting that wrong cert isn't an option we control from here. Connecting directly to this
-# node's own internal IP instead, with the same SNI, serves the expected cert - confirmed
-# identical fingerprint to tls-secret-$CAMUNDA_DOMAIN. So: override CoreDNS cluster-wide so
-# $CAMUNDA_DOMAIN resolves in-cluster to this node's internal IP instead of leaving the cluster,
-# landing on this box's own nginx-ingress (nginx-ingress-microk8s-controller listens on hostPort
-# 80/443, reachable via the node's own IP - confirmed the same way) and terminating TLS with the
-# cert global.tls.caBundle already trusts. Only $CAMUNDA_DOMAIN is overridden, not $ZEEBE_DOMAIN -
-# no component was found making an equivalent outbound call to the gRPC gateway's own domain, so
-# there's nothing yet proven to need it. Applies regardless of HELM_CHART_VERSION: confirmed
-# necessary on 8.9.14 too (orchestration's ClientRegistrationRepository bean makes this same
-# outbound call there, not just on 8.10 as first assumed - see the caBundle comment in
-# template-values-camunda.yaml), so this is the general fix for any component that does the same
-# thing - pods reaching their own public domain, not routing back out through an external hop, is
-# the correct topology either way. Full Corefile replace, not surgical text-patch of the live ConfigMap: MicroK8s's
-# default Corefile is a well-known, static structure (confirmed by reading the live ConfigMap
-# before writing this), and this install script already unconditionally recreates other resources
-# the same way (e.g. camunda-credentials below) - safe here for the same reason, but see the
-# "hosts" block below before assuming this is safe on a cluster with other CoreDNS customizations.
+# When behind a reverse proxy, pods making their own outbound HTTPS calls to $CAMUNDA_DOMAIN
+# (OIDC discovery) would otherwise leave the cluster and loop back through the external proxy,
+# hitting its cert instead of the one global.tls.caBundle trusts. Override CoreDNS so
+# $CAMUNDA_DOMAIN resolves in-cluster to this node's own IP, landing on this box's nginx-ingress
+# instead - see "Ingress-behind-proxy pitfalls" / the caBundle comments in the template-values-*
+# files for the full investigation.
 if [[ "${BEHIND_REVERSE_PROXY:-false}" == "true" ]]; then
   echo "=================================================================="
   echo "Behind reverse proxy - pointing \$CAMUNDA_DOMAIN at this node in CoreDNS"
@@ -250,6 +225,10 @@ echo "${rendered_keycunda_ingress}" | microk8s kubectl apply -f -
 echo "=================================================================="
 echo Uninstalling previous Camunda installation if present
 echo "=================================================================="
+# Only removes resources the Helm release itself owns - the "connector-secrets" Secret that
+# Keycunda's Secrets Management page manages (secret/ClusterSecretsApplier.java) is created
+# imperatively, outside this release, specifically so admin-added/removed connector secrets
+# survive every reinstall. Never add a step here that deletes it directly.
 helm uninstall camunda -n camunda 2>/dev/null || true
 
 microk8s kubectl delete pvc camunda-connectors-custom -n camunda --ignore-not-found
@@ -301,6 +280,26 @@ echo Seeding Identity mapping rule for baseline demo user access
 echo "=================================================================="
 ./seed-identity-mapping-rules.sh
 
+if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
+  echo "=================================================================="
+  echo "Installing c8ctl and Camunda AI skills"
+  echo "=================================================================="
+  # Node.js/npm (latest LTS, required by both packages below) was already
+  # installed by 1-install-microk8s.sh.
+  sudo npm install -g @camunda8/cli
+  npx --yes skills add camunda/skills --skill '*'
+
+  echo "Creating example c8ctl profile 'dev' - update the client secret below"
+  echo "after creating a matching 'c8ctl' client (audience: orchestration-api)"
+  echo "at https://${CAMUNDA_DOMAIN}/keycunda/clients"
+  c8 add profile dev \
+    --baseUrl="https://${CAMUNDA_DOMAIN}/orchestration" \
+    --clientId=c8ctl \
+    --clientSecret=UPDATE_ME \
+    --audience=orchestration-api \
+    --oAuthUrl="https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
+fi
+
 echo ""
 echo "=================================================================="
 echo "Camunda started successfully!"
@@ -329,3 +328,11 @@ echo "  Password:          ${PASSWORD}"
 echo ""
 echo "  Document storage : ~/camunda-docs"
 echo "  Custom connectors: ~/camunda-connectors"
+echo ""
+if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
+  echo "  c8ctl profile 'dev' created with a placeholder secret - create a matching"
+  echo "  'c8ctl' client (audience: orchestration-api) at"
+  echo "  https://${CAMUNDA_DOMAIN}/keycunda/clients, then update it with:"
+  echo "  c8 add profile dev --clientSecret=<real-secret> --baseUrl=https://${CAMUNDA_DOMAIN}/orchestration --clientId=c8ctl --audience=orchestration-api --oAuthUrl=https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
+  echo ""
+fi

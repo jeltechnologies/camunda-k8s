@@ -4,6 +4,7 @@ DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
 DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=14.7.0
 DEFAULT_CAMUNDA_APP_VERSION=8.9.12
+DEFAULT_VERSION_CHOICE=2
 DEFAULT_DEMO_NAME="Demo User"
 DEFAULT_DEMO_EMAIL=demo@example.com
 
@@ -17,6 +18,8 @@ DEFAULT_GITLAB_URL=https://my-gitlab/api/v4
 DEFAULT_BEHIND_REVERSE_PROXY=false
 DEFAULT_SWAGGER_ENABLED=false
 
+DEFAULT_INSTALL_C8CTL_SKILLS=true
+
 if [[ -f ./install-env.sh ]]; then
   source ./install-env.sh
 
@@ -24,6 +27,11 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
+  # Which menu option (1=alpha, 2=stable, 3=manual) was picked last time - without this, a
+  # re-run always defaulted back to option 2 regardless of what was actually installed, so
+  # re-running with a bare Enter could silently switch an alpha install back to stable (or
+  # vice versa) instead of tracking the same channel.
+  DEFAULT_VERSION_CHOICE="${VERSION_CHOICE:-2}"
   DEFAULT_DEMO_NAME="${DEMO_NAME:-$DEFAULT_DEMO_NAME}"
   DEFAULT_DEMO_EMAIL="${DEMO_EMAIL:-$DEFAULT_DEMO_EMAIL}"
   DEFAULT_OLLAMA_ENABLED="${OLLAMA_ENABLED}"
@@ -39,6 +47,7 @@ if [[ -f ./install-env.sh ]]; then
 
   DEFAULT_BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY:-false}"
   DEFAULT_SWAGGER_ENABLED="${SWAGGER_ENABLED:-false}"
+  DEFAULT_INSTALL_C8CTL_SKILLS="${INSTALL_C8CTL_SKILLS:-true}"
 fi
 
 # Hardcoded constants, not remembered from a previous install-env.sh - set after the reuse
@@ -116,12 +125,16 @@ if [[ -n "${MTX_ALPHA_CHART}" && -n "${MTX_ALPHA_CAMUNDA}" && -n "${MTX_STABLE_C
   echo "  2) Latest stable : Camunda ${MTX_STABLE_CAMUNDA}  (Helm chart ${MTX_STABLE_CHART})"
   echo "  3) Enter versions manually"
   echo ""
-  read -p "Choose an option (default: 2): " input_version_choice
-  version_choice=${input_version_choice:-2}
+  read -p "Choose an option (default: ${DEFAULT_VERSION_CHOICE}): " input_version_choice
+  version_choice=${input_version_choice:-$DEFAULT_VERSION_CHOICE}
 else
   echo "  Could not fetch/parse ${VERSION_MATRIX_URL} - enter versions manually below."
   version_choice=3
 fi
+
+# Remembered by the reuse block above, so a later re-run's prompt defaults to this same
+# channel instead of always falling back to option 2.
+VERSION_CHOICE="${version_choice}"
 
 case "${version_choice}" in
   1)
@@ -221,6 +234,18 @@ echo ""
 read -p "Enable Swagger UI? WARNING: do not enable on public internet. (default: ${DEFAULT_SWAGGER_ENABLED}): " input_swagger_enabled
 SWAGGER_ENABLED=${input_swagger_enabled:-$DEFAULT_SWAGGER_ENABLED}
 
+echo ""
+echo "============================================================"
+echo " Optional: C8ctl and Camunda AI skills"
+echo " Installs the c8ctl CLI (npm install -g @camunda8/cli) and the"
+echo " Camunda AI skills (github.com/camunda/skills) for use with AI"
+echo " coding assistants such as Claude Code"
+echo "============================================================"
+echo ""
+
+read -p "Add C8ctl and Camunda AI skills? (default: ${DEFAULT_INSTALL_C8CTL_SKILLS}): " input_install_c8ctl_skills
+INSTALL_C8CTL_SKILLS=${input_install_c8ctl_skills:-$DEFAULT_INSTALL_C8CTL_SKILLS}
+
 cat > install-env.sh <<ENVEOF
 #!/usr/bin/env bash
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
@@ -228,6 +253,7 @@ export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
+export VERSION_CHOICE="${VERSION_CHOICE}"
 export KEYCUNDA_IMAGE="${KEYCUNDA_IMAGE}"
 export DEMO_NAME="${DEMO_NAME}"
 export DEMO_EMAIL="${DEMO_EMAIL}"
@@ -239,6 +265,7 @@ export OLLAMA_URL="${OLLAMA_URL}"
 export GITLAB_URL="${GITLAB_URL}"
 export BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY}"
 export SWAGGER_ENABLED="${SWAGGER_ENABLED}"
+export INSTALL_C8CTL_SKILLS="${INSTALL_C8CTL_SKILLS}"
 ENVEOF
 
 echo ""

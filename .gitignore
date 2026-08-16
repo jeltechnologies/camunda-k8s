@@ -8,3 +8,9 @@ values-camunda.yaml
 
 # User-provided connector credentials (see README's "Secrets" section).
 connector-secrets.yaml
+
+# Locally installed via `npx skills add` (see INSTALL_C8CTL_SKILLS in configure-env.sh) -
+# reproducible from that command, not repo content.
+.agents/
+.claude/
+skills-lock.json
