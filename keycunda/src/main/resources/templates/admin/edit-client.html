@@ -60,6 +60,7 @@
         .secret-value {
             display: block;
             width: 100%;
+            box-sizing: border-box;
             padding: 0.55rem 0.65rem;
             border: 1px solid var(--gray-20);
             background: var(--gray-10);
@@ -67,6 +68,9 @@
             font-size: 13px;
             white-space: nowrap;
             overflow-x: auto;
+        }
+        input.secret-value {
+            background: #ffffff;
         }
         .config-snippet {
             display: block;
@@ -110,17 +114,18 @@
                     Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
                 </p>
 
-                <label>Secret</label>
+                <label for="secretValue">Secret</label>
                 <div class="secret-row">
-                    <span class="secret-value" th:if="${client.secret}" th:text="${client.secret}"></span>
-                    <span class="secret-value" th:unless="${client.secret}">Not available. Click "Generate new" for a replacement.</span>
-                    <button type="submit" class="btn-secondary"
-                            th:formaction="@{/admin/clients/{id}/regenerate-secret(id=${client.id})}">Generate new</button>
+                    <input type="text" id="secretValue" name="secret" class="secret-value"
+                           th:value="${client.secret}" autocomplete="off" pattern="\S{12,512}"
+                           placeholder="Click &quot;Generate new&quot; or type your own"/>
+                    <button type="button" id="regenerateSecretButton" class="btn-secondary">Generate new</button>
                 </div>
-                <input type="hidden" id="secretValue" th:if="${client.secret}" th:value="${client.secret}"/>
-                <p class="note" th:if="${client.secret}">
-                    Stays visible here for as long as this client exists. Regenerating replaces it and
-                    invalidates the old one.
+                <p class="note">
+                    Edit the value directly to set your own, or click "Generate new" for a random one,
+                    then click "OK" to save. 12-512 characters, no spaces. Saving a changed value
+                    replaces the secret and invalidates the old one; leaving it as-is keeps the current
+                    secret. It stays visible here for as long as this client exists.
                 </p>
 
                 <label for="c8ctlConfig">Configuration for Cocktail (c8ctl) - Camunda 8 CLI</label>
@@ -133,7 +138,8 @@
 
                 <div class="button-row">
                     <button type="submit">OK</button>
-                    <button type="submit" class="danger" th:formaction="@{/admin/clients/{id}/delete(id=${client.id})}">Remove</button>
+                    <button type="submit" class="danger" formnovalidate="formnovalidate"
+                            th:formaction="@{/admin/clients/{id}/delete(id=${client.id})}">Remove</button>
                     <a class="btn-cancel" th:href="@{/admin/clients}">Cancel</a>
                 </div>
             </form>

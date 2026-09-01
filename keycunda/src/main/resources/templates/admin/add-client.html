@@ -60,6 +60,7 @@
         .secret-value {
             display: block;
             width: 100%;
+            box-sizing: border-box;
             padding: 0.55rem 0.65rem;
             border: 1px solid var(--gray-20);
             background: var(--gray-10);
@@ -67,6 +68,9 @@
             font-size: 13px;
             white-space: nowrap;
             overflow-x: auto;
+        }
+        input.secret-value {
+            background: #ffffff;
         }
         .config-snippet {
             display: block;
@@ -113,12 +117,17 @@
                     Space/comma-separated, for an audience not listed above (e.g. one added in a future Camunda version).
                 </p>
 
-                <label>Secret</label>
+                <label for="secretValue">Secret</label>
                 <div class="secret-row">
-                    <span id="secretDisplay" class="secret-value" th:text="${secret}"></span>
+                    <input type="text" id="secretValue" name="secret" class="secret-value"
+                           th:value="${secret}" required="required" autocomplete="off"
+                           pattern="\S{12,512}"/>
                     <button type="button" id="regenerateSecretButton" class="btn-secondary">Generate new</button>
                 </div>
-                <input type="hidden" id="secretValue" name="secret" th:value="${secret}"/>
+                <p class="note">
+                    Pre-filled with a generated value. Edit it directly to use your own, or click
+                    "Generate new" for another random one. 12-512 characters, no spaces.
+                </p>
 
                 <label for="c8ctlConfig">Configuration for Cocktail (c8ctl) - Camunda 8 CLI</label>
                 <p class="note" style="margin-top: 0;">

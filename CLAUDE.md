@@ -304,13 +304,22 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   to `orchestration-api` for a client that needs to call Orchestration, matching what the fixed
   `orchestration`/`connectors` clients get from `keycunda.clients.orchestration.audience`.
   Also unlike user passwords, a client's plaintext secret **is** stored in the clear (the `secret`
-  column, alongside `secret_hash`), populated on creation and on every "Generate new", and shown
+  column, alongside `secret_hash`), populated on creation and on every secret change, and shown
   indefinitely on the "API clients" edit page (renamed from "Clients" — see `nav.html`) for as long
   as the client exists — there used to be a one-time-reveal design (an "I've copied this" button
   nulling the column via `ClientRepository.clearSecret`), but that traded away the ability to look
   a secret back up for a security benefit not worth the friction in a demo-grade app, so it was
-  dropped in favor of always-visible. Regenerating still replaces both `secret` and `secret_hash`
-  and invalidates the old value. The **add** page (`add-client.html`) has no separate "name" field
+  dropped in favor of always-visible. **The secret field is a plain editable text input on both
+  the add and edit pages** — an admin can type their own value or click "Generate new" (which fills
+  the field client-side via `c8ctl-config.js`'s `generateSecret()`, matching
+  `AdminClientController.generateSecret()`'s 43-char base64url shape; nothing is persisted until the
+  form is submitted). There is **no** separate `regenerate-secret` endpoint anymore — the edit form
+  itself now carries the `secret` param, and `AdminClientController.edit` persists it (via
+  `ClientRepository.updateSecret`, replacing `secret` + `secret_hash`, invalidating the old value)
+  only when it's non-blank and actually differs from the stored value, so a submit that leaves the
+  pre-filled field untouched keeps the current secret. `AdminClientController.SECRET_PATTERN`
+  (`\S{12,512}`, mirrored as the HTML `pattern` attribute) rejects whitespace and too-short values
+  on both add and edit — never trust the client-side check alone. The **add** page (`add-client.html`) has no separate "name" field
   at all — `AdminClientController.newClientForm` pre-fills a randomly generated Client ID
   (`client-XXXXXXXX`) into the one identifier field on page load, editable before submit, and the
   client's `name` column is always set equal to its `clientId` on creation (`AdminClientController
@@ -318,10 +327,10 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   deliberate asymmetry — it's the field to use if you want a friendlier display name later without
   touching the immutable client ID. All known audiences are pre-checked by default on the add page
   (unchecking the ones a client doesn't need is one click; the old design pre-checked only
-  Orchestration's). The secret itself is also generated up front by `newClientForm` (not deferred
-  to submit) and shown read-only on the add page via a hidden `secret` form field, so it's already
-  copyable before the client exists — the same `generateSecret()` value that gets persisted on
-  submit, not regenerated at that point. Submitting takes the admin back to the **list** page, not
+  Orchestration's). The add page's secret field is pre-filled by `newClientForm` with a
+  `generateSecret()` value (so it's copyable before the client exists), but is editable and, unlike
+  before, is just a normal `<input name="secret">` — whatever's in it at submit time is what gets
+  persisted. Submitting takes the admin back to the **list** page, not
   the edit page as it used to: since the secret was already visible pre-submit, and stays visible
   indefinitely on the edit page afterward per the always-visible design above, there's no longer a
   reason to detour through the edit page right after creation.
@@ -448,16 +457,21 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   showed `EnvironmentSecretProvider` explicitly rejecting it and naming the fix ("Rename it to
   'SECRET_INBOUND_MAIL_IMAP_PORT'"). Camunda SaaS has no equivalent requirement, since SaaS never
   exposes secrets as raw container env vars at all - they go through Console's own managed Secrets
-  store instead, a different backend entirely. `secrets.html`'s `normalizeKey()` (uppercases the
-  typed key - Kubernetes/shell convention - then applies `ensurePrefixed()`/`KEY_PREFIX`, mirrored
-  server-side as `AdminSecretController.SELF_MANAGED_SECRET_PREFIX`, used only for the SaaS export
-  below) runs on add, edit (renaming a key), and import (file or pasted), so an admin never has to
-  know/remember either convention. Whenever the prefix specifically had to be added (not just the
-  uppercasing), `notePrefixAdded()` shows an info modal explaining why - deliberately **every**
-  time this happens, not once-per-session; that repetition is an intentional design choice, not
-  an oversight to dedupe. The BPMN's own `{{secrets.NAME}}` references never need to change - the
-  prefix lives purely in the underlying env var/Kubernetes Secret key, not in what the process
-  asks for by name.
+  store instead, a different backend entirely. `secrets.html` uppercases the typed key
+  (Kubernetes/shell convention) then applies `ensurePrefixed()`/`KEY_PREFIX` (mirrored server-side
+  as `AdminSecretController.SELF_MANAGED_SECRET_PREFIX`, used only for the SaaS export below) on
+  add, edit (renaming a key), and import (file or pasted), so an admin never has to know/remember
+  either convention. **The `SECRET_` prefix is treated purely as an internal storage detail and is
+  never shown in the UI** — `displayKey()` strips it back off for the key column, the edit field,
+  and every confirm/error message, and everything the user types is taken as the un-prefixed form
+  and run back through `ensurePrefixed()` before it's stored in the JS working set. This matches how
+  a BPMN's `{{secrets.NAME}}` reference is written (no prefix). There used to be a `notePrefixAdded()`
+  info modal fired every time a key got prefixed; it's gone, since the prefix the user would never
+  otherwise see is no longer surfaced at all. A static note under the table still explains the
+  prefix exists, for anyone exporting or debugging the raw Secret. **"View all"** (button in the
+  panel header, `#view-all` / `allShown`) toggles every row's `<details>` value disclosure open at
+  once; `renderTable()` re-applies `allShown` after each mutation so an add/edit/delete doesn't
+  collapse everything.
 
   **The Export panel's "Camunda Self Managed"/"Camunda Software as a Service (Saas)" target
   selector exists because of this same asymmetry.** Self Managed exports keys as-is

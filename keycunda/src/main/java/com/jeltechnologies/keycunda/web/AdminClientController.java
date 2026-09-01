@@ -44,6 +44,14 @@ public class AdminClientController {
 
     private static final Pattern CLIENT_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]{1,255}");
 
+    // A client secret can now be set to an admin-chosen value (not just the generated one), so it
+    // needs its own validation: no whitespace (it goes into an Authorization header / token request
+    // body and the "c8 add profile" shell snippet) and long enough not to be trivially guessable.
+    // generateSecret() produces a 43-char base64url string, comfortably inside this.
+    private static final Pattern SECRET_PATTERN = Pattern.compile("\\S{12,512}");
+    private static final String SECRET_RULE_MESSAGE =
+            "Secret must be 12-512 characters with no spaces.";
+
     private final ClientRepository clientRepository;
     private final PasswordEncoder passwordEncoder;
     private final KeycundaProperties keycundaProperties;
@@ -70,9 +78,9 @@ public class AdminClientController {
         model.addAttribute("selectedAudiences", new LinkedHashSet<>(knownAudiences.values()));
         model.addAttribute("customAudience", "");
         model.addAttribute("clientId", "");
-        // Generated up front and shown read-only on the page (see add-client.html's hidden "secret"
-        // field), so it's copyable before the client is even created - no need to submit the form
-        // and land on the edit page just to see it once.
+        // Pre-fills the (editable) secret field with a generated value, so it's copyable before the
+        // client is even created - the admin can also type their own or hit "Generate new". Whatever
+        // is in the field at submit time is what gets persisted.
         model.addAttribute("secret", generateSecret());
         addC8ctlConfigAttributes(model);
         return "admin/add-client";
@@ -85,6 +93,10 @@ public class AdminClientController {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
             redirectAttributes.addFlashAttribute("error",
                     "Client ID \"" + clientId + "\" is reserved or invalid. Use letters, digits, \".\", \"_\" or \"-\".");
+            return "redirect:/admin/clients/new";
+        }
+        if (!SECRET_PATTERN.matcher(secret == null ? "" : secret).matches()) {
+            redirectAttributes.addFlashAttribute("error", SECRET_RULE_MESSAGE);
             return "redirect:/admin/clients/new";
         }
         String audience = combineAudiences(knownAudiences, customAudience);
@@ -123,29 +135,27 @@ public class AdminClientController {
     @PostMapping("/admin/clients/{id}/edit")
     public String edit(@PathVariable UUID id,
             @RequestParam(name = "knownAudiences", required = false) List<String> knownAudiences,
-            @RequestParam(required = false) String customAudience, RedirectAttributes redirectAttributes) {
+            @RequestParam(required = false) String customAudience,
+            @RequestParam(required = false) String secret, RedirectAttributes redirectAttributes) {
         Client client = clientRepository.findById(id).orElse(null);
         if (client == null) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
+        }
+        // The secret field on the edit page is pre-filled with the current value, so a submit that
+        // leaves it unchanged (or blank) must not touch it - only persist a genuine, valid change.
+        boolean changeSecret = secret != null && !secret.isBlank() && !secret.equals(client.secret());
+        if (changeSecret && !SECRET_PATTERN.matcher(secret).matches()) {
+            redirectAttributes.addFlashAttribute("error", SECRET_RULE_MESSAGE);
+            return "redirect:/admin/clients/" + id + "/edit";
         }
         clientRepository.updateAudience(id, combineAudiences(knownAudiences, customAudience));
-        redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" updated.");
-        return "redirect:/admin/clients";
-    }
-
-    @PostMapping("/admin/clients/{id}/regenerate-secret")
-    public String regenerateSecret(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
-        Client client = clientRepository.findById(id).orElse(null);
-        if (client == null) {
-            redirectAttributes.addFlashAttribute("error", "Client not found.");
-            return "redirect:/admin/clients";
+        if (changeSecret) {
+            clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
         }
-        String secret = generateSecret();
-        clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
-        redirectAttributes.addFlashAttribute("message", "Secret regenerated for \"" + client.name() + "\".");
-        // To the edit page, not the list: the new secret is only ever shown there.
-        return "redirect:/admin/clients/" + id + "/edit";
+        redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" updated"
+                + (changeSecret ? " (secret replaced - the old one no longer works)." : "."));
+        return "redirect:/admin/clients";
     }
 
     @PostMapping("/admin/clients/{id}/delete")

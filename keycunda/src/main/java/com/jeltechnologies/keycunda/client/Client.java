@@ -10,12 +10,14 @@ import java.util.UUID;
  * unique identifier external systems are configured with and, like a user's email, is immutable
  * once created - see {@link com.jeltechnologies.keycunda.web.AdminClientController}.
  *
- * <p>{@code secret} is the plaintext secret, populated when the client is created or its secret
- * regenerated, and shown indefinitely on the edit page from then on - unlike a user's password,
- * it's kept around in recoverable form for as long as the client exists, since it's what gets
- * pasted into external systems and an admin may need to look it up again later. (A client created
- * before this became the behavior may still show no secret, from the older one-time-reveal design
- * that cleared it after the first view; "Generate new" replaces it with a permanently visible one.)
+ * <p>{@code secret} is the plaintext secret, set when the client is created and whenever the edit
+ * page's secret field is saved with a changed value (to an admin-typed value or a "Generate new"
+ * one - both go through {@code AdminClientController.edit}), and shown indefinitely on the edit page
+ * from then on - unlike a user's password, it's kept around in recoverable form for as long as the
+ * client exists, since it's what gets pasted into external systems and an admin may need to look it
+ * up again later. (A client created before this became the behavior may still show no secret, from
+ * the older one-time-reveal design that cleared it after the first view; saving a new value on the
+ * edit page replaces it with a permanently visible one.)
  * {@code secretHash} is the encoded form actually fed to {@code RegisteredClient}/the OAuth2
  * client-authentication provider, and is independent of {@code secret}.
  *

@@ -1,15 +1,14 @@
 // Builds the "c8 add profile dev" snippet shown on the add/edit API client pages, from
 // C8CTL_BASE_URL/C8CTL_OAUTH_URL (inlined by the page via Thymeleaf) plus the current #clientId
-// and #secretValue field values. Re-run on load and on every #clientId input so typing a client
-// ID (add-client.html) updates the snippet live; edit-client.html's #clientId is read-only, so
-// there the snippet is effectively just rendered once from the server-supplied values.
+// and #secretValue field values. Re-run on load and on every #clientId / #secretValue input so
+// typing a client ID (add-client.html) or editing the secret on either page updates the snippet
+// live; edit-client.html's #clientId is read-only, so there only the secret half moves.
 //
-// Also wires add-client.html's client-side-only "Generate new" button (#regenerateSecretButton):
-// unlike edit-client.html's same-labeled button, which regenerates+persists via a server
-// round-trip (the client already exists there), a not-yet-created client has nothing to persist
-// to, so this one just swaps in a fresh random secret in the browser, in the same base64url,
-// 32-byte shape as AdminClientController.generateSecret() - not present on edit-client.html, so
-// this is a no-op there.
+// Also wires the "Generate new" button (#regenerateSecretButton) on both pages: it fills #secretValue
+// with a fresh random secret in the browser, in the same base64url, 32-byte shape as
+// AdminClientController.generateSecret(). On the edit page the new value is only persisted when the
+// form's "OK" is clicked (the controller's edit handler now takes the secret field), so generating
+// and saving are two explicit steps.
 (function () {
     function currentValue(id, placeholder) {
         var el = document.getElementById(id);
@@ -49,12 +48,14 @@
         if (clientIdField) {
             clientIdField.addEventListener("input", updateC8ctlConfig);
         }
+        var secretField = document.getElementById("secretValue");
+        if (secretField) {
+            secretField.addEventListener("input", updateC8ctlConfig);
+        }
         var regenerateButton = document.getElementById("regenerateSecretButton");
         if (regenerateButton) {
             regenerateButton.addEventListener("click", function () {
-                var secret = generateSecret();
-                document.getElementById("secretValue").value = secret;
-                document.getElementById("secretDisplay").textContent = secret;
+                document.getElementById("secretValue").value = generateSecret();
                 updateC8ctlConfig();
             });
         }
