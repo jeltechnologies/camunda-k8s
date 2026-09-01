@@ -15,33 +15,30 @@ fi
 echo ==================================================================
 echo Welcome to the Camunda microk8s installer
 echo ==================================================================
+
+# Prompt for the sudo password up front, before the config wizard, so the
+# install doesn't stall on a password prompt partway through (and so a
+# cached credential is ready for the many sudo calls later on).
+echo "This installer needs sudo. Please provide your password:"
+sudo -v
+
 ./configure-env.sh
 source ./install-env.sh
 
-if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
-  echo "=================================================================="
-  echo "Installing c8ctl and Camunda AI skills"
-  echo "=================================================================="
-  # Node.js/npm (latest LTS, required by both packages below) was already
-  # installed by 1-install-microk8s.sh. Done up front, right after the
-  # question wizard, since neither package depends on anything the rest of
-  # this script sets up - only ${CAMUNDA_DOMAIN}, already available from
-  # install-env.sh above.
-  sudo npm install -g @camunda8/cli
-  npx --yes skills add camunda/skills --skill '*'
-
-  echo "Creating example c8ctl profile 'dev' - update the client secret below"
-  echo "after creating a matching 'c8ctl' client (audience: orchestration-api)"
-  echo "at https://${CAMUNDA_DOMAIN}/keycunda/clients"
-  c8 add profile dev \
-    --baseUrl="https://${CAMUNDA_DOMAIN}/orchestration" \
-    --clientId=c8ctl \
-    --clientSecret=UPDATE_ME \
-    --audience=orchestration-api \
-    --oAuthUrl="https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
-fi
-
-sudo echo "Please provide your sudo password"
+# c8ctl and the Camunda AI skills are installed by 1-install-microk8s.sh
+# (host prep). The example profile below is created here instead because it
+# needs ${CAMUNDA_DOMAIN}, which only exists after the wizard above.
+echo "=================================================================="
+echo "Creating example c8ctl profile 'dev'"
+echo "=================================================================="
+echo "Update the client secret below after creating a matching 'c8ctl' client"
+echo "(audience: orchestration-api) at https://${CAMUNDA_DOMAIN}/keycunda/clients"
+c8 add profile dev \
+  --baseUrl="https://${CAMUNDA_DOMAIN}/orchestration" \
+  --clientId=c8ctl \
+  --clientSecret=UPDATE_ME \
+  --audience=orchestration-api \
+  --oAuthUrl="https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
 
 echo "=================================================================="
 echo "Checking Helm version"
@@ -343,10 +340,8 @@ echo ""
 echo "  Document storage : ~/camunda-docs"
 echo "  Custom connectors: ~/camunda-connectors"
 echo ""
-if [[ "${INSTALL_C8CTL_SKILLS:-true}" == "true" ]]; then
-  echo "  c8ctl profile 'dev' created with a placeholder secret - create a matching"
-  echo "  'c8ctl' client (audience: orchestration-api) at"
-  echo "  https://${CAMUNDA_DOMAIN}/keycunda/clients, then update it with:"
-  echo "  c8 add profile dev --clientSecret=<real-secret> --baseUrl=https://${CAMUNDA_DOMAIN}/orchestration --clientId=c8ctl --audience=orchestration-api --oAuthUrl=https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
-  echo ""
-fi
+echo "  c8ctl profile 'dev' created with a placeholder secret - create a matching"
+echo "  'c8ctl' client (audience: orchestration-api) at"
+echo "  https://${CAMUNDA_DOMAIN}/keycunda/clients, then update it with:"
+echo "  c8 add profile dev --clientSecret=<real-secret> --baseUrl=https://${CAMUNDA_DOMAIN}/orchestration --clientId=c8ctl --audience=orchestration-api --oAuthUrl=https://${CAMUNDA_DOMAIN}/auth/oauth2/token"
+echo ""

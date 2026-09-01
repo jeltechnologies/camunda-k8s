@@ -29,6 +29,30 @@ sudo apt install -y nodejs
 echo "Node.js $(node -v), npm $(npm -v)"
 
 echo ============================================================
+echo "Installing c8ctl CLI and Camunda AI skills"
+echo ============================================================
+# Both are npm-distributed and only need the Node.js runtime installed
+# just above - nothing from the cluster or install-env.sh - so they belong
+# in host prep. The example c8ctl profile (which does need ${CAMUNDA_DOMAIN})
+# is still created later, by 2-install-camunda-microk8s.sh.
+# `npx skills add` writes .agents/ .claude/ skills-lock.json into the current
+# directory, so this must run from the repo root (same as every other script).
+sudo npm install -g @camunda8/cli
+npx --yes skills add camunda/skills --skill '*'
+
+echo ============================================================
+echo "Installing Docker Engine"
+echo ============================================================
+# Convenience for demos that run extra containers alongside the cluster
+# (local registry, test tooling, ...). get.docker.com detects the distro
+# and uses sudo internally. Group membership only takes effect on next
+# login - the reboot this script tells you to do at the end covers it, so
+# no `newgrp docker` here (it would replace this shell and abort the rest
+# of the script).
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER"
+
+echo ============================================================
 echo Disabling swap - required for Kubernetes
 echo ============================================================
 sudo swapoff -a

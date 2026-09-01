@@ -18,8 +18,6 @@ DEFAULT_GITLAB_URL=https://my-gitlab/api/v4
 DEFAULT_BEHIND_REVERSE_PROXY=false
 DEFAULT_SWAGGER_ENABLED=false
 
-DEFAULT_INSTALL_C8CTL_SKILLS=true
-
 if [[ -f ./install-env.sh ]]; then
   source ./install-env.sh
 
@@ -47,7 +45,6 @@ if [[ -f ./install-env.sh ]]; then
 
   DEFAULT_BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY:-false}"
   DEFAULT_SWAGGER_ENABLED="${SWAGGER_ENABLED:-false}"
-  DEFAULT_INSTALL_C8CTL_SKILLS="${INSTALL_C8CTL_SKILLS:-true}"
 fi
 
 # Hardcoded constants, not remembered from a previous install-env.sh - set after the reuse
@@ -241,18 +238,6 @@ echo ""
 read -p "Enable Swagger UI? WARNING: do not enable on public internet. (default: ${DEFAULT_SWAGGER_ENABLED}): " input_swagger_enabled
 SWAGGER_ENABLED=${input_swagger_enabled:-$DEFAULT_SWAGGER_ENABLED}
 
-echo ""
-echo "============================================================"
-echo " Optional: C8ctl and Camunda AI skills"
-echo " Installs the c8ctl CLI (npm install -g @camunda8/cli) and the"
-echo " Camunda AI skills (github.com/camunda/skills) for use with AI"
-echo " coding assistants such as Claude Code"
-echo "============================================================"
-echo ""
-
-read -p "Add C8ctl and Camunda AI skills? (default: ${DEFAULT_INSTALL_C8CTL_SKILLS}): " input_install_c8ctl_skills
-INSTALL_C8CTL_SKILLS=${input_install_c8ctl_skills:-$DEFAULT_INSTALL_C8CTL_SKILLS}
-
 cat > install-env.sh <<ENVEOF
 #!/usr/bin/env bash
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
@@ -272,7 +257,6 @@ export OLLAMA_URL="${OLLAMA_URL}"
 export GITLAB_URL="${GITLAB_URL}"
 export BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY}"
 export SWAGGER_ENABLED="${SWAGGER_ENABLED}"
-export INSTALL_C8CTL_SKILLS="${INSTALL_C8CTL_SKILLS}"
 ENVEOF
 
 echo ""
