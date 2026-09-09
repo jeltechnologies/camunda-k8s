@@ -481,6 +481,8 @@ orchestration:
   env:
     - name: SPRINGDOC_SWAGGERUI_ENABLED
       value: "${SWAGGER_ENABLED}"
+    - name: JAVA_TOOL_OPTIONS
+      value: "-Xss32m"
   extraVolumes:
     - name: camunda-docs
       persistentVolumeClaim:

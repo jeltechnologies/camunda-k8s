@@ -581,6 +581,8 @@ orchestration:
   env:
     - name: SPRINGDOC_SWAGGERUI_ENABLED
       value: "${SWAGGER_ENABLED}"
+    - name: JAVA_TOOL_OPTIONS
+      value: "-Xss32m"
     # 8.10-only: a new gateway-side "cluster-admin" API (io.camunda.authentication.clusteradmin -
     # confirmed by extracting camunda-authentication-8.10.0-alpha4.jar, no equivalent package
     # exists in the 8.9 chart line) gates /cluster/v2/** (including /cluster/v2/status, a richer
