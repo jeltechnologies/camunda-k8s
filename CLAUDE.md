@@ -23,7 +23,7 @@ not present it as a production-hardened component.
 
 | File | Role |
 |---|---|
-| `1-install-microk8s.sh` | Host prep: apt upgrade, swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4. Run once, then reboot. |
+| `1-install-microk8s.sh` | Host prep: apt upgrade, Docker Engine, swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4, then (last, after the cluster is up) Node.js LTS + the `@camunda8/cli` c8ctl CLI + a clone of `camunda/skills` to `/opt/camunda-skills` symlinked into `~/.claude/skills` (and `/etc/skel`). Run once, then reboot. |
 | `2-install-camunda-microk8s.sh` | The main orchestrator. Everything else is called from here. |
 | `configure-env.sh` | Interactive wizard; **writes `install-env.sh`** (the generated config). |
 | `.env.example` | Documents the shape of `install-env.sh` with placeholder values — reference only, not consumed by any script. |

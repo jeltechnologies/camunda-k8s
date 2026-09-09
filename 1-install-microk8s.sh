@@ -17,30 +17,6 @@ sudo apt full-upgrade -y
 sudo apt install -y htop curl wget git
 
 echo ============================================================
-echo "Installing Node.js (latest LTS) and npm"
-echo ============================================================
-# Ubuntu's own "npm" package drags in whatever Node major its repos ship
-# (e.g. 18.x on 24.04), which is too old for newer npm-distributed CLIs
-# (e.g. c8ctl, the Camunda AI skills installer - both require Node >=22).
-# NodeSource's "lts" alias always resolves to the current LTS release, so
-# this stays correct without a version number to bump by hand later.
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
-echo "Node.js $(node -v), npm $(npm -v)"
-
-echo ============================================================
-echo "Installing c8ctl CLI and Camunda AI skills"
-echo ============================================================
-# Both are npm-distributed and only need the Node.js runtime installed
-# just above - nothing from the cluster or install-env.sh - so they belong
-# in host prep. The example c8ctl profile (which does need ${CAMUNDA_DOMAIN})
-# is still created later, by 2-install-camunda-microk8s.sh.
-# `npx skills add` writes .agents/ .claude/ skills-lock.json into the current
-# directory, so this must run from the repo root (same as every other script).
-sudo npm install -g @camunda8/cli
-npx --yes skills add camunda/skills --skill '*'
-
-echo ============================================================
 echo "Installing Docker Engine"
 echo ============================================================
 # Convenience for demos that run extra containers alongside the cluster
@@ -133,12 +109,61 @@ echo ""
 sudo microk8s kubectl get pods -A
 echo ""
 
+echo ============================================================
+echo "Installing Camunda developer tooling (c8ctl + AI skills)"
+echo ============================================================
+# Done last, after Kubernetes and Helm: none of this is needed to bring up
+# the cluster, so a hiccup here can't block the platform install. The example
+# c8ctl profile (which needs ${CAMUNDA_DOMAIN}) is still created later, by
+# 2-install-camunda-microk8s.sh.
+
+# Node.js (latest LTS) - only needed here, as the runtime for the c8ctl CLI.
+# Ubuntu's own packages ship a Node major that's too old (e.g. 18.x on 24.04);
+# NodeSource's "lts" alias always resolves to the current LTS with no version
+# number to bump by hand later.
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+echo "Node.js $(node -v), npm $(npm -v)"
+
+# c8ctl - the Camunda 8 CLI - installed globally so every user and shell has it.
+sudo npm install -g @camunda8/cli
+
+# Camunda AI skills (github.com/camunda/skills): cloned once to a shared location
+# and symlinked into ~/.claude/skills, which Claude Code loads for EVERY project
+# and working directory (not just this repo). /etc/skel gets the same links so
+# users created later inherit them. Update everyone at once with:
+#   git -C /opt/camunda-skills pull --ff-only
+CAMUNDA_SKILLS_DIR=/opt/camunda-skills
+if [[ -d "${CAMUNDA_SKILLS_DIR}/.git" ]]; then
+  git -C "${CAMUNDA_SKILLS_DIR}" pull --ff-only
+else
+  # Only creating the dir under /opt needs root; the clone itself runs as the
+  # user so the working tree and .git stay user-owned (no "dubious ownership"
+  # or root-owned objects on a later `git pull`).
+  sudo mkdir -p "${CAMUNDA_SKILLS_DIR}"
+  sudo chown "$USER":"$USER" "${CAMUNDA_SKILLS_DIR}"
+  git clone https://github.com/camunda/skills.git "${CAMUNDA_SKILLS_DIR}"
+fi
+
+mkdir -p "${HOME}/.claude/skills"
+for skill in "${CAMUNDA_SKILLS_DIR}"/skills/*/; do
+  ln -sfn "${skill%/}" "${HOME}/.claude/skills/$(basename "${skill}")"
+done
+
+sudo mkdir -p /etc/skel/.claude/skills
+for skill in "${CAMUNDA_SKILLS_DIR}"/skills/*/; do
+  sudo ln -sfn "${skill%/}" "/etc/skel/.claude/skills/$(basename "${skill}")"
+done
+echo "Camunda AI skills linked into ~/.claude/skills - usable from any directory"
+
 VM_IP=$(hostname -I | awk '{print $1}')
 echo ==========================================================================
 echo MicroK8s installation complete!
 echo ""
 echo "  Ubuntu version : ${UBUNTU_VERSION}"
 echo "  Helm version   : $(helm version --short)"
+echo "  c8ctl          : $(npm ls -g --depth 0 @camunda8/cli 2>/dev/null | grep -o '@camunda8/cli@[0-9.]*' || echo 'installed')"
+echo "  Camunda skills : ~/.claude/skills -> ${CAMUNDA_SKILLS_DIR}/skills/*"
 echo ""
 echo Next step:
 echo "  1. Reboot the VM:  sudo reboot"

@@ -72,6 +72,11 @@ sudo reboot
 ./2-install-camunda-microk8s.sh
 ```
 
+Step 1 also installs Docker, the [c8ctl](https://github.com/camunda/c8ctl) CLI, and the
+[Camunda AI skills](https://github.com/camunda/skills) — cloned to `/opt/camunda-skills` and
+symlinked into `~/.claude/skills` so Claude Code can use them from any directory. Update them
+later with `git -C /opt/camunda-skills pull`.
+
 The second script fetches the [Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
 and lets you pick the latest alpha or latest stable Camunda/Helm chart version with one keystroke,
 or enter both manually (also the fallback if the page can't be reached).

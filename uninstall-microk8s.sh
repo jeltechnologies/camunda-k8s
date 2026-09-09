@@ -76,6 +76,21 @@ for entry in "${ENTRIES_TO_REMOVE[@]}"; do
 done
 
 echo "=================================================================="
+echo "Removing the Camunda AI skills clone and symlinks"
+echo "=================================================================="
+# Node.js, Docker and the c8ctl npm package are left in place (a one-command
+# reinstall each, and often wanted independently) - same as this script
+# already leaves Docker/Node from the host-prep step. Only the skills clone
+# and the symlinks pointing at it are genuinely new persistent system state.
+for skilldir in "${HOME}/.claude/skills" /etc/skel/.claude/skills; do
+  if [[ -d "${skilldir}" ]]; then
+    find "${skilldir}" -maxdepth 1 -type l -lname '/opt/camunda-skills/*' -exec sudo rm -f {} + 2>/dev/null || true
+  fi
+done
+sudo rm -rf /opt/camunda-skills
+echo "Removed /opt/camunda-skills and its ~/.claude/skills symlinks"
+
+echo "=================================================================="
 echo "Removing MicroK8s (snap remove --purge)"
 echo "=================================================================="
 # --purge wipes /var/snap/microk8s entirely (certs, etcd/dqlite data, the

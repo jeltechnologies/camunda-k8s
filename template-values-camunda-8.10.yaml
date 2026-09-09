@@ -578,11 +578,25 @@ orchestration:
     requests:
       cpu: 200m
       memory: 1Gi
+  # The chart's own orchestration/statefulset.yaml template already emits a JAVA_TOOL_OPTIONS env
+  # var itself (combining orchestration.javaOpts with the global.tls.caBundle truststore options
+  # above, since that's set) before appending orchestration.env verbatim - so a JAVA_TOOL_OPTIONS
+  # entry under env here would be a *second* env var with the same key, which server-side apply
+  # rejects outright ("duplicate entries for key"). javaOpts is the chart's own extension point for
+  # this (per the "<component>.javaOpts (which the chart appends to, not replaces)" comment near
+  # the top of the chart's values.yaml) - it's appended to the caBundle-derived value, not
+  # env-appended separately, so it can't collide. Since it's a scalar string, not a merge-friendly
+  # map, setting it here replaces the chart's default outright - so the default flags are repeated
+  # verbatim alongside -Xss32m rather than lost.
+  javaOpts: >-
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/usr/local/camunda/data
+    -XX:ErrorFile=/usr/local/camunda/data/camunda_error%p.log
+    -XX:+ExitOnOutOfMemoryError
+    -Xss32m
   env:
     - name: SPRINGDOC_SWAGGERUI_ENABLED
       value: "${SWAGGER_ENABLED}"
-    - name: JAVA_TOOL_OPTIONS
-      value: "-Xss32m"
     # 8.10-only: a new gateway-side "cluster-admin" API (io.camunda.authentication.clusteradmin -
     # confirmed by extracting camunda-authentication-8.10.0-alpha4.jar, no equivalent package
     # exists in the 8.9 chart line) gates /cluster/v2/** (including /cluster/v2/status, a richer

@@ -26,8 +26,8 @@ sudo -v
 source ./install-env.sh
 
 # c8ctl and the Camunda AI skills are installed by 1-install-microk8s.sh
-# (host prep). The example profile below is created here instead because it
-# needs ${CAMUNDA_DOMAIN}, which only exists after the wizard above.
+# (its last step). The example profile below is created here instead because
+# it needs ${CAMUNDA_DOMAIN}, which only exists after the wizard above.
 echo "=================================================================="
 echo "Creating example c8ctl profile 'dev'"
 echo "=================================================================="
