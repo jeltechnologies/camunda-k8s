@@ -25,6 +25,18 @@ sudo -v
 ./configure-env.sh
 source ./install-env.sh
 
+# Force-restart kube-system pods to ensure clean state.
+# Handles any stuck pods from prior node restarts/reboots.
+echo "=================================================================="
+echo "Restarting kube-system pods for clean state..."
+echo "=================================================================="
+microk8s kubectl delete pod -n kube-system --all --grace-period=0 --force 2>/dev/null || true
+echo "Waiting for kube-system to recover..."
+microk8s kubectl wait --namespace kube-system \
+  --for=condition=ready pod \
+  --selector='!job-name' \
+  --timeout=30s 2>/dev/null || true
+
 # c8ctl and the Camunda AI skills are installed by 1-install-microk8s.sh
 # (its last step). The example profile below is created here instead because
 # it needs ${CAMUNDA_DOMAIN}, which only exists after the wizard above.
