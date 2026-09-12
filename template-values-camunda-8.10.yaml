@@ -264,7 +264,7 @@ connectors:
     - name: LOADER_PATH
       value: "/opt/custom/connectors"
     - name: CAMUNDA_CONNECTOR_SECRETRESOLVER_SECRETFILTER_MODE
-      value: "DISABLED"
+      value: DISABLED
   extraVolumes:
     - name: custom-connectors
       persistentVolumeClaim:
