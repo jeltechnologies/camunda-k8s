@@ -23,7 +23,7 @@ not present it as a production-hardened component.
 
 | File | Role |
 |---|---|
-| `1-install-microk8s.sh` | Host prep: apt upgrade, Docker Engine, swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4, then (last, after the cluster is up) Node.js LTS + the `@camunda8/cli` c8ctl CLI + a clone of `camunda/skills` to `/opt/camunda-skills` symlinked into `~/.claude/skills` (and `/etc/skel`). Run once, then reboot. |
+| `1-install-microk8s.sh` | Host prep: apt upgrade, Docker Engine (+ the `DOCKER-USER` iptables fix — see Architecture facts below), swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4, then (last, after the cluster is up) Node.js LTS (via NodeSource's `setup_lts.x`, since Ubuntu's own packaged Node major is too old) + the `@camunda8/cli` c8ctl CLI + a clone of `camunda/skills` to `/opt/camunda-skills` (update with `git -C /opt/camunda-skills pull --ff-only`) symlinked into `~/.claude/skills` (and `/etc/skel`). Run once, then reboot. |
 | `2-install-camunda-microk8s.sh` | The main orchestrator. Everything else is called from here. |
 | `configure-env.sh` | Interactive wizard; **writes `install-env.sh`** (the generated config). |
 | `.env.example` | Documents the shape of `install-env.sh` with placeholder values — reference only, not consumed by any script. |
@@ -212,6 +212,26 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
 
 ## Architecture facts that are easy to get wrong
 
+- **`1-install-microk8s.sh` installs Docker Engine purely as a demo convenience** (extra containers
+  alongside the cluster — local registry, test tooling, ...), and that installation actively breaks
+  MicroK8s pod networking unless worked around. Docker sets the **nftables-backend** `FORWARD` chain
+  policy to `DROP` and only carves out exceptions for its own bridge networks (`DOCKER-USER`/
+  `DOCKER-FORWARD`), while MicroK8s's kube-proxy and Calico write their ACCEPT rules into the
+  separate **legacy** iptables backend — the kernel enforces both independently, so nft's `DROP`
+  silently blackholes all pod-to-pod and pod-to-Service traffic even though `iptables-legacy -S
+  FORWARD` looks completely healthy (routes, Services, Endpoints, CoreDNS config all correct).
+  Symptom actually hit: every pod in `CrashLoopBackOff` with `UnknownHostException`/connection
+  errors to other in-cluster Services (e.g. Identity failing to resolve `camunda-postgresql`) —
+  confirmed by testing that a debug pod couldn't even reach another pod's raw IP directly, ruling out
+  DNS/Service config and pointing at pod networking itself; `iptables-nft -S FORWARD` showed the
+  DROP policy with only Docker's own chains attached, nothing from Calico/kube-proxy. Fix: an
+  unconditional `iptables-nft -I DOCKER-USER -j ACCEPT` — `DOCKER-USER` is the chain Docker
+  guarantees to always consult first and never flushes on its own restart, so this hands forwarding
+  back to non-Docker (i.e. Kubernetes CNI) traffic without touching Docker's own container network
+  isolation rules. That rule alone doesn't survive a reboot (Docker recreates `DOCKER-USER` empty on
+  startup), so the script also installs and enables a `docker-user-forward-accept.service` systemd
+  oneshot unit (`After=docker.service`/`Requires=docker.service`, so the chain already exists by the
+  time it runs) that reapplies the same idempotent insert on every boot.
 - **Two datastores, different jobs.** Orchestration uses the **RDBMS** secondary storage
   (`jdbc:postgresql://camunda-postgresql:5432/orchestration`, `exporters.rdbms.enabled: true`,
   `exporters.camunda.enabled: false`). Elasticsearch is there for **Optimize**. Don't assume the

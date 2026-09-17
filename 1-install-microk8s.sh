@@ -19,14 +19,30 @@ sudo apt install -y htop curl wget git
 echo ============================================================
 echo "Installing Docker Engine"
 echo ============================================================
-# Convenience for demos that run extra containers alongside the cluster
-# (local registry, test tooling, ...). get.docker.com detects the distro
-# and uses sudo internally. Group membership only takes effect on next
-# login - the reboot this script tells you to do at the end covers it, so
-# no `newgrp docker` here (it would replace this shell and abort the rest
-# of the script).
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker "$USER"
+
+echo ============================================================
+echo "Fixing Docker/Kubernetes iptables conflict"
+echo ============================================================
+sudo iptables-nft -C DOCKER-USER -j ACCEPT 2>/dev/null || sudo iptables-nft -I DOCKER-USER -j ACCEPT
+
+sudo tee /etc/systemd/system/docker-user-forward-accept.service > /dev/null <<'EOF'
+[Unit]
+Description=Allow Kubernetes/Calico pod traffic through Docker's DOCKER-USER iptables chain
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash -c '/usr/sbin/iptables-nft -C DOCKER-USER -j ACCEPT 2>/dev/null || /usr/sbin/iptables-nft -I DOCKER-USER -j ACCEPT'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now docker-user-forward-accept.service
 
 echo ============================================================
 echo Disabling swap - required for Kubernetes
@@ -112,34 +128,16 @@ echo ""
 echo ============================================================
 echo "Installing Camunda developer tooling (c8ctl + AI skills)"
 echo ============================================================
-# Done last, after Kubernetes and Helm: none of this is needed to bring up
-# the cluster, so a hiccup here can't block the platform install. The example
-# c8ctl profile (which needs ${CAMUNDA_DOMAIN}) is still created later, by
-# 2-install-camunda-microk8s.sh.
-
-# Node.js (latest LTS) - only needed here, as the runtime for the c8ctl CLI.
-# Ubuntu's own packages ship a Node major that's too old (e.g. 18.x on 24.04);
-# NodeSource's "lts" alias always resolves to the current LTS with no version
-# number to bump by hand later.
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
 sudo apt install -y nodejs
 echo "Node.js $(node -v), npm $(npm -v)"
 
-# c8ctl - the Camunda 8 CLI - installed globally so every user and shell has it.
 sudo npm install -g @camunda8/cli
 
-# Camunda AI skills (github.com/camunda/skills): cloned once to a shared location
-# and symlinked into ~/.claude/skills, which Claude Code loads for EVERY project
-# and working directory (not just this repo). /etc/skel gets the same links so
-# users created later inherit them. Update everyone at once with:
-#   git -C /opt/camunda-skills pull --ff-only
 CAMUNDA_SKILLS_DIR=/opt/camunda-skills
 if [[ -d "${CAMUNDA_SKILLS_DIR}/.git" ]]; then
   git -C "${CAMUNDA_SKILLS_DIR}" pull --ff-only
 else
-  # Only creating the dir under /opt needs root; the clone itself runs as the
-  # user so the working tree and .git stay user-owned (no "dubious ownership"
-  # or root-owned objects on a later `git pull`).
   sudo mkdir -p "${CAMUNDA_SKILLS_DIR}"
   sudo chown "$USER":"$USER" "${CAMUNDA_SKILLS_DIR}"
   git clone https://github.com/camunda/skills.git "${CAMUNDA_SKILLS_DIR}"
