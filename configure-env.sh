@@ -61,27 +61,24 @@ MATRIX_HTML=$(curl -sSL --max-time 10 --fail "${VERSION_MATRIX_URL}" 2>/dev/null
 
 if [[ -n "${MATRIX_HTML}" ]]; then
   # The page lists minors newest-first, each as an <h2> followed by a <table>/<tbody> of
-  # chart releases (newest release first within that table). The first <h2> mentioning
-  # "Alpha" is the latest alpha minor; the first <h2> mentioning "Standard support until"
-  # is the latest stable minor. Their tables' first <tr> is each one's latest chart release.
+  # chart releases (newest release first within that table). Only the "Standard support until"
+  # minors are considered. Whether a release is alpha is decided by its chart version suffix
+  # (-alpha/-beta/-rc), not by the <h2> text: a minor's heading no longer says "Alpha" once it
+  # has a support date, even while its newest release is still a pre-release. The first
+  # pre-release row seen is the latest alpha; the first plain row is the latest stable.
   MATRIX_VARS=$(printf '%s\n' "${MATRIX_HTML}" | awk '
     function strip(s) { gsub(/<[^>]*>/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-    BEGIN { mode=""; alpha_done=0; stable_done=0; in_tbody=0; in_tr=0 }
+    BEGIN { supported=0; in_tbody=0; in_tr=0; alpha_done=0; stable_done=0 }
     {
       line=$0
       if (line ~ /<h2 /) {
-        htext=strip(line)
+        supported = (strip(line) ~ /Standard support until/) ? 1 : 0
         in_tbody=0; in_tr=0
-        if (!alpha_done && htext ~ /Alpha/) { mode="ALPHA" }
-        else if (!stable_done && htext ~ /Standard support until/) {
-          mode="STABLE"
-        }
-        else { mode="" }
         next
       }
-      if (mode=="") next
+      if (!supported) next
       if (line ~ /<tbody>/) { in_tbody=1; next }
-      if (line ~ /<\/tbody>/) { in_tbody=0; mode=""; next }
+      if (line ~ /<\/tbody>/) { in_tbody=0; next }
       if (in_tbody && line ~ /<tr>/) { in_tr=1; tdcount=0; td1=""; td2=""; next }
       if (in_tr && line ~ /<td>/) {
         tdcount++
@@ -90,9 +87,10 @@ if [[ -n "${MATRIX_HTML}" ]]; then
         next
       }
       if (in_tr && line ~ /<\/tr>/) {
-        if (mode=="ALPHA" && !alpha_done) { alpha_chart=td1; alpha_camunda=td2; alpha_done=1 }
-        else if (mode=="STABLE" && !stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
-        in_tr=0; mode=""
+        if (td1 ~ /-(alpha|beta|rc)/) {
+          if (!alpha_done) { alpha_chart=td1; alpha_camunda=td2; alpha_done=1 }
+        } else if (!stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
+        in_tr=0
         next
       }
     }
