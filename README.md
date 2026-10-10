@@ -78,8 +78,10 @@ symlinked into `~/.claude/skills` so Claude Code can use them from any directory
 later with `git -C /opt/camunda-skills pull`.
 
 The second script fetches the [Camunda 8 Helm Chart Version Matrix](https://helm.camunda.io/camunda-platform/version-matrix/)
-and lets you pick the latest alpha or latest stable Camunda/Helm chart version with one keystroke,
-or enter both manually (also the fallback if the page can't be reached).
+and lets you pick the latest alpha, the latest stable, or the latest 8.9 ("legacy", with the
+classic Console and Web Modeler instead of Camunda Hub) Camunda/Helm chart version with one
+keystroke, or enter both manually (also the fallback if the page can't be reached). Legacy is
+meant for fresh installs only; switching an existing 8.10 box back to 8.9 is not supported.
 
 After this the script prompts for domain, password, and optional Ollama/GitLab settings, then install everything automatically. Expect 15–20 minutes on first run.
 

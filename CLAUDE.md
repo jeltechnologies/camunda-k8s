@@ -73,7 +73,9 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_CONSOLE_PATH} ${CAMUNDA_ADMIN_PATH} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
+  (`CAMUNDA_CONSOLE_PATH` and `CAMUNDA_ADMIN_PATH` are not wizard variables - the install script derives them from
+  `HELM_CHART_VERSION`'s major, see "Console is gone in 8.10" below)
 - keycunda-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
@@ -82,12 +84,30 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 
 ### Two Helm value templates, one per Camunda major line
 
-`template-values-camunda.yaml` targets the 8.9 chart line (Helm chart 14.x, the default).
-`template-values-camunda-8.10.yaml` targets 8.10 (chart 15.x+, currently alpha).
-`2-install-camunda-microk8s.sh` picks between them by comparing `HELM_CHART_VERSION`'s major
-version against 15 — **not** `CAMUNDA_APP_VERSION` — since the chart's `values.yaml` schema is
-what the template actually has to match, and the two version numbers aren't always in lockstep
-pre-GA.
+`template-values-camunda.yaml` targets the 8.9 chart line (Helm chart 14.x, the "legacy" wizard
+option). `template-values-camunda-8.10.yaml` targets 8.10 (chart 15.x+, the current "stable").
+`2-install-camunda-microk8s.sh` decides the line **once**, right after sourcing `install-env.sh`,
+by comparing `HELM_CHART_VERSION`'s major version against 15 — **not** `CAMUNDA_APP_VERSION` —
+since the chart's `values.yaml` schema is what the template actually has to match, and the two
+version numbers aren't always in lockstep pre-GA. That one block sets `CAMUNDA_LINE`
+(`8.9`/`8.10`), `CAMUNDA_VALUES_TEMPLATE`, `CAMUNDA_CONSOLE_PATH` and `CAMUNDA_ADMIN_PATH`, and every 8.10-only step
+keys off `CAMUNDA_LINE` (today: creating the `camunda-hub-pusher` Secret). An 8.9 install
+therefore never sees any of the 8.10 changes described below. Add any new version-specific step
+the same way, not as another inline `HELM_CHART_VERSION` check.
+
+`configure-env.sh`'s version menu has four choices: 1 latest alpha, 2 latest stable, 3 legacy,
+4 manual. Legacy is the newest non-pre-release row of the
+`Camunda ${LEGACY_CAMUNDA_MINOR} — Standard support until ...` section of the Helm version matrix
+(`LEGACY_CAMUNDA_MINOR=8.9`, a constant next to the other version pins). It is pinned to 8.9 on
+purpose, not "the previous minor", because only the 14.x line has its own values template. Once
+8.11 ships, "previous minor" would mean 8.10, which uses the 8.10 template anyway. The chosen
+Legacy exists only for **fresh** 8.9 installs: downgrading an existing 8.10 box is out of scope,
+since reinstalls keep PostgreSQL data that 8.10 has already migrated. There is deliberately no
+guard for this in the scripts. The chosen channel is stored as `VERSION_CHANNEL` (`alpha`/`stable`/`legacy`/`manual`) in `install-env.sh`.
+This replaces the old numeric `VERSION_CHOICE`, which an older `install-env.sh` may still carry and
+which the reuse block maps: `1`→alpha, `3`→manual, anything else→stable. Note that "latest alpha"
+can be *older* than "latest stable" right after a GA. The parser takes the first pre-release row
+across all supported minors, so today it offers 8.10.0-alpha5, which predates 8.10.2.
 
 The 8.10 file is a **full copy** of the 8.9 one, not a diff/overlay: neither Helm values nor the
 identity chart's `identity.configuration` mechanism support merging a partial override into a
@@ -95,7 +115,58 @@ nested list/map from a different source (confirmed the hard way — see below). 
 changes mirrored between the two files by hand; diverge only where a chart/app version genuinely
 requires it, and comment every such spot.
 
-Known differences today, both in `template-values-camunda-8.10.yaml`:
+Known differences today, in `template-values-camunda-8.10.yaml` (plus one in keycunda):
+- **Console is gone in 8.10 - Camunda Hub replaces both Console and Web Modeler** (one
+  `camunda/hub` image, still the `web-modeler-restapi`/`websockets` workloads at `/modeler` and
+  `/modeler-ws`). The 8.10 template therefore uses `camundaHub:` (top-level) and
+  `global.identity.auth.camundaHub` instead of `webModeler:` / `global.identity.auth.webModeler`,
+  and has no `console:` / `global.identity.auth.console` at all - chart 15.x ignores those, only
+  printing deprecation warnings. Settings go directly under `camundaHub`, never under
+  `camundaHub.webModeler`/`camundaHub.console` (chart fails the render). Hub's cluster pages
+  (Console's old Clusters view, incl. per-cluster Connectors/inbound connector logs) live at
+  `/modeler/clusters`. Hub only shows the components listed in its `camunda.hub.clusters`
+  config. The 8.10 template therefore has **no hand-written `restapi.configuration` or
+  `restapi.clusters`**: chart 15.x generates the full list itself (`default-cluster` with
+  orchestration/connectors/operate/tasklist/admin/optimize, each with a readiness URL, plus a
+  `management-cluster` for Identity). An earlier hand-written list here only had orchestration,
+  which is why Connectors and its logs were missing from Hub. Our real Hub customizations
+  (`username-claim: name`, `server.forward-headers-strategy: native`, mail from-address,
+  `zeebe.client.maxMetadataSize`) live in `camundaHub.restapi.extraConfiguration`, which the
+  chart Spring-imports on top of its generated `application.yaml`. Keycunda's "Console" links follow
+  this via `keycunda.console-path` (env `CAMUNDA_CONSOLE_PATH`, default `/console`). Its "Admin"
+  link (8.10's Orchestration Admin app, `/orchestration/admin`; `/orchestration/identity` is a 404
+  there) comes from `keycunda.admin-path` (env `CAMUNDA_ADMIN_PATH`, blank on 8.9, which hides the
+  link). `2-install-camunda-microk8s.sh` sets the console path to `/modeler/clusters` and the admin
+  path to `/orchestration/admin` when `HELM_CHART_VERSION`'s major is ≥ 15 - same switch as the values-template choice, computed earlier because keycunda is
+  installed before the Helm release. Without it, `/console` on 8.10 falls through to the
+  keycunda ingress's catch-all `/` redirect and silently lands back on `/auth/admin`. The fixed
+  `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still use it.
+- **Aligned with chart 15.x defaults**: the 8.10 template sets only values that differ from
+  `helm show values camunda/camunda-platform --version 15.0.0`. It uses no unused keys (chart 15.x
+  has no `global.identity.auth.orchestration/connectors` client keys - those clients are
+  configured under `orchestration.security`/`connectors.security`) and no deprecated keys, with one
+  intentional exception:
+  - `orchestration.security.authorizations.enabled: false` (Camunda's default is enabled). The
+    chart's suggested migration to `orchestration.extraConfiguration` would leave Hub's generated
+    `default-cluster.authorizations.enabled` at `true`, because the chart copies only the Helm
+    value there. Hub's frontend reads that flag after each deploy to fetch the user's authorized
+    components and show "grant authorizations in Admin" hints, so the mismatch would be visible.
+  - Deprecated orchestration keys that *were* migrated live in `orchestration.extraConfiguration`
+    (`demo-overrides.yaml`): `autoconfigure-camunda-exporter: false`, plus the OIDC
+    `redirect-uri` and Operate/Tasklist `redirectRootUrl`. Without them the chart derives all of
+    these from `oidc.redirectUrl`'s default `http://localhost:8080`. Side effect, cosmetic only:
+    Management Identity's "Orchestration" application entry shows root-url
+    `http://localhost:8080`. In GENERIC mode Identity never registers clients with keycunda.
+  - `global.compatibility.nginx.renderAnnotations: false`, with the annotations that shim used to
+    inject declared explicitly on `global.ingress` and `orchestration.ingress.grpc`. The rendered
+    Ingresses are byte-identical; nothing changes when chart 16 removes the shim.
+  - Hub's Pusher (WebSocket) credentials come from the `camunda-hub-pusher` Secret, not the
+    chart's deprecated per-render auto-generation. `2-install-camunda-microk8s.sh` creates it
+    once with random `app-key`/`app-secret` values (same create-if-missing pattern as
+    `keycunda-signing-key`), and never recreates it. The app key is sent to browsers, so it must
+    not be `$PASSWORD`.
+  - `orchestration.index.prefix` was dropped: it only affects Elasticsearch/OpenSearch secondary
+    storage, and Orchestration uses RDBMS.
 - **Fixed**: `identity.env` carries six `IDENTITY_MAPPINGRULES_0_*` entries working around a
   startup crash in Identity 8.10.0-alpha4.2. Root cause (found by extracting and decompiling the
   running `identity.jar` — `BOOT-INF/classes/application.yaml`, and
@@ -203,7 +274,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
 - Loud banner-style progress output (`echo ====...`) between phases — match the existing style.
 - Waits are explicit `kubectl rollout status`/`kubectl wait` with a timeout, never bare `sleep`.
 - Version pins live as constants at the top of `configure-env.sh`
-  (`ES_VERSION`, `PG_VERSION`, `KEYCUNDA_IMAGE`) and as `DEFAULT_*` prompts for the Camunda Helm chart
+  (`ES_VERSION`, `PG_VERSION`, `KEYCUNDA_IMAGE`, `LEGACY_CAMUNDA_MINOR`) and as `DEFAULT_*` prompts for the Camunda Helm chart
   and app version. `KEYCUNDA_IMAGE` is deliberately **not** prompted, unlike the Camunda-side versions
   — Keycunda is expected to need no end-user tuning once it's running, so bumping it
   is a code change (this constant), not something to surface in the wizard. README.md is
@@ -661,7 +732,8 @@ same `$PASSWORD` too, doing double duty as both database passwords and OAuth2 cl
 comes from the same `$PASSWORD`), this one holds randomly generated key material with no external
 source of truth, so `2-install-camunda-microk8s.sh` only creates it if it doesn't already exist.
 Never change that to an unconditional delete-and-recreate — it would silently invalidate every
-outstanding token on the next install run.
+outstanding token on the next install run. The `camunda-hub-pusher` Secret (Hub's WebSocket
+app key/secret, random, used only by the 8.10 template) follows the same create-if-missing rule.
 
 **`.env` / `.env.example` convention.** Every place secrets live has a matching `.example` file
 committed alongside it, documenting the shape with placeholder values only:

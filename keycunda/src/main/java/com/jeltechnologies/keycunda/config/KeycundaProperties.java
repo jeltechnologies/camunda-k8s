@@ -6,9 +6,16 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Everything the install script feeds in via environment variables: the public domain used to
  * build redirect URIs, the seeded first user, and the per-Camunda-component OAuth2 client
  * secrets/audiences (the client IDs themselves are fixed, see {@link OidcClientsConfig}).
+ *
+ * <p>{@code consolePath} - where the app-switcher's "Console" link points: {@code /console} on
+ * Camunda 8.9, {@code /modeler/clusters} on 8.10+, where Console was folded into Camunda Hub.
+ *
+ * <p>{@code adminPath} - where the app-switcher's "Admin" link points: {@code /orchestration/admin}
+ * on 8.10+, blank on 8.9, which hides the link.
  */
 @ConfigurationProperties(prefix = "keycunda")
-public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
+public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem,
+        String consolePath, String adminPath) {
 
     public record DemoUser(String name, String email, String password) {}
 

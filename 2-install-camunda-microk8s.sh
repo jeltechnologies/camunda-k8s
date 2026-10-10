@@ -25,6 +25,21 @@ sudo -v
 ./configure-env.sh
 source ./install-env.sh
 
+if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
+  CAMUNDA_LINE="8.10"
+  CAMUNDA_LINE_DESCRIPTION="8.10+ (Camunda Hub)"
+  CAMUNDA_VALUES_TEMPLATE="template-values-camunda-8.10.yaml"
+  CAMUNDA_CONSOLE_PATH="/modeler/clusters"
+  CAMUNDA_ADMIN_PATH="/orchestration/admin"
+else
+  CAMUNDA_LINE="8.9"
+  CAMUNDA_LINE_DESCRIPTION="8.9 legacy (Console + Web Modeler)"
+  CAMUNDA_VALUES_TEMPLATE="template-values-camunda.yaml"
+  CAMUNDA_CONSOLE_PATH="/console"
+  CAMUNDA_ADMIN_PATH=""
+fi
+export CAMUNDA_CONSOLE_PATH CAMUNDA_ADMIN_PATH
+
 # Force-restart kube-system pods to ensure clean state.
 # Handles any stuck pods from prior node restarts/reboots.
 echo "=================================================================="
@@ -79,6 +94,9 @@ echo "------------------------------------------------------------------"
 echo "Workflow engine domain  : ${ZEEBE_DOMAIN}"
 echo "Kubernetes namespace    : camunda"
 echo "Helm chart version      : ${HELM_CHART_VERSION}"
+echo "Camunda version         : ${CAMUNDA_APP_VERSION}"
+echo "Camunda line            : ${CAMUNDA_LINE_DESCRIPTION}"
+echo "Helm values template    : ${CAMUNDA_VALUES_TEMPLATE}"
 echo "Elasticsearch version   : ${ES_VERSION}"
 echo "PostgreSQL version      : ${PG_VERSION}"
 echo "Keycunda image          : ${KEYCUNDA_IMAGE}"
@@ -182,6 +200,21 @@ else
         -n camunda
 fi
 
+if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
+  echo "=================================================================="
+  echo Generating the Camunda Hub Pusher credentials, if they do not already exist
+  echo "=================================================================="
+  if microk8s kubectl get secret camunda-hub-pusher -n camunda &>/dev/null; then
+    echo "camunda-hub-pusher already exists - keeping it."
+  else
+    echo "No existing Pusher credentials found, generating them..."
+    microk8s kubectl create secret generic camunda-hub-pusher \
+      --from-literal=app-key="$(openssl rand -hex 16)" \
+      --from-literal=app-secret="$(openssl rand -hex 32)" \
+      -n camunda
+  fi
+fi
+
 
 echo "******************************************************************"
 echo "Installation is starting"
@@ -249,7 +282,7 @@ microk8s kubectl apply -f template-keycunda-rbac.yaml
 echo "=================================================================="
 echo "Installing Keycunda (${KEYCUNDA_IMAGE})"
 echo "=================================================================="
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_CONSOLE_PATH} ${CAMUNDA_ADMIN_PATH} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for Keycunda to be ready..."
@@ -280,18 +313,9 @@ microk8s kubectl delete pv  camunda-connectors-pv           --ignore-not-found
 echo "=================================================================="
 echo Generating Helm values from template
 echo "=================================================================="
-# template-values-camunda.yaml targets the 8.9 chart line (14.x). The 8.10 chart line (15.x+)
-# needs its own template - see the header comment in template-values-camunda-8.10.yaml for why a
-# full copy was used instead of an overlay/diff. Selected on HELM_CHART_VERSION's major version,
-# not CAMUNDA_APP_VERSION, since the Helm chart is what these templates' values.yaml schema
-# actually has to match.
-camunda_values_template="template-values-camunda.yaml"
-if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
-  camunda_values_template="template-values-camunda-8.10.yaml"
-fi
-echo "Using Helm values template: ${camunda_values_template}"
+echo "Using Helm values template: ${CAMUNDA_VALUES_TEMPLATE}"
 envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}' \
-  < "$camunda_values_template" > values-camunda.yaml
+  < "${CAMUNDA_VALUES_TEMPLATE}" > values-camunda.yaml
 
 echo "=================================================================="
 echo Creating host directories for Camunda volumes
@@ -336,10 +360,21 @@ echo "============================================================"
 echo ""
 echo "  URL:      https://${CAMUNDA_DOMAIN}"
 echo "  Auth:     https://${CAMUNDA_DOMAIN}/auth"
+echo "  Keycunda: https://${CAMUNDA_DOMAIN}/keycunda"
 echo "  Identity: https://${CAMUNDA_DOMAIN}/identity"
-echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
+if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
+  echo "  Hub:      https://${CAMUNDA_DOMAIN}/modeler"
+  echo "  Clusters: https://${CAMUNDA_DOMAIN}${CAMUNDA_CONSOLE_PATH}"
+  echo "  Admin:    https://${CAMUNDA_DOMAIN}${CAMUNDA_ADMIN_PATH}"
+else
+  echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
+  echo "  Console:  https://${CAMUNDA_DOMAIN}${CAMUNDA_CONSOLE_PATH}"
+fi
+echo "  Operate:  https://${CAMUNDA_DOMAIN}/orchestration/operate"
+echo "  Tasklist: https://${CAMUNDA_DOMAIN}/orchestration/tasklist"
 echo "  Optimize: https://${CAMUNDA_DOMAIN}/optimize"
 echo "  Swagger:  https://${CAMUNDA_DOMAIN}/orchestration/swagger"
+echo "  Health:   https://${CAMUNDA_DOMAIN}/connectors/actuator/health"
 echo "  Zeebe:    grpc://${ZEEBE_DOMAIN}:26500"
 echo ""
 echo "  Watch pod status with:"

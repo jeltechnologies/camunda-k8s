@@ -4,7 +4,7 @@ DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
 DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=14.7.0
 DEFAULT_CAMUNDA_APP_VERSION=8.9.12
-DEFAULT_VERSION_CHOICE=2
+DEFAULT_VERSION_CHANNEL=stable
 DEFAULT_DEMO_NAME="Demo User"
 DEFAULT_DEMO_EMAIL=demo@example.com
 
@@ -25,11 +25,19 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-  # Which menu option (1=alpha, 2=stable, 3=manual) was picked last time - without this, a
-  # re-run always defaulted back to option 2 regardless of what was actually installed, so
+  # Which menu channel (alpha, stable, legacy, manual) was picked last time - without this, a
+  # re-run always defaulted back to stable regardless of what was actually installed, so
   # re-running with a bare Enter could silently switch an alpha install back to stable (or
   # vice versa) instead of tracking the same channel.
-  DEFAULT_VERSION_CHOICE="${VERSION_CHOICE:-2}"
+  if [[ -n "${VERSION_CHANNEL:-}" ]]; then
+    DEFAULT_VERSION_CHANNEL="${VERSION_CHANNEL}"
+  else
+    case "${VERSION_CHOICE:-2}" in
+      1) DEFAULT_VERSION_CHANNEL=alpha ;;
+      3) DEFAULT_VERSION_CHANNEL=manual ;;
+      *) DEFAULT_VERSION_CHANNEL=stable ;;
+    esac
+  fi
   DEFAULT_DEMO_NAME="${DEMO_NAME:-$DEFAULT_DEMO_NAME}"
   DEFAULT_DEMO_EMAIL="${DEMO_EMAIL:-$DEFAULT_DEMO_EMAIL}"
   DEFAULT_OLLAMA_ENABLED="${OLLAMA_ENABLED}"
@@ -53,10 +61,12 @@ fi
 ES_VERSION=8.19.9
 PG_VERSION=16
 KEYCUNDA_IMAGE=ghcr.io/jeltechnologies/keycunda:latest
+LEGACY_CAMUNDA_MINOR=8.9
 
 VERSION_MATRIX_URL="https://helm.camunda.io/camunda-platform/version-matrix/"
 MTX_ALPHA_CHART=""; MTX_ALPHA_CAMUNDA=""
 MTX_STABLE_CHART=""; MTX_STABLE_CAMUNDA=""
+MTX_LEGACY_CHART=""; MTX_LEGACY_CAMUNDA=""
 MATRIX_HTML=$(curl -sSL --max-time 10 --fail "${VERSION_MATRIX_URL}" 2>/dev/null || true)
 
 if [[ -n "${MATRIX_HTML}" ]]; then
@@ -66,13 +76,15 @@ if [[ -n "${MATRIX_HTML}" ]]; then
   # (-alpha/-beta/-rc), not by the <h2> text: a minor's heading no longer says "Alpha" once it
   # has a support date, even while its newest release is still a pre-release. The first
   # pre-release row seen is the latest alpha; the first plain row is the latest stable.
-  MATRIX_VARS=$(printf '%s\n' "${MATRIX_HTML}" | awk '
+  MATRIX_VARS=$(printf '%s\n' "${MATRIX_HTML}" | awk -v legacy_minor="${LEGACY_CAMUNDA_MINOR}" '
     function strip(s) { gsub(/<[^>]*>/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-    BEGIN { supported=0; in_tbody=0; in_tr=0; alpha_done=0; stable_done=0 }
+    BEGIN { supported=0; in_tbody=0; in_tr=0; alpha_done=0; stable_done=0; legacy_done=0; is_legacy=0 }
     {
       line=$0
       if (line ~ /<h2 /) {
-        supported = (strip(line) ~ /Standard support until/) ? 1 : 0
+        heading = strip(line)
+        supported = (heading ~ /Standard support until/) ? 1 : 0
+        is_legacy = (index(heading, "Camunda " legacy_minor " ") == 1) ? 1 : 0
         in_tbody=0; in_tr=0
         next
       }
@@ -89,7 +101,10 @@ if [[ -n "${MATRIX_HTML}" ]]; then
       if (in_tr && line ~ /<\/tr>/) {
         if (td1 ~ /-(alpha|beta|rc)/) {
           if (!alpha_done) { alpha_chart=td1; alpha_camunda=td2; alpha_done=1 }
-        } else if (!stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
+        } else {
+          if (!stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
+          if (is_legacy && !legacy_done) { legacy_chart=td1; legacy_camunda=td2; legacy_done=1 }
+        }
         in_tr=0
         next
       }
@@ -99,6 +114,8 @@ if [[ -n "${MATRIX_HTML}" ]]; then
       print "MTX_ALPHA_CAMUNDA=" alpha_camunda
       print "MTX_STABLE_CHART=" stable_chart
       print "MTX_STABLE_CAMUNDA=" stable_camunda
+      print "MTX_LEGACY_CHART=" legacy_chart
+      print "MTX_LEGACY_CAMUNDA=" legacy_camunda
     }
   ')
 
@@ -110,37 +127,60 @@ if [[ -n "${MATRIX_HTML}" ]]; then
       MTX_ALPHA_CAMUNDA) MTX_ALPHA_CAMUNDA="${mtx_value}" ;;
       MTX_STABLE_CHART) MTX_STABLE_CHART="${mtx_value}" ;;
       MTX_STABLE_CAMUNDA) MTX_STABLE_CAMUNDA="${mtx_value}" ;;
+      MTX_LEGACY_CHART) MTX_LEGACY_CHART="${mtx_value}" ;;
+      MTX_LEGACY_CAMUNDA) MTX_LEGACY_CAMUNDA="${mtx_value}" ;;
     esac
   done <<< "${MATRIX_VARS}"
 fi
+
+case "${DEFAULT_VERSION_CHANNEL}" in
+  alpha) default_version_choice=1 ;;
+  legacy) default_version_choice=3 ;;
+  manual) default_version_choice=4 ;;
+  *) default_version_choice=2 ;;
+esac
 
 echo "Select the version of Camunda you would like to install"
 if [[ -n "${MTX_ALPHA_CHART}" && -n "${MTX_ALPHA_CAMUNDA}" && -n "${MTX_STABLE_CHART}" && -n "${MTX_STABLE_CAMUNDA}" ]]; then
   echo "  1) Latest alpha  : Camunda ${MTX_ALPHA_CAMUNDA}  (Helm chart ${MTX_ALPHA_CHART})"
   echo "  2) Latest stable : Camunda ${MTX_STABLE_CAMUNDA}  (Helm chart ${MTX_STABLE_CHART})"
-  echo "  3) Enter versions manually"
+  if [[ -n "${MTX_LEGACY_CHART}" && -n "${MTX_LEGACY_CAMUNDA}" ]]; then
+    echo "  3) Legacy        : Camunda ${MTX_LEGACY_CAMUNDA}  (Helm chart ${MTX_LEGACY_CHART}) - latest ${LEGACY_CAMUNDA_MINOR}, Console + Web Modeler instead of Camunda Hub"
+  else
+    echo "  3) Legacy        : not available - no ${LEGACY_CAMUNDA_MINOR} release found on ${VERSION_MATRIX_URL}"
+  fi
+  echo "  4) Enter versions manually"
   echo ""
-  read -p "Choose an option (default: ${DEFAULT_VERSION_CHOICE}): " input_version_choice
-  version_choice=${input_version_choice:-$DEFAULT_VERSION_CHOICE}
+  read -p "Choose an option (default: ${default_version_choice}): " input_version_choice
+  version_choice=${input_version_choice:-$default_version_choice}
 else
   echo "  Could not fetch/parse ${VERSION_MATRIX_URL} - enter versions manually below."
-  version_choice=3
+  version_choice=4
 fi
 
-# Remembered by the reuse block above, so a later re-run's prompt defaults to this same
-# channel instead of always falling back to option 2.
-VERSION_CHOICE="${version_choice}"
+if [[ "${version_choice}" == "3" && ( -z "${MTX_LEGACY_CHART}" || -z "${MTX_LEGACY_CAMUNDA}" ) ]]; then
+  echo "No ${LEGACY_CAMUNDA_MINOR} release found - enter versions manually below."
+  version_choice=4
+fi
 
 case "${version_choice}" in
   1)
+    VERSION_CHANNEL=alpha
     CAMUNDA_APP_VERSION="${MTX_ALPHA_CAMUNDA}"
     HELM_CHART_VERSION="${MTX_ALPHA_CHART}"
     ;;
   2)
+    VERSION_CHANNEL=stable
     CAMUNDA_APP_VERSION="${MTX_STABLE_CAMUNDA}"
     HELM_CHART_VERSION="${MTX_STABLE_CHART}"
     ;;
+  3)
+    VERSION_CHANNEL=legacy
+    CAMUNDA_APP_VERSION="${MTX_LEGACY_CAMUNDA}"
+    HELM_CHART_VERSION="${MTX_LEGACY_CHART}"
+    ;;
   *)
+    VERSION_CHANNEL=manual
     read -p "Enter Helm chart version. See ${VERSION_MATRIX_URL} (default: ${DEFAULT_HELM_CHART_VERSION}): " input_helm_version
     HELM_CHART_VERSION=${input_helm_version:-$DEFAULT_HELM_CHART_VERSION}
 
@@ -243,7 +283,7 @@ export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
-export VERSION_CHOICE="${VERSION_CHOICE}"
+export VERSION_CHANNEL="${VERSION_CHANNEL}"
 export KEYCUNDA_IMAGE="${KEYCUNDA_IMAGE}"
 export DEMO_NAME="${DEMO_NAME}"
 export DEMO_EMAIL="${DEMO_EMAIL}"

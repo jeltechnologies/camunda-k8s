@@ -43,6 +43,10 @@ spec:
           env:
             - name: CAMUNDA_DOMAIN
               value: "${CAMUNDA_DOMAIN}"
+            - name: CAMUNDA_CONSOLE_PATH
+              value: "${CAMUNDA_CONSOLE_PATH}"
+            - name: CAMUNDA_ADMIN_PATH
+              value: "${CAMUNDA_ADMIN_PATH}"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://camunda-postgresql:5432/keycunda"
             - name: SPRING_DATASOURCE_USERNAME
