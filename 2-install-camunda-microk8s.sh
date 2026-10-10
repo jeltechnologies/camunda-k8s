@@ -208,6 +208,29 @@ if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
       --from-literal=app-secret="$(openssl rand -hex 32)" \
       -n camunda
   fi
+
+  echo "=================================================================="
+  echo Syncing the engine secret store from the connector secrets
+  echo "=================================================================="
+  # camunda-secrets backs Orchestration's file secret store (`=camunda.secrets.NAME`, see
+  # template-values-camunda-8.10.yaml). It is always derived from connector-secrets - the one
+  # Secret admins manage through Keycunda's Secrets page - with the SECRET_ prefix stripped, since
+  # that prefix is only a connectors-runtime requirement. Keycunda rewrites both on every
+  # "Apply to cluster"; this step covers boxes whose connector-secrets predate that. Delete then
+  # create (not apply), same as ClusterSecretsApplier, so no key outlives its removal.
+  # `|| true`: a fresh install has no connector-secrets yet (pipefail would abort) -> empty mirror.
+  camunda_secrets_json=$({ microk8s kubectl get secret connector-secrets -n camunda -o json 2>/dev/null || true; } \
+    | python3 -c '
+import json, sys
+raw = sys.stdin.read()
+data = (json.loads(raw).get("data") or {}) if raw.strip() else {}
+data = {(k[len("SECRET_"):] if k.startswith("SECRET_") else k): v for k, v in data.items()}
+print(json.dumps({"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
+                  "metadata": {"name": "camunda-secrets", "namespace": "camunda"},
+                  "data": data}))
+')
+  microk8s kubectl delete secret camunda-secrets -n camunda --ignore-not-found
+  echo "${camunda_secrets_json}" | microk8s kubectl create -f -
 fi
 
 

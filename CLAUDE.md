@@ -257,7 +257,18 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
 
 Connector secrets are no longer applied by the install script at all — that's now entirely a
 post-install, admin-triggered action via Keycunda's Secrets Management page (see the "Secrets
-Management" architecture note below and the README's "Secrets" section).
+Management" architecture note below and the README's "Secrets" section). The one exception, 8.10
+line only: the script re-derives the `camunda-secrets` Secret from `connector-secrets` (keys with
+the `SECRET_` prefix stripped, delete-then-create) on every run. `camunda-secrets` backs
+Orchestration's **file secret store** (`CAMUNDA_SECRETS_STORES_FILE_DEFAULT_PATH=/etc/camunda/secrets`,
+mounted `optional: true` in `template-values-camunda-8.10.yaml`), which resolves FEEL
+`=camunda.secrets.NAME` references. Without a declared store, every such reference fails with a
+`SECRET_RESOLUTION_ERROR` incident ("No secret store is configured"). Keycunda's
+`ClusterSecretsApplier.apply` writes the same mirror on every "Apply to cluster", so the two Secrets
+never drift. It doesn't restart Orchestration: kubelet re-syncs the volume (no `subPath`, on
+purpose) and `CAMUNDA_SECRETS_CACHE_TTL=1m` (the minimum) bounds staleness. The mirror is
+un-prefixed because a file-store secret name is the file name verbatim; mounting
+`connector-secrets` directly would have required `camunda.secrets.SECRET_NAME` in models.
 
 Re-running is the supported upgrade path: only the Helm release is torn down. The Elasticsearch,
 PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place, so

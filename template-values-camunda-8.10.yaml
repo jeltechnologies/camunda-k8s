@@ -503,13 +503,36 @@ orchestration:
       value: "preferred_username"
     - name: CAMUNDA_SECURITY_CLUSTERADMIN_OIDC_CLAIMS_0_VALUE
       value: "${DEMO_EMAIL}"
+    # 8.10-only: the engine's own secret store, which resolves `=camunda.secrets.NAME` FEEL
+    # references before a job reaches a worker/connector. Without a declared store every such
+    # reference fails permanently with a SECRET_RESOLUTION_ERROR incident ("No secret store is
+    # configured"). File store = one file per secret (file name = secret name), which is exactly
+    # what mounting the `camunda-secrets` Secret below produces. That Secret is the un-prefixed
+    # mirror of `connector-secrets` (see 2-install-camunda-microk8s.sh and Keycunda's
+    # ClusterSecretsApplier), so both `{{secrets.NAME}}` and `camunda.secrets.NAME` see the same
+    # values. Cache TTL lowered from the 20m default (minimum is 1m) so a value changed via
+    # Keycunda's Secrets page reaches the engine within ~2 minutes (kubelet volume sync + TTL)
+    # without restarting the broker.
+    - name: CAMUNDA_SECRETS_STORES_FILE_DEFAULT_PATH
+      value: "/etc/camunda/secrets"
+    - name: CAMUNDA_SECRETS_CACHE_TTL
+      value: "1m"
   extraVolumes:
     - name: camunda-docs
       persistentVolumeClaim:
         claimName: camunda-docs-pvc
+    # optional: a fresh install before Keycunda's first "Apply to cluster" must not leave the
+    # broker stuck in ContainerCreating. No subPath on the mount, so kubelet keeps it in sync.
+    - name: camunda-secrets
+      secret:
+        secretName: camunda-secrets
+        optional: true
   extraVolumeMounts:
     - name: camunda-docs
       mountPath: /camunda-docs
+    - name: camunda-secrets
+      mountPath: /etc/camunda/secrets
+      readOnly: true
   extraConfiguration:
     - file: mcp-gateway.yaml
       content: |

@@ -132,3 +132,14 @@ Drop connector JARs into `~/camunda-connectors` on the host.
 ## Secrets
 
 Secrets are managed with Keycunda, accessible at https://your-camunda/keycunda
+
+On Camunda 8.10, each secret can be referenced in two ways, both with the same value:
+
+| Syntax | Resolved by | Where |
+|---|---|---|
+| `=camunda.secrets.NAME` (FEEL, recommended) | Orchestration's own secret store | input mappings |
+| `{{secrets.NAME}}` (legacy) | Connectors runtime | any connector field, incl. inbound connectors |
+
+"Apply to cluster" writes `connector-secrets` (for the connectors runtime) and `camunda-secrets`
+(mounted into Orchestration at `/etc/camunda/secrets`). Changes reach running connectors
+immediately (the pod is restarted) and the engine within about two minutes, without a restart.

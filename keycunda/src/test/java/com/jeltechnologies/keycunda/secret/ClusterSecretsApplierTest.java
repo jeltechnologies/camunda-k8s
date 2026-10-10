@@ -194,6 +194,17 @@ class ClusterSecretsApplierTest {
     }
 
     @Test
+    void mirrorsTheSecretsUnprefixedIntoTheEngineSecretStore() {
+        createReadyConnectorsDeployment();
+
+        applier.apply(List.of(secret("SECRET_OPENAI_MODEL", "gpt"), secret("SECRET_GONE", "x")), "test-connector-secrets");
+        applier.apply(List.of(secret("SECRET_OPENAI_MODEL", "gpt-5")), "test-connector-secrets");
+
+        assertThat(applier.fetch(ClusterSecretsApplier.ENGINE_SECRET_NAME)).isEqualTo(Map.of("OPENAI_MODEL", "gpt-5"));
+        assertThat(applier.fetch("test-connector-secrets")).isEqualTo(Map.of("SECRET_OPENAI_MODEL", "gpt-5"));
+    }
+
+    @Test
     void removesKeysNoLongerInTheDesiredSetOnReapply() {
         createReadyConnectorsDeployment();
 

@@ -33,6 +33,13 @@ import org.springframework.stereotype.Component;
 public class ClusterSecretsApplier {
 
     private static final String NAMESPACE = "camunda";
+
+    /** Backs Orchestration's file secret store ({@code =camunda.secrets.NAME}), mounted at
+     * /etc/camunda/secrets by template-values-camunda-8.10.yaml. Always written as an
+     * un-prefixed mirror of the connectors Secret - the {@code SECRET_} prefix is a
+     * connectors-runtime requirement only, and a file store secret name is the file name as-is. */
+    public static final String ENGINE_SECRET_NAME = "camunda-secrets";
+    private static final String CONNECTORS_SECRET_PREFIX = "SECRET_";
     private static final long ROLLOUT_TIMEOUT_SECONDS = 120;
     private static final long ROLLOUT_POLL_INTERVAL_MILLIS = 1000;
 
@@ -66,6 +73,11 @@ public class ClusterSecretsApplier {
         Map<String, String> intended = toMap(secrets);
         applySecret(intended, secretName);
         Map<String, String> verified = verifyApplied(intended, secretName);
+        // No Orchestration restart: kubelet re-syncs the mounted volume on its own and the
+        // engine's secret cache TTL is 1m, so the new values arrive within a couple of minutes.
+        Map<String, String> engineSecrets = stripConnectorsPrefix(intended);
+        applySecret(engineSecrets, ENGINE_SECRET_NAME);
+        verifyApplied(engineSecrets, ENGINE_SECRET_NAME);
         Deployment deployment = findConnectorsDeployment();
         ensureEnvFromReference(deployment, secretName);
         restartConnectorsDeployment(deployment.getMetadata().getName());
@@ -78,6 +90,14 @@ public class ClusterSecretsApplier {
             map.put(secret.key(), secret.value());
         }
         return map;
+    }
+
+    static Map<String, String> stripConnectorsPrefix(Map<String, String> secrets) {
+        Map<String, String> stripped = new TreeMap<>();
+        secrets.forEach((key, value) -> stripped.put(
+                key.startsWith(CONNECTORS_SECRET_PREFIX) ? key.substring(CONNECTORS_SECRET_PREFIX.length()) : key,
+                value));
+        return stripped;
     }
 
     /** Deletes the existing Secret object outright before creating it fresh, rather than an
