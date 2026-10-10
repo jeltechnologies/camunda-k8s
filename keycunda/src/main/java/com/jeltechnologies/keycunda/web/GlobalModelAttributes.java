@@ -11,14 +11,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
  * {@code @Controller} in this app, without every controller repeating the same lookups.
  *
  * <p>{@code camundaDomain} - added for {@code admin/fragments/nav.html}'s app-switcher panel,
- * which needs to link to every Camunda component (Web Modeler, Orchestration, Optimize, Console,
- * Identity) and therefore needs the domain on literally every admin page, not just one.
- *
- * <p>{@code consoleUrl} - the Console link target, which moved in Camunda 8.10 (see
- * {@link KeycundaProperties}).
- *
- * <p>{@code adminUrl} - the Admin link target, or {@code null} on Camunda 8.9, where there is no
- * Admin app to link to (see {@link KeycundaProperties}).
+ * which needs to link to every Camunda component (Camunda Hub and its Clusters page, Orchestration
+ * Admin/Operate/Tasklist, Optimize, Identity) and therefore needs the domain on
+ * literally every admin page, not just one. The links target Camunda 8.10 paths only.
  *
  * <p>{@code isAdmin} - lets {@code nav.html} hide the Users/Clients/Secrets links for a
  * ROLE_USER (non-admin) visitor. This is UI polish only, not the actual access control - that's
@@ -38,20 +33,6 @@ public class GlobalModelAttributes {
     @ModelAttribute("camundaDomain")
     public String camundaDomain() {
         return keycundaProperties.camundaDomain();
-    }
-
-    @ModelAttribute("consoleUrl")
-    public String consoleUrl() {
-        return "https://" + keycundaProperties.camundaDomain() + keycundaProperties.consolePath();
-    }
-
-    @ModelAttribute("adminUrl")
-    public String adminUrl() {
-        String adminPath = keycundaProperties.adminPath();
-        if (adminPath == null || adminPath.isBlank()) {
-            return null;
-        }
-        return "https://" + keycundaProperties.camundaDomain() + adminPath;
     }
 
     @ModelAttribute("isAdmin")

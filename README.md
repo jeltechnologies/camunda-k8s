@@ -23,11 +23,13 @@ A complete Camunda 8 platform running on a single machine:
 
 | Component | URL |
 |---|---|
-| Web Modeler | `https://<your-domain>/modeler` |
+| Modeler (Camunda Hub) | `https://<your-domain>/modeler` |
+| Clusters | `https://<your-domain>/modeler/clusters` |
 | Operate / Tasklist | `https://<your-domain>/orchestration` |
+| Admin | `https://<your-domain>/orchestration/admin` |
 | Optimize | `https://<your-domain>/optimize` |
-| Console | `https://<your-domain>/console` |
 | Identity | `https://<your-domain>/identity` |
+| Connectors health | `https://<your-domain>/connectors/actuator/health` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 | Swagger UI | `https://<your-domain>/orchestration/swagger` *(disabled by default)* |
 | Keycunda | `https://<your-domain>/keycunda` |

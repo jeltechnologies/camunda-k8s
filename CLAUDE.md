@@ -73,9 +73,7 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_CONSOLE_PATH} ${CAMUNDA_ADMIN_PATH} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
-  (`CAMUNDA_CONSOLE_PATH` and `CAMUNDA_ADMIN_PATH` are not wizard variables - the install script derives them from
-  `HELM_CHART_VERSION`'s major, see "Console is gone in 8.10" below)
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
 - keycunda-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
@@ -90,7 +88,7 @@ option). `template-values-camunda-8.10.yaml` targets 8.10 (chart 15.x+, the curr
 by comparing `HELM_CHART_VERSION`'s major version against 15 — **not** `CAMUNDA_APP_VERSION` —
 since the chart's `values.yaml` schema is what the template actually has to match, and the two
 version numbers aren't always in lockstep pre-GA. That one block sets `CAMUNDA_LINE`
-(`8.9`/`8.10`), `CAMUNDA_VALUES_TEMPLATE`, `CAMUNDA_CONSOLE_PATH` and `CAMUNDA_ADMIN_PATH`, and every 8.10-only step
+(`8.9`/`8.10`), `CAMUNDA_LINE_DESCRIPTION` and `CAMUNDA_VALUES_TEMPLATE`, and every 8.10-only step
 keys off `CAMUNDA_LINE` (today: creating the `camunda-hub-pusher` Secret). An 8.9 install
 therefore never sees any of the 8.10 changes described below. Add any new version-specific step
 the same way, not as another inline `HELM_CHART_VERSION` check.
@@ -132,15 +130,15 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
   which is why Connectors and its logs were missing from Hub. Our real Hub customizations
   (`username-claim: name`, `server.forward-headers-strategy: native`, mail from-address,
   `zeebe.client.maxMetadataSize`) live in `camundaHub.restapi.extraConfiguration`, which the
-  chart Spring-imports on top of its generated `application.yaml`. Keycunda's "Console" links follow
-  this via `keycunda.console-path` (env `CAMUNDA_CONSOLE_PATH`, default `/console`). Its "Admin"
-  link (8.10's Orchestration Admin app, `/orchestration/admin`; `/orchestration/identity` is a 404
-  there) comes from `keycunda.admin-path` (env `CAMUNDA_ADMIN_PATH`, blank on 8.9, which hides the
-  link). `2-install-camunda-microk8s.sh` sets the console path to `/modeler/clusters` and the admin
-  path to `/orchestration/admin` when `HELM_CHART_VERSION`'s major is ≥ 15 - same switch as the values-template choice, computed earlier because keycunda is
-  installed before the Helm release. Without it, `/console` on 8.10 falls through to the
-  keycunda ingress's catch-all `/` redirect and silently lands back on `/auth/admin`. The fixed
-  `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still use it.
+  chart Spring-imports on top of its generated `application.yaml`. **Keycunda's links
+  (`admin/portal.html` and the app-switcher in `admin/fragments/nav.html`) target 8.10 only** -
+  legacy 8.9 links were dropped on purpose, there is no per-version switch: "Clusters" goes to
+  `/modeler/clusters` (there is no "Console" link; `/console` on 8.10 would fall through to the
+  keycunda ingress's catch-all `/` redirect and land back on `/auth/admin`), "Admin" goes to
+  Orchestration's Admin app at `/orchestration/admin` (`/orchestration/identity` is a 404 on
+  8.10), plus "Modeler" and "Dashboard" (`/modeler/dashboard`). On an 8.9 install, Clusters and Admin are therefore dead
+  links. The fixed `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still
+  log in to the real Console with it.
 - **Aligned with chart 15.x defaults**: the 8.10 template sets only values that differ from
   `helm show values camunda/camunda-platform --version 15.0.0`. It uses no unused keys (chart 15.x
   has no `global.identity.auth.orchestration/connectors` client keys - those clients are

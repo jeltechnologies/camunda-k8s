@@ -22,8 +22,8 @@
             margin-top: 0.75rem;
         }
         .continue-links a {
-            width: 160px;
-            min-width: 160px;
+            width: 140px;
+            min-width: 140px;
             white-space: nowrap;
         }
         .disclaimer {
@@ -50,15 +50,14 @@
             </p>
 
             <div class="continue-links">
-                <a class="btn-secondary" th:if="${adminUrl}" th:href="${adminUrl}">Admin</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/connectors/actuator/health'">Connectors health</a>
-                <a class="btn-secondary" th:href="${consoleUrl}">Console</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/admin'">Admin</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler/clusters'">Clusters</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
+                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Modeler</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/operate'">Operate</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
                 <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/tasklist'">Tasklist</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/modeler'">Modeler</a>
             </div>
 
             <div class="disclaimer">

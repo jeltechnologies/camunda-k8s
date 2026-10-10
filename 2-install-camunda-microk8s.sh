@@ -29,16 +29,11 @@ if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
   CAMUNDA_LINE="8.10"
   CAMUNDA_LINE_DESCRIPTION="8.10+ (Camunda Hub)"
   CAMUNDA_VALUES_TEMPLATE="template-values-camunda-8.10.yaml"
-  CAMUNDA_CONSOLE_PATH="/modeler/clusters"
-  CAMUNDA_ADMIN_PATH="/orchestration/admin"
 else
   CAMUNDA_LINE="8.9"
   CAMUNDA_LINE_DESCRIPTION="8.9 legacy (Console + Web Modeler)"
   CAMUNDA_VALUES_TEMPLATE="template-values-camunda.yaml"
-  CAMUNDA_CONSOLE_PATH="/console"
-  CAMUNDA_ADMIN_PATH=""
 fi
-export CAMUNDA_CONSOLE_PATH CAMUNDA_ADMIN_PATH
 
 # Force-restart kube-system pods to ensure clean state.
 # Handles any stuck pods from prior node restarts/reboots.
@@ -282,7 +277,7 @@ microk8s kubectl apply -f template-keycunda-rbac.yaml
 echo "=================================================================="
 echo "Installing Keycunda (${KEYCUNDA_IMAGE})"
 echo "=================================================================="
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_CONSOLE_PATH} ${CAMUNDA_ADMIN_PATH} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for Keycunda to be ready..."
@@ -364,11 +359,11 @@ echo "  Keycunda: https://${CAMUNDA_DOMAIN}/keycunda"
 echo "  Identity: https://${CAMUNDA_DOMAIN}/identity"
 if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
   echo "  Hub:      https://${CAMUNDA_DOMAIN}/modeler"
-  echo "  Clusters: https://${CAMUNDA_DOMAIN}${CAMUNDA_CONSOLE_PATH}"
-  echo "  Admin:    https://${CAMUNDA_DOMAIN}${CAMUNDA_ADMIN_PATH}"
+  echo "  Clusters: https://${CAMUNDA_DOMAIN}/modeler/clusters"
+  echo "  Admin:    https://${CAMUNDA_DOMAIN}/orchestration/admin"
 else
   echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
-  echo "  Console:  https://${CAMUNDA_DOMAIN}${CAMUNDA_CONSOLE_PATH}"
+  echo "  Console:  https://${CAMUNDA_DOMAIN}/console"
 fi
 echo "  Operate:  https://${CAMUNDA_DOMAIN}/orchestration/operate"
 echo "  Tasklist: https://${CAMUNDA_DOMAIN}/orchestration/tasklist"
