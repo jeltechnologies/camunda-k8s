@@ -29,7 +29,6 @@ A complete Camunda 8 platform running on a single machine:
 | Admin | `https://<your-domain>/orchestration/admin` |
 | Optimize | `https://<your-domain>/optimize` |
 | Identity | `https://<your-domain>/identity` |
-| Connectors health | `https://<your-domain>/connectors/actuator/health` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 | Swagger UI | `https://<your-domain>/orchestration/swagger` *(disabled by default)* |
 | Keycunda | `https://<your-domain>/keycunda` |
