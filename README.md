@@ -23,8 +23,8 @@ A complete Camunda 8 platform running on a single machine:
 
 | Component | URL |
 |---|---|
-| Modeler (Camunda Hub) | `https://<your-domain>/modeler` |
-| Clusters | `https://<your-domain>/modeler/clusters` |
+| Camunda Hub | `https://<your-domain>/hub` |
+| Clusters | `https://<your-domain>/hub/clusters` |
 | Operate / Tasklist | `https://<your-domain>/orchestration` |
 | Admin | `https://<your-domain>/orchestration/admin` |
 | Optimize | `https://<your-domain>/optimize` |

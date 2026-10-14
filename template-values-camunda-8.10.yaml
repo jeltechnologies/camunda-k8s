@@ -65,7 +65,7 @@ global:
       # is gone entirely - chart 15.x has no global.identity.auth.console and no Console client.
       camundaHub:
         clientId: "web-modeler"
-        redirectUrl: "https://${CAMUNDA_DOMAIN}/modeler"
+        redirectUrl: "https://${CAMUNDA_DOMAIN}/hub"
         clientApiAudience: "web-modeler-api"
         publicApiAudience: "web-modeler-public-api"
       optimize:
@@ -273,7 +273,7 @@ connectors:
       mountPath: /camunda-docs
 
 # 8.10: Camunda Hub replaces both Web Modeler and Console (camunda/hub image, same
-# web-modeler-restapi/websockets workloads, WebSocket path derived as "<contextPath>-ws").
+# web-modeler-restapi/websockets workloads, WebSocket path derived as "<contextPath>-ws", i.e. /hub-ws; served at /hub, not the 8.9 /modeler).
 # `camundaHub.enabled` deploys Hub with the Console feature always on; the chart deep-merges
 # `camundaHub.*` over the legacy `webModeler.*`, which still works but prints a deprecation
 # warning. Settings must sit directly under `camundaHub`, never under camundaHub.webModeler /
@@ -286,7 +286,7 @@ connectors:
 # template still needs the hand-written version; see template-values-camunda-8.9.yaml.
 camundaHub:
   enabled: true
-  contextPath: "/modeler"
+  contextPath: "/hub"
   restapi:
     externalDatabase:
       url: "jdbc:postgresql://camunda-postgresql:5432/web-modeler"

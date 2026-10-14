@@ -55,9 +55,11 @@ public class OidcClientsConfig {
         RegisteredClient optimize = confidentialClient("optimize", clients.optimize().secret(),
                 passwordEncoder, "https://" + domain + "/optimize/api/authentication/callback", false);
 
+        // Registered for both /modeler (8.9) and /hub (8.10 Camunda Hub) callbacks.
         // Public/PKCE, like console: the real camunda-platform chart values have no client-secret
         // field for web-modeler, confirmed against `helm show values` for the pinned chart version.
-        RegisteredClient webModeler = publicClient("web-modeler", "https://" + domain + "/modeler/login-callback");
+        RegisteredClient webModeler = publicClient("web-modeler", "https://" + domain + "/modeler/login-callback",
+                "https://" + domain + "/hub/login-callback");
 
         RegisteredClient console = publicClient("console", "https://" + domain + "/console/");
 
@@ -110,7 +112,7 @@ public class OidcClientsConfig {
         return builder.build();
     }
 
-    private RegisteredClient publicClient(String clientId, String redirectUri) {
+    private RegisteredClient publicClient(String clientId, String redirectUri, String... extraRedirectUris) {
         return RegisteredClient.withId(clientId)
                 .clientId(clientId)
                 .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
@@ -118,6 +120,8 @@ public class OidcClientsConfig {
                 .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                 .redirectUri(redirectUri)
                 .postLogoutRedirectUri(redirectUri)
+                .redirectUris(uris -> uris.addAll(java.util.List.of(extraRedirectUris)))
+                .postLogoutRedirectUris(uris -> uris.addAll(java.util.List.of(extraRedirectUris)))
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)

@@ -49,6 +49,8 @@ spring:
 
 keycunda:
   camunda-domain: ${CAMUNDA_DOMAIN}
+  # "8.9" (legacy: Web Modeler /modeler + Console) or "8.10" (Camunda Hub /hub); only steers links.
+  camunda-line: ${CAMUNDA_LINE:8.10}
   # PEM-encoded PKCS8 RSA private key, shared across replicas and stable across restarts, so
   # already-issued tokens keep validating. If unset (local dev only), a fresh ephemeral key is
   # generated at startup - fine for one instance, wrong for anything with more than one replica.

@@ -25,9 +25,18 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 public class GlobalModelAttributes {
 
     private final KeycundaProperties keycundaProperties;
+    private final String camundaLine;
 
-    public GlobalModelAttributes(KeycundaProperties keycundaProperties) {
+    public GlobalModelAttributes(KeycundaProperties keycundaProperties,
+            @org.springframework.beans.factory.annotation.Value("${keycunda.camunda-line:8.10}") String camundaLine) {
         this.keycundaProperties = keycundaProperties;
+        this.camundaLine = camundaLine;
+    }
+
+    /** True on the 8.10 line (Camunda Hub at /hub); false for legacy 8.9 (Web Modeler /modeler + Console). */
+    @ModelAttribute("hub")
+    public boolean hub() {
+        return !"8.9".equals(camundaLine);
     }
 
     @ModelAttribute("camundaDomain")

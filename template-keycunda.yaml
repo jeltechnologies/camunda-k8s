@@ -82,6 +82,8 @@ spec:
           env:
             - name: CAMUNDA_DOMAIN
               value: "${CAMUNDA_DOMAIN}"
+            - name: CAMUNDA_LINE
+              value: "${CAMUNDA_LINE}"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://camunda-postgresql:5432/keycunda"
             - name: SPRING_DATASOURCE_USERNAME
@@ -317,7 +319,7 @@ spec:
                 port:
                   number: 80
 ---
-# No component owns the bare "/" path (Console is /console, Web Modeler is /modeler, Keycunda
+# No component owns the bare "/" path (Console is /console, Web Modeler is /modeler on 8.9, Camunda Hub is /hub on 8.10, Keycunda
 # is /auth, etc.), so it 404'd with nothing to redirect the visitor anywhere useful. Redirects
 # straight to /auth/admin (the welcome page), not the /keycunda alias: /auth/admin is a *protected*
 # resource, so Spring Security itself decides what happens next based on whether the visitor
@@ -346,7 +348,7 @@ spec:
 # unrelated Ingress objects across repeated re-applies, so it isn't something we can out-order by
 # renaming/reordering our own manifests). Prefix "/" never gets compiled down to that exact "^/"
 # collision shape, so it sidesteps the bug entirely - confirmed with the synthetic location gone
-# and every existing path (/keycunda*, /modeler, /orchestration, /identity, /optimize, /connectors)
+# and every existing path (/keycunda*, /modeler, /hub, /orchestration, /identity, /optimize, /connectors)
 # still resolving correctly. nginx-ingress requires a valid backend below even though it's never
 # reached.
 apiVersion: networking.k8s.io/v1

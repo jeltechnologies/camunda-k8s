@@ -69,7 +69,7 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
   shared by whichever of `template-values-camunda-8.9.yaml` / `template-values-camunda-8.10.yaml` gets
@@ -125,14 +125,12 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
   which is why Connectors and its logs were missing from Hub. Our real Hub customizations
   (`username-claim: name`, `server.forward-headers-strategy: native`, mail from-address,
   `zeebe.client.maxMetadataSize`) live in `camundaHub.restapi.extraConfiguration`, which the
-  chart Spring-imports on top of its generated `application.yaml`. **Keycunda's links
-  (`admin/portal.html` and the app-switcher in `admin/fragments/nav.html`) target 8.10 only** -
-  legacy 8.9 links were dropped on purpose, there is no per-version switch: "Clusters" goes to
-  `/modeler/clusters` (there is no "Console" link; `/console` on 8.10 would fall through to the
-  keycunda ingress's catch-all `/` redirect and land back on `/auth/admin`), "Admin" goes to
-  Orchestration's Admin app at `/orchestration/admin` (`/orchestration/identity` is a 404 on
-  8.10), plus "Modeler" and "Dashboard" (`/modeler/dashboard`). On an 8.9 install, Clusters and Admin are therefore dead
-  links. The fixed `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still
+  chart Spring-imports on top of its generated `application.yaml`. **Keycunda's links** (`admin/portal.html`, `admin/fragments/nav.html`) switch on the `hub` model attribute
+  (`GlobalModelAttributes`, from `keycunda.camunda-line` / env `CAMUNDA_LINE`, which the install
+  script passes via `template-keycunda.yaml`; default 8.10). 8.10: Hub at **`/hub`** (the 8.10 template's
+  `camundaHub.contextPath`; WebSocket `/hub-ws`), "Clusters" `/hub/clusters`, "Dashboard" `/hub/dashboard`, "Admin"
+  `/orchestration/admin`. 8.9: "Modeler" `/modeler` and "Console" `/console`; no Admin/Clusters/Dashboard links.
+  The `web-modeler` OIDC client registers both `/modeler/login-callback` and `/hub/login-callback`. The fixed `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still
   log in to the real Console with it.
 - **Aligned with chart 15.x defaults**: the 8.10 template sets only values that differ from
   `helm show values camunda/camunda-platform --version 15.0.0`. It uses no unused keys (chart 15.x

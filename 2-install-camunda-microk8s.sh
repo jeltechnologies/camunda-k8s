@@ -34,6 +34,8 @@ else
   CAMUNDA_LINE_DESCRIPTION="8.9 legacy (Console + Web Modeler)"
   CAMUNDA_VALUES_TEMPLATE="template-values-camunda-8.9.yaml"
 fi
+# envsubst (keycunda template) only sees exported variables.
+export CAMUNDA_LINE
 
 # Force-restart kube-system pods to ensure clean state.
 # Handles any stuck pods from prior node restarts/reboots.
@@ -297,7 +299,7 @@ echo "Installing Keycunda (${KEYCUNDA_IMAGE}): RBAC, Deployment, Service and ing
 echo "=================================================================="
 # One manifest: the ServiceAccount/Role/RoleBinding for Secrets Management's "Apply to cluster",
 # the Deployment + Service, and the Ingress objects (/auth plus the /keycunda/* aliases).
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for Keycunda to be ready..."
@@ -369,8 +371,8 @@ echo "  Auth:     https://${CAMUNDA_DOMAIN}/auth"
 echo "  Keycunda: https://${CAMUNDA_DOMAIN}/keycunda"
 echo "  Identity: https://${CAMUNDA_DOMAIN}/identity"
 if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
-  echo "  Hub:      https://${CAMUNDA_DOMAIN}/modeler"
-  echo "  Clusters: https://${CAMUNDA_DOMAIN}/modeler/clusters"
+  echo "  Hub:      https://${CAMUNDA_DOMAIN}/hub"
+  echo "  Clusters: https://${CAMUNDA_DOMAIN}/hub/clusters"
   echo "  Admin:    https://${CAMUNDA_DOMAIN}/orchestration/admin"
 else
   echo "  Modeler:  https://${CAMUNDA_DOMAIN}/modeler"
