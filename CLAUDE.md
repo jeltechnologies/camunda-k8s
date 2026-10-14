@@ -420,7 +420,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   deliberate asymmetry — it's the field to use if you want a friendlier display name later without
   touching the immutable client ID. All known audiences are pre-checked by default on the add page
   (unchecking the ones a client doesn't need is one click; the old design pre-checked only
-  Orchestration's). The add page's secret field is pre-filled by `newClientForm` with a
+  Orchestration's). **The known list follows `keycunda.camunda-line`** (`AdminClientController.knownAudiences`): on 8.10 (default) it is Camunda Identity, Orchestration, Optimize, "Camunda Hub API" (`web-modeler-public-api`) and "Camunda Hub (internal API)" (`web-modeler-api`) - Console is gone (the 8.10 chart has no Console client or `console-api` audience), and the two Web Modeler audiences keep their names but are Hub's APIs; on 8.9 the old list (Web Modeler client/public API + Console) is unchanged. Covered by `AdminClientAudiences810Test`/`AdminClientAudiences89Test`. The add page's secret field is pre-filled by `newClientForm` with a
   `generateSecret()` value (so it's copyable before the client exists), but is editable and, unlike
   before, is just a normal `<input name="secret">` — whatever's in it at submit time is what gets
   persisted. Submitting takes the admin back to the **list** page, not

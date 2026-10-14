@@ -15,6 +15,7 @@ import com.jeltechnologies.keycunda.client.ClientRepository;
 import com.jeltechnologies.keycunda.config.AuthorizationServerConfig;
 import com.jeltechnologies.keycunda.config.KeycundaProperties;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
@@ -55,12 +56,14 @@ public class AdminClientController {
     private final ClientRepository clientRepository;
     private final PasswordEncoder passwordEncoder;
     private final KeycundaProperties keycundaProperties;
+    private final String camundaLine;
 
     public AdminClientController(ClientRepository clientRepository, PasswordEncoder passwordEncoder,
-            KeycundaProperties keycundaProperties) {
+            KeycundaProperties keycundaProperties, @Value("${keycunda.camunda-line:8.10}") String camundaLine) {
         this.clientRepository = clientRepository;
         this.passwordEncoder = passwordEncoder;
         this.keycundaProperties = keycundaProperties;
+        this.camundaLine = camundaLine;
     }
 
     @GetMapping("/admin/clients")
@@ -189,13 +192,20 @@ public class AdminClientController {
 
     /**
      * The audiences every fixed, code-defined Camunda component (see OidcClientsConfig) is actually
-     * configured with in this Camunda 8.9 install, offered as checkboxes so an admin-managed client
+     * configured with in this install (8.10 by default, 8.9 when {@code keycunda.camunda-line=8.9}),
+     * offered as checkboxes so an admin-managed client
      * can be pointed at the same resource server without having to know/type the exact string. Read
      * from {@link KeycundaProperties} (and {@link AuthorizationServerConfig#CONSOLE_AUDIENCE}
-     * for Console, which has no per-install config of its own) rather than hardcoded here, so this
+     * for 8.9's Console, which has no per-install config of its own) rather than hardcoded here, so this
      * list can never drift from what {@code AuthorizationServerConfig.audiencesFor} actually stamps
      * into the fixed clients' tokens. A future Camunda version's new audience won't appear here
      * automatically - that's what the freeform "custom" field next to these checkboxes is for.
+     *
+     * <p>8.10 differs from 8.9 in two ways: Camunda Hub replaces both Web Modeler and Console (the
+     * chart has no Console client or {@code console-api} audience any more), and the two Web Modeler
+     * audiences keep their names ({@code web-modeler-api}, {@code web-modeler-public-api}) but are
+     * now Hub's "internal" and public API. The 8.10 list therefore drops Console and relabels those
+     * two; 8.9 installs keep the old list unchanged.
      */
     private Map<String, String> knownAudiences() {
         KeycundaProperties.Clients clients = keycundaProperties.clients();
@@ -204,9 +214,14 @@ public class AdminClientController {
         options.put("Camunda Identity", clients.identity().audience());
         options.put("Orchestration", clients.orchestration().audience());
         options.put("Optimize", clients.optimize().audience());
-        options.put("Web Modeler (client API)", clients.webModeler().clientApiAudience());
-        options.put("Web Modeler (public API)", clients.webModeler().publicApiAudience());
-        options.put("Console", AuthorizationServerConfig.CONSOLE_AUDIENCE);
+        if ("8.9".equals(camundaLine)) {
+            options.put("Web Modeler (client API)", clients.webModeler().clientApiAudience());
+            options.put("Web Modeler (public API)", clients.webModeler().publicApiAudience());
+            options.put("Console", AuthorizationServerConfig.CONSOLE_AUDIENCE);
+        } else {
+            options.put("Camunda Hub (internal API)", clients.webModeler().clientApiAudience());
+            options.put("Camunda Hub API", clients.webModeler().publicApiAudience());
+        }
         return options;
     }
 
