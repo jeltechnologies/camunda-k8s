@@ -50,15 +50,14 @@
             </p>
 
             <div class="continue-links">
-                <a class="btn-secondary" th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration/admin'">Admin</a>
-                <a class="btn-secondary" th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub/clusters'">Clusters</a>
+                <a class="btn-secondary" th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub'">Hub</a>
                 <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
-                <a class="btn-secondary" th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub/dashboard'">Dashboard</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + (${hub} ? '/hub' : '/modeler')">[[${hub} ? 'Hub' : 'Modeler']]</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/operate'">Operate</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
-                <a class="btn-secondary" th:href="'https://' + ${camundaDomain} + '/orchestration/tasklist'">Tasklist</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler'">Modeler</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration/operate'">Operate</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a class="btn-secondary" th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration/tasklist'">Tasklist</a>
             </div>
 
             <div class="disclaimer">

@@ -127,10 +127,10 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
   `zeebe.client.maxMetadataSize`) live in `camundaHub.restapi.extraConfiguration`, which the
   chart Spring-imports on top of its generated `application.yaml`. **Keycunda's links** (`admin/portal.html`, `admin/fragments/nav.html`) switch on the `hub` model attribute
   (`GlobalModelAttributes`, from `keycunda.camunda-line` / env `CAMUNDA_LINE`, which the install
-  script passes via `template-keycunda.yaml`; default 8.10). 8.10: Hub at **`/hub`** (the 8.10 template's
-  `camundaHub.contextPath`; WebSocket `/hub-ws`), "Clusters" `/hub/clusters`, "Dashboard" `/hub/dashboard`, "Admin"
-  `/orchestration/admin`. 8.9: "Modeler" `/modeler` and "Console" `/console`; no Admin/Clusters/Dashboard links.
-  The `web-modeler` OIDC client registers both `/modeler/login-callback` and `/hub/login-callback`. The fixed `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still
+  script passes via `template-keycunda.yaml`; default 8.10). 8.10: a single "Hub" link at **`/hub`** (the 8.10 template's
+  `camundaHub.contextPath`; WebSocket `/hub-ws`) - Hub covers Modeler, Clusters, Dashboard and Admin, so the other
+  links are hidden. 8.9 shows the legacy set: Console `/console`, Dashboard `/modeler/dashboard`, Identity `/identity`,
+  Modeler `/modeler`, Operate/Tasklist `/orchestration`, Optimize `/optimize`. The `web-modeler` OIDC client registers both `/modeler/login-callback` and `/hub/login-callback`. The fixed `console` OIDC client in `OidcClientsConfig` stays, since 8.9 installs still
   log in to the real Console with it.
 - **Aligned with chart 15.x defaults**: the 8.10 template sets only values that differ from
   `helm show values camunda/camunda-platform --version 15.0.0`. It uses no unused keys (chart 15.x

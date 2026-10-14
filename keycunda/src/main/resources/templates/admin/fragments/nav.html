@@ -40,15 +40,14 @@
                 </svg>
             </summary>
             <div class="app-switcher-panel">
-                <a th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration/admin'">Admin</a>
-                <a th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub/clusters'">Clusters</a>
+                <a th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub'">Hub</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
-                <a th:if="${hub}" th:href="'https://' + ${camundaDomain} + '/hub/dashboard'">Dashboard</a>
-                <a th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
+                <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
+                <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
                 <a href="/keycunda">Keycunda</a>
-                <a th:href="'https://' + ${camundaDomain} + (${hub} ? '/hub' : '/modeler')">[[${hub} ? 'Hub' : 'Modeler']]</a>
-                <a th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
-                <a th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
+                <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler'">Modeler</a>
+                <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
+                <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
             </div>
         </details>
         <!-- Plain "/keycunda", "/keycunda/users", etc., not th:url @{...}: these deliberately step
