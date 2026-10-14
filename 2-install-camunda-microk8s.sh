@@ -302,6 +302,13 @@ echo "=================================================================="
 envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
+# The image tag is normally ":latest", so re-applying an unchanged manifest does not roll the
+# Deployment and the old pod would keep running. Force a rollout on every run; the template's
+# imagePullPolicy: Always makes the new pod pull the newest image. Sessions and tokens live in
+# Postgres, so nobody is logged out.
+echo "Restarting Keycunda to pick up the newest image..."
+microk8s kubectl rollout restart deployment/keycunda -n camunda
+
 echo "Waiting for Keycunda to be ready..."
 microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=5m
 echo "Keycunda installed. Service: keycunda.camunda:80/auth"
