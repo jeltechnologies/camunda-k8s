@@ -459,6 +459,14 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   carry the right `aud` and Web Modeler rejects them regardless of this grant — found by querying
   Identity's own Postgres `permissions`/`roles_permissions` tables directly, since there's no UI
   for a client Identity doesn't know about.
+  **Automated:** `identity/HubApiAccessGrantor` runs the same SQL (role, permissions, per-client
+  `<clientId>-m2m` mapping rule) against Identity's own database whenever a client is created or
+  edited with the `web-modeler-public-api` audience, revokes the mapping rule when the audience is
+  removed or the client deleted, and `HubApiAccessReconciler` grants all existing clients at startup.
+  It connects with `keycunda.identity-datasource.*` (env `IDENTITY_DATASOURCE_URL`/`_USERNAME`/`_PASSWORD`,
+  wired in `template-keycunda.yaml` from the `identity-postgresql-password` secret key); with no URL it
+  does nothing. A failure never blocks the save: the admin page shows a warning pointing at the script.
+  The script stays as the manual fallback.
 - **The identity provider's brand is "Keycunda" (previously "Caddy" during an earlier iteration,
   before that a plain "Demo Identity Provider") — this time the underlying project was renamed to
   match, not just the UI text.** Directory (`keycunda/`), Maven artifact/groupId's trailing package

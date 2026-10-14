@@ -14,6 +14,7 @@ import com.jeltechnologies.keycunda.client.Client;
 import com.jeltechnologies.keycunda.client.ClientRepository;
 import com.jeltechnologies.keycunda.config.AuthorizationServerConfig;
 import com.jeltechnologies.keycunda.config.KeycundaProperties;
+import com.jeltechnologies.keycunda.identity.HubApiAccessGrantor;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -56,13 +57,16 @@ public class AdminClientController {
     private final ClientRepository clientRepository;
     private final PasswordEncoder passwordEncoder;
     private final KeycundaProperties keycundaProperties;
+    private final HubApiAccessGrantor hubApiAccessGrantor;
     private final String camundaLine;
 
     public AdminClientController(ClientRepository clientRepository, PasswordEncoder passwordEncoder,
-            KeycundaProperties keycundaProperties, @Value("${keycunda.camunda-line:8.10}") String camundaLine) {
+            KeycundaProperties keycundaProperties, HubApiAccessGrantor hubApiAccessGrantor,
+            @Value("${keycunda.camunda-line:8.10}") String camundaLine) {
         this.clientRepository = clientRepository;
         this.passwordEncoder = passwordEncoder;
         this.keycundaProperties = keycundaProperties;
+        this.hubApiAccessGrantor = hubApiAccessGrantor;
         this.camundaLine = camundaLine;
     }
 
@@ -111,6 +115,7 @@ public class AdminClientController {
             return "redirect:/admin/clients/new";
         }
         redirectAttributes.addFlashAttribute("message", "Client \"" + clientId + "\" created.");
+        syncHubApiAccess(clientId, audience, redirectAttributes);
         // Back to the list, not the edit page: the secret was already shown - and copyable - on the
         // add page itself before this submit, and it stays visible on the edit page for as long as
         // the client exists (see edit-client.html), so there's no need to detour through it here.
@@ -152,12 +157,14 @@ public class AdminClientController {
             redirectAttributes.addFlashAttribute("error", SECRET_RULE_MESSAGE);
             return "redirect:/admin/clients/" + id + "/edit";
         }
-        clientRepository.updateAudience(id, combineAudiences(knownAudiences, customAudience));
+        String audience = combineAudiences(knownAudiences, customAudience);
+        clientRepository.updateAudience(id, audience);
         if (changeSecret) {
             clientRepository.updateSecret(id, secret, passwordEncoder.encode(secret));
         }
         redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" updated"
                 + (changeSecret ? " (secret replaced - the old one no longer works)." : "."));
+        syncHubApiAccess(client.clientId(), audience, redirectAttributes);
         return "redirect:/admin/clients";
     }
 
@@ -166,8 +173,23 @@ public class AdminClientController {
         clientRepository.findById(id).ifPresentOrElse(client -> {
             clientRepository.deleteById(id);
             redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" removed.");
+            syncHubApiAccess(client.clientId(), null, redirectAttributes);
         }, () -> redirectAttributes.addFlashAttribute("error", "Client not found."));
         return "redirect:/admin/clients";
+    }
+
+    /**
+     * Keeps Identity's Hub API grant for the client in step with its audience (see
+     * {@link HubApiAccessGrantor}). The client is saved either way; a failure only adds a warning.
+     */
+    private void syncHubApiAccess(String clientId, String audience, RedirectAttributes redirectAttributes) {
+        String problem = hubApiAccessGrantor.sync(clientId, audience);
+        if (problem != null) {
+            redirectAttributes.addFlashAttribute("warning", problem);
+        } else if (hubApiAccessGrantor.isConfigured() && hubApiAccessGrantor.grantsHubApi(audience)) {
+            redirectAttributes.addFlashAttribute("message", "Client \"" + clientId
+                    + "\" saved and granted access to the Camunda Hub API in Identity.");
+        }
     }
 
     /**

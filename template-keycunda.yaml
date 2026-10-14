@@ -77,6 +77,7 @@ spec:
       containers:
         - name: keycunda
           image: ${KEYCUNDA_IMAGE}
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
@@ -93,6 +94,15 @@ spec:
                 secretKeyRef:
                   name: camunda-credentials
                   key: keycunda-postgresql-password
+            - name: IDENTITY_DATASOURCE_URL
+              value: "jdbc:postgresql://camunda-postgresql:5432/identity"
+            - name: IDENTITY_DATASOURCE_USERNAME
+              value: "identity"
+            - name: IDENTITY_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: camunda-credentials
+                  key: identity-postgresql-password
             - name: DEMO_NAME
               value: "${DEMO_NAME}"
             - name: DEMO_EMAIL

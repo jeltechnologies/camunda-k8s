@@ -62,6 +62,7 @@
             </div>
             <p class="message" th:if="${message}" th:text="${message}"></p>
             <p class="error" th:if="${error}" th:text="${error}"></p>
+            <p class="error" th:if="${warning}" th:text="${warning}"></p>
             <table>
                 <thead>
                     <tr><th class="col-name">Name</th><th class="col-client-id">Client ID</th><th>Audience</th><th class="col-actions"></th></tr>

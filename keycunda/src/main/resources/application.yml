@@ -48,6 +48,12 @@ spring:
       initialize-schema: always
 
 keycunda:
+  # Identity's own database, used to grant API clients access to the Camunda Hub API
+  # (identity/HubApiAccessGrantor). Without a URL nothing is granted.
+  identity-datasource:
+    url: ${IDENTITY_DATASOURCE_URL:}
+    username: ${IDENTITY_DATASOURCE_USERNAME:identity}
+    password: ${IDENTITY_DATASOURCE_PASSWORD:}
   camunda-domain: ${CAMUNDA_DOMAIN}
   # "8.9" (legacy: Web Modeler /modeler + Console) or "8.10" (Camunda Hub /hub); only steers links.
   camunda-line: ${CAMUNDA_LINE:8.10}
