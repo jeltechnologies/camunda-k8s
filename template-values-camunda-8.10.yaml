@@ -1,5 +1,5 @@
 # Camunda 8.10 (Helm chart 15.x, e.g. HELM_CHART_VERSION=15.0.0) variant of
-# template-values-camunda.yaml. 2-install-camunda-microk8s.sh picks this file over the 8.9 one
+# template-values-camunda-8.9.yaml. 2-install-camunda-microk8s.sh picks this file over the 8.9 one
 # whenever HELM_CHART_VERSION's major version is >= 15. Keep the two files in sync for anything
 # that isn't version-specific - this one is a full copy of the 8.9 template, not a diff/overlay,
 # because the chart's `identity.configuration` mechanism (and Helm values generally) don't support
@@ -283,7 +283,7 @@ connectors:
 # whole application.yaml, including the cluster list - a "default-cluster" with orchestration,
 # connectors, operate, tasklist, admin and optimize (each with its readiness URL, so Hub's
 # Clusters page can report health) plus a separate "management-cluster" for Identity. 8.9's
-# template still needs the hand-written version; see template-values-camunda.yaml.
+# template still needs the hand-written version; see template-values-camunda-8.9.yaml.
 camundaHub:
   enabled: true
   contextPath: "/modeler"

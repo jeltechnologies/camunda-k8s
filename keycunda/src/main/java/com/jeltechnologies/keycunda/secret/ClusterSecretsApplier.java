@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  * the same bash).
  *
  * <p>Needs the {@code keycunda} ServiceAccount's RBAC grant (see
- * template-keycunda-rbac.yaml) - get/list/create/delete on secrets, get/list/patch on
+ * template-keycunda.yaml) - get/list/create/delete on secrets, get/list/patch on
  * deployments, get/list/delete on pods, all scoped to the {@code camunda} namespace.
  */
 @Component

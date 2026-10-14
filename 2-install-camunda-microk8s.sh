@@ -32,7 +32,7 @@ if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
 else
   CAMUNDA_LINE="8.9"
   CAMUNDA_LINE_DESCRIPTION="8.9 legacy (Console + Web Modeler)"
-  CAMUNDA_VALUES_TEMPLATE="template-values-camunda.yaml"
+  CAMUNDA_VALUES_TEMPLATE="template-values-camunda-8.9.yaml"
 fi
 
 # Force-restart kube-system pods to ensure clean state.
@@ -293,28 +293,16 @@ for pair in "keycunda:keycunda" "webmodeler:web-modeler" "orchestration:orchestr
 done
 
 echo "=================================================================="
-echo Setting up RBAC for Keycunda Secrets Management functions
+echo "Installing Keycunda (${KEYCUNDA_IMAGE}): RBAC, Deployment, Service and ingress"
 echo "=================================================================="
-microk8s kubectl apply -f template-keycunda-rbac.yaml
-
-echo "=================================================================="
-echo "Installing Keycunda (${KEYCUNDA_IMAGE})"
-echo "=================================================================="
+# One manifest: the ServiceAccount/Role/RoleBinding for Secrets Management's "Apply to cluster",
+# the Deployment + Service, and the Ingress objects (/auth plus the /keycunda/* aliases).
 envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for Keycunda to be ready..."
 microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=5m
 echo "Keycunda installed. Service: keycunda.camunda:80/auth"
-
-echo "=================================================================="
-echo "Installing Keycunda ingress"
-echo "=================================================================="
-# Delete-then-apply instead of a plain apply, so stale/conflicting rules from
-# a previous run never linger - the ingress is always recreated fresh.
-rendered_keycunda_ingress=$(envsubst '${CAMUNDA_DOMAIN}' < template-keycunda-ingress.yaml)
-echo "${rendered_keycunda_ingress}" | microk8s kubectl delete -f - --ignore-not-found
-echo "${rendered_keycunda_ingress}" | microk8s kubectl apply -f -
 
 echo "=================================================================="
 echo Uninstalling previous Camunda installation if present

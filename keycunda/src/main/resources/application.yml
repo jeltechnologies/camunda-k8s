@@ -11,7 +11,7 @@ server:
         # Defaults would otherwise be name "SESSION" scoped to Path=/auth (mirroring the servlet
         # context-path). Path=/auth means the browser never sends this cookie on a request to
         # /keycunda (the nginx-rewritten Secrets Management alias - see
-        # template-keycunda-ingress.yaml): the rewrite happens server-side at the ingress, after
+        # template-keycunda.yaml): the rewrite happens server-side at the ingress, after
         # the browser has already decided which cookies to attach based on the literal request
         # path, so an already-logged-in admin clicking that link got silently bounced back to
         # /login. Widening Path to "/" fixes that, but a plain, unqualified "SESSION" cookie name

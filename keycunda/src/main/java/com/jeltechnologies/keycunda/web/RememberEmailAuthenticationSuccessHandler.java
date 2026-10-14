@@ -36,7 +36,7 @@ public class RememberEmailAuthenticationSuccessHandler implements Authentication
         // Only used when there's no saved request to bounce back to - i.e. someone logged in by
         // navigating straight to /login by hand, rather than being redirected here from some
         // protected resource (mid OIDC-authorize flow, or via camunda-root-redirect-ingress in
-        // template-keycunda-ingress.yaml, which - since it redirects to /auth/admin, itself
+        // template-keycunda.yaml, which - since it redirects to /auth/admin, itself
         // protected - does leave a saved request, so it bounces back to /auth/admin on success and
         // never reaches this fallback). Was Console, then Web Modeler; now Keycunda's own portal
         // alias (/keycunda - see keycunda-portal-alias-ingress in the same template), since a

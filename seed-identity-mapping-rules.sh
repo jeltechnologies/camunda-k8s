@@ -17,7 +17,7 @@ echo "Waiting for camunda-identity to be ready..."
 microk8s kubectl rollout status deployment/camunda-identity -n "${NAMESPACE}" --timeout=5m
 
 # Without this, only the single admin seeded by DEMO_EMAIL (global.identity.auth.identity
-# .initialClaimName/initialClaimValue in template-values-camunda.yaml) gets any role in Identity's
+# .initialClaimName/initialClaimValue in template-values-camunda-8.9.yaml) gets any role in Identity's
 # own authorization store - every other user added later gets "Access denied to organization ..."
 # / "Could not fetch your shared resources" in Web Modeler, since that's what it actually checks
 # via its identity.base-url call (separate from orchestration.security.authorizations, which is

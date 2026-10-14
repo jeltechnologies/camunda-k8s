@@ -30,7 +30,7 @@ not present it as a production-hardened component.
 | `install-fix-hosts.sh` | Adds `/etc/hosts` entries (skipped when behind a reverse proxy). Needs root. |
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
 | `template-*.yaml` | `envsubst` input templates — **the only YAML you should edit**. |
-| `template-values-camunda-8.10.yaml` | 8.10-line (Helm chart 15.x) counterpart to `template-values-camunda.yaml` — see "Two Helm value templates, one per Camunda major line" below. |
+| `template-values-camunda-8.10.yaml` | 8.10-line (Helm chart 15.x) counterpart to `template-values-camunda-8.9.yaml` — see "Two Helm value templates, one per Camunda major line" below. |
 | `keycunda/` | Spring Boot OIDC identity provider — source, Maven build, own README. |
 | `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or a `keycunda-v*`/`v*` tag. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
@@ -42,18 +42,14 @@ not present it as a production-hardened component.
 Generated files are **gitignored and overwritten on every install**. Never edit them:
 
 ```
-template-values-camunda.yaml       (8.9/chart 14.x)  --envsubst-->  values-camunda.yaml  (gitignored)
+template-values-camunda-8.9.yaml       (8.9/chart 14.x)  --envsubst-->  values-camunda.yaml  (gitignored)
 template-values-camunda-8.10.yaml  (8.10/chart 15.x+) --envsubst-->  values-camunda.yaml  (gitignored)
 template-elasticsearch.yaml                     --envsubst-->  piped straight to kubectl apply
 template-postgresql.yaml                        --envsubst-->  piped straight to kubectl apply
-template-keycunda.yaml    --envsubst-->  piped straight to kubectl apply
-template-keycunda-ingress.yaml
+template-keycunda.yaml  (RBAC + Deployment/Service + Ingresses)  --envsubst-->  piped straight to kubectl apply
 template-volumes.yaml
 configure-env.sh                                --writes-->    install-env.sh          (gitignored)
 ```
-
-`template-keycunda-rbac.yaml` is the one exception: it has no `${VAR}` placeholders at
-all (namespace and names are fixed), so it's `kubectl apply`-ed directly, with no `envsubst` step.
 
 `values-camunda.yaml` is present in the working tree but ignored — treat it as build output when
 diagnosing something, not as a file to change.
@@ -74,15 +70,14 @@ Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PASSWORD} ${PG_VERSION}`
 - keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
-- keycunda-ingress: `${CAMUNDA_DOMAIN}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
-  shared by whichever of `template-values-camunda.yaml` / `template-values-camunda-8.10.yaml` gets
+  shared by whichever of `template-values-camunda-8.9.yaml` / `template-values-camunda-8.10.yaml` gets
   picked (see below), so a new variable needs step 3 done in both files if it's not version-specific.
 
 ### Two Helm value templates, one per Camunda major line
 
-`template-values-camunda.yaml` targets the 8.9 chart line (Helm chart 14.x, the "legacy" wizard
+`template-values-camunda-8.9.yaml` targets the 8.9 chart line (Helm chart 14.x, the "legacy" wizard
 option). `template-values-camunda-8.10.yaml` targets 8.10 (chart 15.x+, the current "stable").
 `2-install-camunda-microk8s.sh` decides the line **once**, right after sourcing `install-env.sh`,
 by comparing `HELM_CHART_VERSION`'s major version against 15 — **not** `CAMUNDA_APP_VERSION` —
@@ -200,9 +195,9 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
   apparently always made this same outbound discovery call; 8.10 just adds a second call site
   alongside it, not a wholly new behavior. See the comment above `orchestration.security
   .authentication.oidc` in `template-values-camunda-8.10.yaml`, and the matching `global.tls
-  .caBundle` comment in `template-values-camunda.yaml`, for the full traces. Two independent things
+  .caBundle` comment in `template-values-camunda-8.9.yaml`, for the full traces. Two independent things
   are both required to fix it, in **both** value templates now:
-  1. **Trust**: `global.tls.caBundle` (top of `global:` in both `template-values-camunda.yaml` and
+  1. **Trust**: `global.tls.caBundle` (top of `global:` in both `template-values-camunda-8.9.yaml` and
      `template-values-camunda-8.10.yaml`) — the chart's own purpose-built mechanism for this, not a
      hand-rolled initContainer: reuses each component's own image (already ships `keytool`),
      rebuilds a combined truststore into an `emptyDir`, and wires `JAVA_TOOL_OPTIONS` — all
@@ -321,7 +316,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   matching the image name), `web-modeler` (user `webmodeler`), `orchestration` (user
   `orchestration`), and `identity` (user `identity` — Management Identity's own JPA store,
   needed only in GENERIC OIDC mode; see the note under `identity.externalDatabase` in
-  `template-values-camunda.yaml`). Adding a database means editing that init script — it only
+  `template-values-camunda-8.9.yaml`). Adding a database means editing that init script — it only
   runs on a **fresh** PG data volume, so an existing install needs manual SQL.
 - **keycunda replaced Keycloak, and runs in the `camunda` namespace**
   alongside the rest of the platform, as a plain `kubectl apply`-ed Deployment/Service (not part
@@ -349,7 +344,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
     **Email is the unique login identifier; `name` is free text and not unique.** Users log in
     with email + password. The `preferred_username` claim carries the email (Camunda's own RBAC
     keys off this — see `orchestration.security.initialization` in
-    `template-values-camunda.yaml`); a separate `name` claim carries the free-text display name,
+    `template-values-camunda-8.9.yaml`); a separate `name` claim carries the free-text display name,
     looked up fresh per token so admin-screen edits show up without a new login.
   - **HTTP sessions** and **issued tokens** (auth codes, access/refresh tokens) are also in that
     same database via `spring-session-jdbc` and `JdbcOAuth2AuthorizationService` — not the
@@ -369,13 +364,13 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
 
   Camunda is configured with `global.identity.auth.type: "GENERIC"` (see the comment block at the
   top of that section in
-  `template-values-camunda.yaml`) — a documented, supported Camunda 8.8+ mode for connecting to any
+  `template-values-camunda-8.9.yaml`) — a documented, supported Camunda 8.8+ mode for connecting to any
   standards-compliant external OIDC provider instead of the chart's bundled Keycloak. Camunda's own
   `identity` component still manages authorization/roles in its own DB; only *authentication*
   moved. The OAuth2 client set (`camunda-identity`, `orchestration`, `connectors`, `optimize`,
   `web-modeler`, `console`) is fixed in `keycunda/.../OidcClientsConfig.java`
   — adding a new Camunda component means a code change there **and** a matching block in
-  `template-values-camunda.yaml`, cross-checked against `helm show values camunda/camunda-platform
+  `template-values-camunda-8.9.yaml`, cross-checked against `helm show values camunda/camunda-platform
   --version <HELM_CHART_VERSION>` since field names have moved between chart versions (e.g.
   `orchestration.security.authentication.oidc.issuer`, not `issuerUrl`). **Connectors is its own
   client, not a reuse of `orchestration`'s** — `helm template` was needed to find this, since
@@ -435,7 +430,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   indefinitely on the edit page afterward per the always-visible design above, there's no longer a
   reason to detour through the edit page right after creation.
 - **Identity's own authorization store needs its own bootstrap, twice over.** `global.identity
-  .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda.yaml` (set to
+  .auth.identity.initialClaimName`/`initialClaimValue` in `template-values-camunda-8.9.yaml` (set to
   `preferred_username`/`${DEMO_EMAIL}`) is what makes Management Identity create a "Default"
   mapping rule for the one seeded admin — without it, Identity's own `mapping_rules` table stays
   empty forever (its default `initialClaimName` is `"oid"`, a Microsoft Entra claim our tokens
@@ -480,7 +475,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   `/auth` itself is meant to be login/OIDC only now, though — every human-facing admin page
   (portal, Users, Clients, Secrets) is reached through a friendly `/keycunda`/`/keycunda/users`/
   `/keycunda/clients`/`/keycunda/secrets` alias instead, each its own nginx Ingress object in
-  `template-keycunda-ingress.yaml` (`rewrite-target` is per-Ingress-object, so one alias path needs
+  `template-keycunda.yaml` (`rewrite-target` is per-Ingress-object, so one alias path needs
   one object) rewriting server-side to `/auth/admin...` before the request reaches the app — the
   app itself has no idea any of these aliases exist, it only ever sees `/auth/admin/...`.
   `admin/fragments/nav.html` links Users/Clients/Secrets via these plain `/keycunda/*` paths
@@ -616,9 +611,8 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   `template-keycunda.yaml`) bound to a Role granting
   get/list/create/update/delete on `secrets` and get/list/patch on `deployments` - no `pods`
   access needed at all (see the rollout-restart fix just below for why) - all namespaced to
-  `camunda`, defined in `template-keycunda-rbac.yaml` and applied by
-  `2-install-camunda-microk8s.sh` before the Keycunda Deployment itself (the Deployment
-  references the ServiceAccount by name, so it must already exist). Unlike the old script's
+  `camunda`, defined in `template-keycunda.yaml` and applied by
+  `2-install-camunda-microk8s.sh` in the same manifest, listed ahead of the Deployment. Unlike the old script's
   unconditional JSON-patch append (which would have added a duplicate `envFrom` entry on every
   re-run), `ClusterSecretsApplier` checks whether the Deployment's first container already
   references the target Secret name before patching, so repeated applies stay idempotent. The
@@ -654,7 +648,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   from the Helm chart's rendered values with no memory of any prior `kubectl`-level patch, so the
   `envFrom` reference `ClusterSecretsApplier` had added disappeared on every reinstall, silently,
   with no error anywhere. Fixed by also declaring the same reference directly in
-  `template-values-camunda.yaml`'s `connectors.envFrom` (the chart supports it natively), marked
+  `template-values-camunda-8.9.yaml`'s `connectors.envFrom` (the chart supports it natively), marked
   `optional: true` so a fresh install - before this Secret has ever been created via the Secrets
   Management page - doesn't leave the connectors pod stuck in `ContainerCreating`. Both halves
   matter for different reasons: the Helm value makes the reference survive every reinstall from the
@@ -688,7 +682,7 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   concern disappeared along with the working copy itself, since there's nothing left to resync.
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
-  The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda.yaml`
+  The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda-8.9.yaml`
   documents one such fix (Tomcat + `https-only: true` → redirect loop); expect similar issues
   whenever a component is upgraded and read that comment before touching it.
   `keycunda` sets the same `server.forward-headers-strategy=native` for the

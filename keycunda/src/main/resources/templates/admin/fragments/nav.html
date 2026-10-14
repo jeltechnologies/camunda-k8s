@@ -54,7 +54,7 @@
              outside Keycunda's own /auth servlet context-path, which is meant to stay login/OIDC
              only now. The ingress rewrites them server-side to /auth/admin, /auth/admin/users,
              /auth/admin/clients and /auth/admin/secrets respectively before the request ever
-             reaches the app - see template-keycunda-ingress.yaml. -->
+             reaches the app - see template-keycunda.yaml. -->
         <a class="logo" href="/keycunda">
             <img th:src="@{/images/c-logo.png}" alt="Keycunda"/>
             <span class="app-name">Keycunda</span>
