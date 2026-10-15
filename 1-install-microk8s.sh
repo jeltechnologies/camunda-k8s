@@ -14,7 +14,7 @@ echo Updating operating system
 echo ============================================================
 sudo apt update
 sudo apt full-upgrade -y
-sudo apt install -y htop curl wget git gh poppler-utils
+sudo apt install -y htop curl wget git gh poppler-utils openjdk-25-jdk maven
 
 echo ============================================================
 echo "Installing Docker Engine"
