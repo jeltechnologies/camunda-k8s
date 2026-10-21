@@ -212,8 +212,12 @@ DEMO_NAME=${input_demo_name:-$DEFAULT_DEMO_NAME}
 read -p "Enter the first user's email - this is what they log in with (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
 DEMO_EMAIL=${input_demo_email:-$DEFAULT_DEMO_EMAIL}
 
-echo "  (the first user's password is the cluster password, asked for after this wizard)"
-
+# Asked here, right after the user, but only when sourced by 2-install-camunda-microk8s.sh:
+# a child process couldn't hand PASSWORD back, and it is deliberately never written to disk.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+  source ./password-lib.sh
+  obtain_password
+fi
 
 echo ""
 echo "============================================================"

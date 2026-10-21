@@ -20,7 +20,7 @@ obtain_password() {
   local existing keep p1 p2
   existing="$(read_cluster_password)"
   if [[ -n "${existing}" ]]; then
-    read -r -p "Keep the existing password from the cluster? [Y/n]: " keep
+    read -r -p "Keep the existing password? [Y/n]: " keep
     if [[ ! "${keep}" =~ ^[Nn] ]]; then
       PASSWORD="${existing}"
       export PASSWORD

@@ -22,12 +22,12 @@ echo ==================================================================
 echo "This installer needs sudo. Please provide your password:"
 sudo -v
 
-./configure-env.sh
+# Sourced, not executed: the wizard asks for the password, which is never stored on disk and so
+# can only reach this script through the shell. The wizard was written without `set -eu`.
+set +euo pipefail
+source ./configure-env.sh
+set -euo pipefail
 source ./install-env.sh
-
-# The password is never stored on disk: reuse the one in the cluster, or ask for a new one.
-source ./password-lib.sh
-obtain_password
 
 if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
   CAMUNDA_LINE="8.10"

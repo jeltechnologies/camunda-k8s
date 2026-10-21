@@ -726,8 +726,8 @@ and inspect instead, and let the user run the installers on their VM.
 
 ## Secrets hygiene
 
-`$PASSWORD` is **not** in `install-env.sh`. `2-install-camunda-microk8s.sh` calls `obtain_password`
-(`password-lib.sh`) after the wizard: it reuses the value from the `camunda-credentials` Secret
+`$PASSWORD` is **not** in `install-env.sh`. `2-install-camunda-microk8s.sh` sources `configure-env.sh`, which calls `obtain_password`
+(`password-lib.sh`) right after the first user's name and email: it reuses the value from the `camunda-credentials` Secret
 (key `keycunda-postgresql-password`) if the user agrees, else asks twice with hidden input. It is
 exported in memory only, never printed. Nothing renders it into a manifest or onto a
 command line either: `camunda-credentials` is created via a stdin heredoc (base64), the Postgres
