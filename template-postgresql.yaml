@@ -20,16 +20,16 @@ data:
     #!/bin/bash
     set -e
     psql -v ON_ERROR_STOP=1 --username "postgres" --dbname "postgres" <<-EOSQL
-      CREATE USER "keycunda" WITH PASSWORD '${PASSWORD}';
+      CREATE USER "keycunda" WITH PASSWORD '$PG_PASSWORD_KEYCUNDA';
       CREATE DATABASE "keycunda" OWNER "keycunda";
       GRANT ALL PRIVILEGES ON DATABASE "keycunda" TO "keycunda";
-      CREATE USER webmodeler WITH PASSWORD '${PASSWORD}';
+      CREATE USER webmodeler WITH PASSWORD '$PG_PASSWORD_WEBMODELER';
       CREATE DATABASE "web-modeler" OWNER webmodeler;
       GRANT ALL PRIVILEGES ON DATABASE "web-modeler" TO webmodeler;
-      CREATE USER orchestration WITH PASSWORD '${PASSWORD}';
+      CREATE USER orchestration WITH PASSWORD '$PG_PASSWORD_ORCHESTRATION';
       CREATE DATABASE orchestration OWNER orchestration;
       GRANT ALL PRIVILEGES ON DATABASE orchestration TO orchestration;
-      CREATE USER identity WITH PASSWORD '${PASSWORD}';
+      CREATE USER identity WITH PASSWORD '$PG_PASSWORD_IDENTITY';
       CREATE DATABASE identity OWNER identity;
       GRANT ALL PRIVILEGES ON DATABASE identity TO identity;
     EOSQL
@@ -74,8 +74,25 @@ spec:
           ports:
             - containerPort: 5432
           env:
+            # Passwords come from the camunda-credentials Secret, never from this manifest. The
+            # PG_PASSWORD_* variables are read by the init script above and, via `kubectl exec`,
+            # by 2-install-camunda-microk8s.sh and the seed-*/grant-* scripts, so the password
+            # never has to appear on a command line.
             - name: POSTGRES_PASSWORD
-              value: "${PASSWORD}"
+              valueFrom:
+                secretKeyRef: {name: camunda-credentials, key: keycunda-postgresql-password}
+            - name: PG_PASSWORD_KEYCUNDA
+              valueFrom:
+                secretKeyRef: {name: camunda-credentials, key: keycunda-postgresql-password}
+            - name: PG_PASSWORD_WEBMODELER
+              valueFrom:
+                secretKeyRef: {name: camunda-credentials, key: webmodeler-postgresql-user-password}
+            - name: PG_PASSWORD_ORCHESTRATION
+              valueFrom:
+                secretKeyRef: {name: camunda-credentials, key: orchestration-postgresql-password}
+            - name: PG_PASSWORD_IDENTITY
+              valueFrom:
+                secretKeyRef: {name: camunda-credentials, key: identity-postgresql-password}
             - name: POSTGRES_DB
               value: "postgres"
           resources:

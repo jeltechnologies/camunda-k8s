@@ -6,6 +6,14 @@ source ./install-env.sh
 NAMESPACE="camunda"
 POSTGRES_POD="camunda-postgresql-0"
 
+# Runs psql as the identity user with the SQL on stdin. The password is read inside the pod from
+# its own environment (PG_PASSWORD_IDENTITY, from camunda-credentials), so it never appears on a
+# command line and this script needs no password of its own.
+pg_identity() {
+  microk8s kubectl exec -i -n "${NAMESPACE}" "${POSTGRES_POD}" -- \
+    bash -c 'PGPASSWORD="${PG_PASSWORD_IDENTITY}" exec psql -U identity -d identity -v ON_ERROR_STOP=1 "$@" -f -' _ "$@"
+}
+
 echo "=================================================================="
 echo "Seeding Identity mapping rule for baseline demo user access"
 echo "=================================================================="
@@ -26,7 +34,7 @@ microk8s kubectl rollout status deployment/camunda-identity -n "${NAMESPACE}" --
 # keycunda's AuthorizationServerConfig stamps "true" on every human login -
 # the closest equivalent to a blanket grant that the schema allows.
 echo "Ensuring the 'AllUsers' mapping rule exists..."
-microk8s kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- env PGPASSWORD="${PASSWORD}" psql -U identity -d identity -v ON_ERROR_STOP=1 -c "
+pg_identity <<'SQL'
 INSERT INTO mapping_rules (type, name, claim_name, claim_value, operator)
 VALUES ('ROLE', 'AllUsers', 'demo_user', 'true', 'EQUALS')
 ON CONFLICT DO NOTHING;
@@ -38,6 +46,6 @@ INSERT INTO mapping_rules_applied_roles (mapping_rules_name, applied_roles_name)
   ('AllUsers', 'Optimize'),
   ('AllUsers', 'Orchestration')
 ON CONFLICT DO NOTHING;
-"
+SQL
 
 echo "Done."

@@ -25,7 +25,8 @@ not present it as a production-hardened component.
 |---|---|
 | `1-install-microk8s.sh` | Host prep: apt upgrade, Docker Engine (+ the `DOCKER-USER` iptables fix — see Architecture facts below), swapoff, MicroK8s 1.32, addons, kubectl config, Helm v4, then (last, after the cluster is up) Node.js LTS (via NodeSource's `setup_lts.x`, since Ubuntu's own packaged Node major is too old) + the `@camunda8/cli` c8ctl CLI + a clone of `camunda/skills` to `/opt/camunda-skills` (update with `git -C /opt/camunda-skills pull --ff-only`) symlinked into `~/.claude/skills` (and `/etc/skel`). Run once, then reboot. |
 | `2-install-camunda-microk8s.sh` | The main orchestrator. Everything else is called from here. |
-| `configure-env.sh` | Interactive wizard; **writes `install-env.sh`** (the generated config). |
+| `configure-env.sh` | Interactive wizard; **writes `install-env.sh`** (the generated config, without the password). |
+| `password-lib.sh` | Sourced helpers (`obtain_password`, `read_cluster_password`) for the cluster password, which is never stored on disk. |
 | `.env.example` | Documents the shape of `install-env.sh` with placeholder values — reference only, not consumed by any script. |
 | `install-fix-hosts.sh` | Adds `/etc/hosts` entries (skipped when behind a reverse proxy). Needs root. |
 | `create-certifcate.sh` | Self-signed TLS cert → `tls-secret-<domain>` k8s secret. (Filename typo is intentional//historic — do not "fix" it without updating callers.) |
@@ -68,10 +69,10 @@ through literally into the manifest and will silently break the deploy. To add a
 
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
-- postgresql: `${PASSWORD} ${PG_VERSION}`
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}`
+- postgresql: `${PG_VERSION}` (passwords come from `camunda-credentials` via `secretKeyRef`, never templated)
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${DEMO_NAME} ${DEMO_EMAIL}`
 - volumes: `${HOME}`
-- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}` —
+- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}` —
   shared by whichever of `template-values-camunda-8.9.yaml` / `template-values-camunda-8.10.yaml` gets
   picked (see below), so a new variable needs step 3 done in both files if it's not version-specific.
 
@@ -725,12 +726,21 @@ and inspect instead, and let the user run the installers on their VM.
 
 ## Secrets hygiene
 
-`install-env.sh`, `values-camunda.yaml`, `connector-secrets.yaml` and the rendered manifests all
-contain the plaintext `$PASSWORD` and are gitignored for that reason. Don't commit them, don't
-echo their contents into a summary, and don't add generated filenames to git. Note that
-`2-install-camunda-microk8s.sh` and `configure-env.sh` intentionally print the password to the
-terminal during install — that's existing behaviour for a single-user demo box, not a bug to fix
-unasked. The `camunda-credentials` secret's keys (`identity-identity-client-token`,
+`$PASSWORD` is **not** in `install-env.sh`. `2-install-camunda-microk8s.sh` calls `obtain_password`
+(`password-lib.sh`) after the wizard: it reuses the value from the `camunda-credentials` Secret
+(key `keycunda-postgresql-password`) if the user agrees, else asks twice with hidden input. It is
+exported in memory only, never printed. Nothing renders it into a manifest or onto a
+command line either: `camunda-credentials` is created via a stdin heredoc (base64), the Postgres
+StatefulSet gets `POSTGRES_PASSWORD` and `PG_PASSWORD_*` from that Secret via `secretKeyRef`, and
+every psql call that needs a password (`2-install-camunda-microk8s.sh`'s user sync, the `seed-*`/
+`grant-*` scripts) passes the SQL on stdin and reads the password from the pod's own environment
+(`bash -c '... "${!1}"'` / `PGPASSWORD="$PG_PASSWORD_IDENTITY"`), so it never shows up in `ps`.
+The orchestration initial user's `password` in the values templates is a random throwaway
+(`ORCHESTRATION_INIT_PASSWORD`, basic-auth only, unused with OIDC) because the chart has no
+secret-reference option there. `values-camunda.yaml` is therefore free of the cluster password.
+`connector-secrets.yaml` holds secrets too, so generated files stay
+gitignored. Don't commit them, don't echo their contents into a summary, and don't add generated
+filenames to git. The `camunda-credentials` secret's keys (`identity-identity-client-token`,
 `identity-orchestration-client-token`, `identity-optimize-client-token`,
 `identity-connectors-client-token`, `webmodeler-postgresql-user-password`,
 `orchestration-postgresql-password`, `keycunda-postgresql-password`) are all set to the

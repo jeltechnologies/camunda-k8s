@@ -25,6 +25,10 @@ sudo -v
 ./configure-env.sh
 source ./install-env.sh
 
+# The password is never stored on disk: reuse the one in the cluster, or ask for a new one.
+source ./password-lib.sh
+obtain_password
+
 if [[ "${HELM_CHART_VERSION%%.*}" -ge 15 ]]; then
   CAMUNDA_LINE="8.10"
   CAMUNDA_LINE_DESCRIPTION="8.10+ (Camunda Hub)"
@@ -86,7 +90,7 @@ helm repo add camunda https://helm.camunda.io
 helm repo update
 
 echo "Camunda domain          : ${CAMUNDA_DOMAIN}"
-echo "Password                : ${PASSWORD}"
+echo "Password                : (hidden)"
 echo "------------------------------------------------------------------"
 echo "Workflow engine domain  : ${ZEEBE_DOMAIN}"
 echo "Kubernetes namespace    : camunda"
@@ -172,17 +176,29 @@ fi
 echo "=================================================================="
 echo Setting passwords for the cluster
 echo "=================================================================="
+# The password goes to kubectl through a heredoc on stdin (base64, so no quoting problems), never
+# as a command-line argument, which would be visible to every user via `ps`. `create`, not
+# `apply`, so no last-applied annotation copies the data. Bash heredocs are pipes/in-memory.
 microk8s kubectl delete secret camunda-credentials -n camunda --ignore-not-found
-microk8s kubectl create secret generic camunda-credentials \
-    --from-literal=identity-identity-client-token="${PASSWORD}" \
-    --from-literal=identity-connectors-client-token="${PASSWORD}" \
-    --from-literal=identity-optimize-client-token="${PASSWORD}" \
-    --from-literal=identity-orchestration-client-token="${PASSWORD}" \
-    --from-literal=webmodeler-postgresql-user-password="${PASSWORD}" \
-    --from-literal=orchestration-postgresql-password="${PASSWORD}" \
-    --from-literal=identity-postgresql-password="${PASSWORD}" \
-    --from-literal=keycunda-postgresql-password="${PASSWORD}" \
-    -n camunda
+PASSWORD_B64="$(printf '%s' "${PASSWORD}" | base64 -w0)"
+microk8s kubectl create -f - <<SECRET_EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: camunda-credentials
+  namespace: camunda
+type: Opaque
+data:
+  identity-identity-client-token: ${PASSWORD_B64}
+  identity-connectors-client-token: ${PASSWORD_B64}
+  identity-optimize-client-token: ${PASSWORD_B64}
+  identity-orchestration-client-token: ${PASSWORD_B64}
+  webmodeler-postgresql-user-password: ${PASSWORD_B64}
+  orchestration-postgresql-password: ${PASSWORD_B64}
+  identity-postgresql-password: ${PASSWORD_B64}
+  keycunda-postgresql-password: ${PASSWORD_B64}
+SECRET_EOF
+unset PASSWORD_B64
 
 echo "=================================================================="
 echo Generating the Keycunda signing key, if it does not already exist
@@ -258,7 +274,7 @@ echo "Elasticsearch installed. Service: camunda-elasticsearch-master:9200"
 echo "=================================================================="
 echo "Installing PostgreSQL ${PG_VERSION}"
 echo "=================================================================="
-envsubst '${PASSWORD} ${PG_VERSION}' \
+envsubst '${PG_VERSION}' \
   < template-postgresql.yaml | microk8s kubectl apply -f -
 
 echo "Waiting for PostgreSQL to be ready..."
@@ -273,25 +289,28 @@ echo "=================================================================="
 # that changed across runs) never gets picked up on re-install. Self-heal it
 # here: create anything missing (ignore "already exists"), then always
 # re-sync each user's password to the current $PASSWORD.
-for pair in "keycunda:keycunda" "webmodeler:web-modeler" "orchestration:orchestration" "identity:identity"; do
-  db_user="${pair%%:*}"
-  db_name="${pair##*:}"
-  if microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "CREATE USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';" >/dev/null 2>&1; then
+# Each user's password is read inside the pod from the PG_PASSWORD_* env vars (from the
+# camunda-credentials Secret) and handed to psql as a variable, so it never appears in a command
+# line, here or in the pod. Only the variable's *name* is passed as an argument.
+pg_as_postgres() {
+  microk8s kubectl exec -i -n camunda camunda-postgresql-0 -- \
+    bash -c 'psql -U postgres -v ON_ERROR_STOP=1 -v pw="${!1}" -f -' _ "$1"
+}
+for entry in "keycunda:keycunda:PG_PASSWORD_KEYCUNDA" "webmodeler:web-modeler:PG_PASSWORD_WEBMODELER" \
+             "orchestration:orchestration:PG_PASSWORD_ORCHESTRATION" "identity:identity:PG_PASSWORD_IDENTITY"; do
+  IFS=: read -r db_user db_name pw_var <<< "${entry}"
+  if printf '%s\n' "CREATE USER \"${db_user}\" WITH PASSWORD :'pw';" | pg_as_postgres "${pw_var}" >/dev/null 2>&1; then
     echo "Role ${db_user} created"
   else
     echo "Role ${db_user} exists"
   fi
-  if microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "CREATE DATABASE \"${db_name}\" OWNER \"${db_user}\";" >/dev/null 2>&1; then
+  if printf '%s\n' "CREATE DATABASE \"${db_name}\" OWNER \"${db_user}\";" | pg_as_postgres "${pw_var}" >/dev/null 2>&1; then
     echo "Database ${db_name} created"
   else
     echo "Database ${db_name} exists"
   fi
-  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "GRANT ALL PRIVILEGES ON DATABASE \"${db_name}\" TO \"${db_user}\";"
-  microk8s kubectl exec -n camunda camunda-postgresql-0 -- psql -U postgres -c \
-    "ALTER USER \"${db_user}\" WITH PASSWORD '${PASSWORD}';"
+  printf '%s\n' "GRANT ALL PRIVILEGES ON DATABASE \"${db_name}\" TO \"${db_user}\";" | pg_as_postgres "${pw_var}"
+  printf '%s\n' "ALTER USER \"${db_user}\" WITH PASSWORD :'pw';" | pg_as_postgres "${pw_var}"
 done
 
 echo "=================================================================="
@@ -299,7 +318,7 @@ echo "Installing Keycunda (${KEYCUNDA_IMAGE}): RBAC, Deployment, Service and ing
 echo "=================================================================="
 # One manifest: the ServiceAccount/Role/RoleBinding for Secrets Management's "Apply to cluster",
 # the Deployment + Service, and the Ingress objects (/auth plus the /keycunda/* aliases).
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${PASSWORD} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 # The image tag is normally ":latest", so re-applying an unchanged manifest does not roll the
@@ -329,7 +348,10 @@ echo "=================================================================="
 echo Generating Helm values from template
 echo "=================================================================="
 echo "Using Helm values template: ${CAMUNDA_VALUES_TEMPLATE}"
-envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${PASSWORD}' \
+# Throwaway basic-auth password for Orchestration's initial user (unused with OIDC login).
+ORCHESTRATION_INIT_PASSWORD="$(openssl rand -base64 24)"
+export ORCHESTRATION_INIT_PASSWORD
+envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}' \
   < "${CAMUNDA_VALUES_TEMPLATE}" > values-camunda.yaml
 
 echo "=================================================================="
@@ -396,7 +418,7 @@ echo "  microk8s kubectl get pods -n camunda -w"
 echo ""
 echo "  Name:              ${DEMO_NAME}"
 echo "  Log in with email: ${DEMO_EMAIL}"
-echo "  Password:          ${PASSWORD}"
+echo "  Password:          the one you entered in the wizard"
 echo ""
 echo "  Document storage : ~/camunda-docs"
 echo "  Custom connectors: ~/camunda-connectors"

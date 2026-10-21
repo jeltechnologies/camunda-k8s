@@ -417,7 +417,7 @@ orchestration:
     # .usernameClaim (default: preferred_username). Our identity provider puts the user's email
     # there (see AuthorizationServerConfig's token customizer) - "demo"/"demo@demo.com" from the
     # chart's own defaults would never match a real login, so it's overridden here to line up
-    # with the actual seeded admin (DEMO_EMAIL/DEMO_NAME/PASSWORD). Currently moot in practice
+    # with the actual seeded admin (DEMO_EMAIL/DEMO_NAME). Currently moot in practice
     # since authorizations are disabled (just above - no role checks are enforced yet), but wiring it correctly now avoids a silent mismatch if that's ever turned
     # on. The "connectors" user is a chart default, repeated here only because `users` is a list
     # (lists replace, they don't merge); the chart's defaultRoles.connectors entry is a map and
@@ -429,7 +429,9 @@ orchestration:
           name: Connector User
           email: connector@demo.com
         - username: "${DEMO_EMAIL}"
-          password: "${PASSWORD}"
+          # Basic-auth credential, unused with OIDC login; random per run on purpose so the
+          # cluster password never lands in this rendered file (the chart has no secret option here).
+          password: "${ORCHESTRATION_INIT_PASSWORD}"
           name: "${DEMO_NAME}"
           email: "${DEMO_EMAIL}"
       defaultRoles:

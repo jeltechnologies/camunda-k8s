@@ -6,6 +6,14 @@ source ./install-env.sh
 NAMESPACE="camunda"
 POSTGRES_POD="camunda-postgresql-0"
 
+# Runs psql as the identity user with the SQL on stdin. The password is read inside the pod from
+# its own environment (PG_PASSWORD_IDENTITY, from camunda-credentials), so it never appears on a
+# command line and this script needs no password of its own.
+pg_identity() {
+  microk8s kubectl exec -i -n "${NAMESPACE}" "${POSTGRES_POD}" -- \
+    bash -c 'PGPASSWORD="${PG_PASSWORD_IDENTITY}" exec psql -U identity -d identity -v ON_ERROR_STOP=1 "$@" -f -' _ "$@"
+}
+
 if [[ $# -ne 1 ]]; then
     echo "Usage: $0 <client-id>" >&2
     echo "Grants an M2M client (one created via keycunda's /admin/clients," >&2
@@ -31,8 +39,7 @@ echo "=================================================================="
 # This alone isn't enough: the client's own `audience` (set via keycunda's
 # /admin/clients) must also include "web-modeler-public-api", or its tokens won't carry the right
 # `aud` and Web Modeler will still reject them with 401 regardless of this grant.
-microk8s kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- env PGPASSWORD="${PASSWORD}" psql -U identity -d identity \
-    -v ON_ERROR_STOP=1 -v client_id="${CLIENT_ID}" -v mapping_rule_name="${MAPPING_RULE_NAME}" -c "
+pg_identity -v client_id="${CLIENT_ID}" -v mapping_rule_name="${MAPPING_RULE_NAME}" <<'SQL'
 INSERT INTO roles (name, description)
 VALUES ('Web Modeler Public API', 'Grants CRUD access to the Web Modeler public API, for M2M applications')
 ON CONFLICT DO NOTHING;
@@ -48,6 +55,6 @@ ON CONFLICT DO NOTHING;
 INSERT INTO mapping_rules_applied_roles (mapping_rules_name, applied_roles_name)
 VALUES (:'mapping_rule_name', 'Web Modeler Public API')
 ON CONFLICT DO NOTHING;
-"
+SQL
 
 echo "Done."

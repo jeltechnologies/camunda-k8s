@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 DEFAULT_CAMUNDA_DOMAIN=$(hostname).example.com
-DEFAULT_PASSWORD=Choose_a_secure_password_please
 DEFAULT_HELM_CHART_VERSION=14.7.0
 DEFAULT_CAMUNDA_APP_VERSION=8.9.12
 DEFAULT_VERSION_CHANNEL=stable
@@ -22,7 +21,6 @@ if [[ -f ./install-env.sh ]]; then
   source ./install-env.sh
 
   DEFAULT_CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
-  DEFAULT_PASSWORD="${PASSWORD}"
   DEFAULT_HELM_CHART_VERSION="${HELM_CHART_VERSION}"
   DEFAULT_CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
   # Which menu channel (alpha, stable, legacy, manual) was picked last time - without this, a
@@ -197,9 +195,6 @@ echo ""
 read -p "Enter Camunda domain (default: ${DEFAULT_CAMUNDA_DOMAIN}): " input_domain
 CAMUNDA_DOMAIN=${input_domain:-$DEFAULT_CAMUNDA_DOMAIN}
 
-read -p "Enter password (default: ${DEFAULT_PASSWORD}): " input_password
-PASSWORD=${input_password:-$DEFAULT_PASSWORD}
-
 ZEEBE_DOMAIN="zeebe.${CAMUNDA_DOMAIN}"
 
 read -p "Exposed to internet, behind a reverse proxy? Choose false when you are not sure. (default: ${DEFAULT_BEHIND_REVERSE_PROXY}): " input_reverse_proxy
@@ -217,7 +212,7 @@ DEMO_NAME=${input_demo_name:-$DEFAULT_DEMO_NAME}
 read -p "Enter the first user's email - this is what they log in with (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
 DEMO_EMAIL=${input_demo_email:-$DEFAULT_DEMO_EMAIL}
 
-echo "  (the first user's password is the password entered above)"
+echo "  (the first user's password is the cluster password, asked for after this wizard)"
 
 
 echo ""
@@ -279,7 +274,6 @@ SWAGGER_ENABLED=${input_swagger_enabled:-$DEFAULT_SWAGGER_ENABLED}
 cat > install-env.sh <<ENVEOF
 #!/usr/bin/env bash
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN}"
-export PASSWORD="${PASSWORD}"
 export ZEEBE_DOMAIN="${ZEEBE_DOMAIN}"
 export HELM_CHART_VERSION="${HELM_CHART_VERSION}"
 export CAMUNDA_APP_VERSION="${CAMUNDA_APP_VERSION}"
