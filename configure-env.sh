@@ -209,7 +209,7 @@ echo ""
 read -p "Enter the first user's name (default: ${DEFAULT_DEMO_NAME}): " input_demo_name
 DEMO_NAME=${input_demo_name:-$DEFAULT_DEMO_NAME}
 
-read -p "Enter the first user's email - this is what they log in with (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
+read -p "Enter the first user's email (default: ${DEFAULT_DEMO_EMAIL}): " input_demo_email
 DEMO_EMAIL=${input_demo_email:-$DEFAULT_DEMO_EMAIL}
 
 # Asked here, right after the user, but only when sourced by 2-install-camunda-microk8s.sh:
