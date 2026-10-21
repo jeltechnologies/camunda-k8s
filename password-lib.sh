@@ -20,7 +20,7 @@ obtain_password() {
   local existing keep p1 p2
   existing="$(read_cluster_password)"
   if [[ -n "${existing}" ]]; then
-    read -r -p "Keep the existing password? [Y/n]: " keep
+    read -r -p "Keep the existing first user password? [Y/n]: " keep
     if [[ ! "${keep}" =~ ^[Nn] ]]; then
       PASSWORD="${existing}"
       export PASSWORD
@@ -29,8 +29,8 @@ obtain_password() {
   fi
 
   while true; do
-    read -r -s -p "Enter password (input hidden): " p1; echo
-    read -r -s -p "Repeat password: " p2; echo
+    read -r -s -p "Enter the first user's password (input hidden): " p1; echo
+    read -r -s -p "Repeat the first user's password: " p2; echo
     [[ -n "${p1}" && "${p1}" == "${p2}" ]] && break
     echo "Passwords were empty or did not match, try again."
   done
