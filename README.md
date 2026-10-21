@@ -31,8 +31,10 @@ build and operate Camunda processes on this box.
 It also installs Java, Maven and Docker. Camunda doesn't need them, but they come in handy when
 building demo portals.
 
-The second script asks for your version, domain and password, then installs everything
-(15–20 minutes). Run it again at any time to upgrade; your data is kept.
+The second script asks for your version, domain and password, then installs everything.
+A fresh install takes 20–30 minutes: time for a coffee. Run it again at any time to upgrade: your
+data is kept, as long as you use the same password during installation. Once it's installed,
+restarting the whole virtual machine takes only about 5 minutes.
 
 If your domain points to a reverse proxy (Cloudflare, Pangolin, ...), answer `true` when asked.
 
