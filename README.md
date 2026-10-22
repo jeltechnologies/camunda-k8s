@@ -43,7 +43,7 @@ Camunda is accesses to the browser. There are 2 different approaches to access C
 - **Easiest:** install Camunda on Xubuntu, which ships with a desktop and a browser. Open the
   browser inside the virtual machine and go to the URLs above. The browser will warn about the
   self-signed certificate; you can safely ignore the warning and continue.
-- **From anywhere:** put a reverse proxy in front of the box (see the `true` answer above), so
+- **Advanced:** put a reverse proxy in front of the box (see the `true` answer above), so
   Camunda is reachable from any browser. The proxy handles the certificate automatically, so
   there are no warnings. Examples are [Selfie Proxie](https://www.selfieproxy.net/) and
   [Cloudflare](https://www.cloudflare.com).
