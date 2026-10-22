@@ -166,8 +166,8 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
   `DOCUMENT_STORE_LOCAL_CLASS=io.camunda.document.store.localstorage.LocalStorageDocumentStoreProvider`
   (class name read from `document-store-8.10.x.jar`) and `DOCUMENT_STORE_LOCAL_PATH=/camunda-docs`;
   the chart still renders `DOCUMENT_DEFAULT_STORE_ID=local` from `activeStoreId`. The 8.9 template
-  still carries the old, ineffective `local:` block and was deliberately not touched. Whether the
-  property is `PATH` or `STORAGE_PATH` is unverified until a document upload shows a file on disk.
+  still carries the old, ineffective `local:` block and was deliberately not touched. Verified
+  working on the live cluster: `DOCUMENT_STORE_LOCAL_PATH` is the right property name.
 - **Fixed**: `identity.env` carries six `IDENTITY_MAPPINGRULES_0_*` entries working around a
   startup crash in Identity 8.10.0-alpha4.2. Root cause (found by extracting and decompiling the
   running `identity.jar` — `BOOT-INF/classes/application.yaml`, and
