@@ -53,9 +53,7 @@ Camunda is accesses to the browser. There are 2 different approaches to access C
 | Camunda Hub | `https://<your-domain>/hub` |
 | Operate / Tasklist | `https://<your-domain>/orchestration` |
 | Optimize | `https://<your-domain>/optimize` |
-| Identity | `https://<your-domain>/identity` |
-| Keycunda (users, API clients, secrets) | `https://<your-domain>/keycunda` |
-| Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
+| Login, user and secrets management | `https://<your-domain>` |
 
 Log in with the email and password you chose during install. 
 
@@ -78,5 +76,5 @@ Drop connector JARs into `~/camunda-connectors/connectors`, then restart the con
 
 ## Good to know
 
-- Run extra Docker containers with `network_mode: host` only. Bridge networks can make MicroK8s
-  restart and briefly take down every pod.
+- Run extra Docker containers with `network_mode: host`. Bridge networks do work, but will MicroK8s
+  to restart and briefly take down every pod when deploying changes.
