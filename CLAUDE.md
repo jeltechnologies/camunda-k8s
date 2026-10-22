@@ -696,6 +696,38 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   background thread has no HTTP session bound to it, so touching a `@SessionScope` bean from there
   threw `IllegalStateException: Scope 'session' is not active for the current thread`) - that whole
   concern disappeared along with the working copy itself, since there's nothing left to resync.
+- **Catalog page (`/keycunda/catalog`, 8.10 line only): publishes the standard connector templates to
+  Camunda Hub's Catalog, ported from Caddy (`~/projects/camunda-tools/caddy`, `CatalogPublishService`/
+  `CatalogService`/`HubApiClient`).** Code is in `keycunda/.../catalog/` plus `web/AdminCatalogController`
+  and `admin/catalog.html`; the nav link and Ingress alias (`keycunda-catalog-alias-ingress`) follow the
+  Secrets pattern. UI terminology is "connector templates", never "connectors".
+  - **Source**: latest `camunda/connectors` GitHub release ZIP, fetched at page load/click time and
+    cached **in memory only** for 10 minutes (`ConnectorTemplateSource`; GitHub allows 60 unauthenticated
+    calls/hour). Kept: valid element templates (object with `id`, int `version`, `appliesTo`,
+    `properties`), not `[Deprecated]`, **not hybrid** (file name/id/name contains "hybrid"), `engines.camunda`
+    not newer than `keycunda.camunda-line`, highest version per id. Mock templates (Caddy's `mock` bundle)
+    were deliberately not ported. The pod needs outbound internet.
+  - **Hub API**: `HubCatalogClient` calls `{keycunda.hub.base-url}/api/v2/catalog/assets/{search,ingestion}`
+    and `DELETE .../{assetKey}`; default base URL `http://camunda-web-modeler-restapi/hub` (in-cluster
+    HTTP, no TLS/CA issue; env `HUB_BASE_URL`). Ingestion is **full-state**: anything published but absent from
+    the request is unpublished, so `CatalogPublisher.computePlan` re-sends everything already published that
+    it still has content for and asks for confirmation (browser modal, via `POST /admin/catalog/plan`
+    first) before deleting deselected assets or unpublishing assets it has no content for.
+  - **Auth**: Keycunda calls Hub as itself, not as the logged-in admin. `HubTokenProvider` creates an
+    internal client `keycunda-catalog` (audience `web-modeler-public-api`, random secret, row in
+    `oauth_clients`, hidden from `/admin/clients` and reserved in `AdminClientController`), calls
+    `HubApiAccessGrantor.grant` **every time it fetches a new token** (not at startup: Keycunda starts
+    before Identity has created its tables on a fresh install), then gets a client-credentials token from its own
+    loopback token endpoint (`http://localhost:8080/auth/oauth2/token`; `iss` stays the public issuer).
+    Spring 7's `RestClient` uses Jackson 3, so responses are read as `String` and parsed with the
+    Jackson 2 `ObjectMapper` (a `JsonNode` body type fails at runtime).
+  - **UI**: Basic/Advanced toggle (remembered in `localStorage`). Basic = one "Publish all standard connector
+    templates" button; Advanced adds the filterable table with selection ("Publish selected ...").
+    Publishing runs on a single-thread executor with `CatalogJobStatus` polled through
+    `/admin/catalog/publish-status.json`, same pattern as Secrets.
+  - **Not verified on a live cluster yet**: the internal Hub context path/base URL, that Hub accepts the
+    keycunda-issued token over the in-cluster HTTP URL, and where the Hub UI shows the Catalog entries.
+    Covered by unit tests only (`catalog/*Test`, `AdminCatalogControllerTest`, Hub stubbed with a JDK `HttpServer`).
 - **Ingress-behind-proxy pitfalls.** Everything is path-routed on one host, TLS-terminated at
   nginx. Components must therefore be told their context path *and* to trust `X-Forwarded-*`.
   The Web Modeler `forward-headers-strategy: native` block in `template-values-camunda-8.9.yaml`

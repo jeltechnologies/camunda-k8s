@@ -3,7 +3,7 @@
 <body>
     <!--
       Shared top bar for every /admin/** page, parameterized by which link is "active". Grouped
-      into "Identity Management" (Users, Clients) and "Secrets Management" (Secrets) - see the
+      into "Identity Management" (Users, Clients), "Secrets Management" (Secrets) and, on the 8.10 line, the Hub Catalog (Catalog) - see the
       portal landing page (admin/portal.html) for where those section names are spelled out; the
       bar itself stays a flat list of quick links plus a divider between the two groups.
 
@@ -64,6 +64,7 @@
             <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">API clients</a>
             <span class="nav-divider"></span>
             <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
+            <a th:if="${hub}" href="/keycunda/catalog" th:classappend="${active == 'catalog'} ? 'active'">Catalog</a>
         </nav>
         <div class="right">
             <form method="post" th:action="@{/logout}">

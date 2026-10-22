@@ -66,6 +66,12 @@ Log in with the email and password you chose during install.
 Add connector secrets at `https://<your-domain>/keycunda/secrets` and click **Apply to cluster**.
 Reference them as `=camunda.secrets.NAME` in input mappings.
 
+## Catalog (8.10 and later)
+
+Open `https://<your-domain>/keycunda/catalog` and click **Publish all standard connector templates**
+to make them available in the Catalog of Camunda Hub. **Advanced** lets you pick individual
+connector templates. Click again after a new connectors release to update them.
+
 ## Custom connectors
 
 Drop connector JARs into `~/camunda-connectors/connectors`, then restart the connectors pod.

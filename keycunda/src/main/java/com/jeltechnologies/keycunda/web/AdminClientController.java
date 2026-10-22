@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import com.jeltechnologies.keycunda.catalog.HubTokenProvider;
 import com.jeltechnologies.keycunda.client.Client;
 import com.jeltechnologies.keycunda.client.ClientRepository;
 import com.jeltechnologies.keycunda.config.AuthorizationServerConfig;
@@ -42,7 +43,8 @@ public class AdminClientController {
     // repository always resolves these to the fixed client first, so a same-named admin-managed
     // client would silently never be reachable. Reject it up front with a clear error instead.
     private static final Set<String> RESERVED_CLIENT_IDS =
-            Set.of("camunda-identity", "orchestration", "optimize", "web-modeler", "console", "connectors");
+            Set.of("camunda-identity", "orchestration", "optimize", "web-modeler", "console", "connectors",
+                    HubTokenProvider.CLIENT_ID);
 
     private static final Pattern CLIENT_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]{1,255}");
 
@@ -72,7 +74,9 @@ public class AdminClientController {
 
     @GetMapping("/admin/clients")
     public String list(Model model) {
-        model.addAttribute("clients", clientRepository.findAll());
+        // The internal Catalog client (see HubTokenProvider) is not for admins to edit or delete.
+        model.addAttribute("clients", clientRepository.findAll().stream()
+                .filter(c -> !HubTokenProvider.CLIENT_ID.equals(c.clientId())).toList());
         return "admin/clients";
     }
 
@@ -146,7 +150,7 @@ public class AdminClientController {
             @RequestParam(required = false) String customAudience,
             @RequestParam(required = false) String secret, RedirectAttributes redirectAttributes) {
         Client client = clientRepository.findById(id).orElse(null);
-        if (client == null) {
+        if (client == null || HubTokenProvider.CLIENT_ID.equals(client.clientId())) {
             redirectAttributes.addFlashAttribute("error", "Client not found.");
             return "redirect:/admin/clients";
         }
@@ -170,7 +174,7 @@ public class AdminClientController {
 
     @PostMapping("/admin/clients/{id}/delete")
     public String delete(@PathVariable UUID id, RedirectAttributes redirectAttributes) {
-        clientRepository.findById(id).ifPresentOrElse(client -> {
+        clientRepository.findById(id).filter(c -> !HubTokenProvider.CLIENT_ID.equals(c.clientId())).ifPresentOrElse(client -> {
             clientRepository.deleteById(id);
             redirectAttributes.addFlashAttribute("message", "Client \"" + client.name() + "\" removed.");
             syncHubApiAccess(client.clientId(), null, redirectAttributes);

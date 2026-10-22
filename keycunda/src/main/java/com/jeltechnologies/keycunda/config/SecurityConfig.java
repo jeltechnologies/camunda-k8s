@@ -45,7 +45,7 @@ public class SecurityConfig {
     }
 
     /** The login screen, the portal landing page (any logged-in user), and the admin-only
-     * management screens (Users, Clients, Secrets - ROLE_ADMIN only, see AppUserDetailsService for
+     * management screens (Users, Clients, Secrets, Catalog - ROLE_ADMIN only, see AppUserDetailsService for
      * where that role comes from). Order matters here: the specific admin-only patterns must be
      * declared before the catch-all "/admin/**" rule, since authorizeHttpRequests uses first-match
      * semantics - a ROLE_USER hitting /admin/users would otherwise fall through to the permissive
@@ -55,7 +55,8 @@ public class SecurityConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/login", "/error", "/favicon.ico", "/css/**", "/images/**").permitAll()
-                .requestMatchers("/admin/users/**", "/admin/clients/**", "/admin/secrets/**").hasRole("ADMIN")
+                .requestMatchers("/admin/users/**", "/admin/clients/**", "/admin/secrets/**",
+                        "/admin/catalog/**").hasRole("ADMIN")
                 .requestMatchers("/admin/**").authenticated()
                 .anyRequest().authenticated());
         // Users authenticate with email + password, not a separate username - see

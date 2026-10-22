@@ -54,6 +54,10 @@ keycunda:
     url: ${IDENTITY_DATASOURCE_URL:}
     username: ${IDENTITY_DATASOURCE_USERNAME:identity}
     password: ${IDENTITY_DATASOURCE_PASSWORD:}
+  # Camunda Hub's API as reached from inside the cluster (plain HTTP, no TLS/CA involved); the Catalog
+  # page (catalog/HubCatalogClient) publishes connector templates through {base-url}/api/v2/catalog.
+  hub:
+    base-url: ${HUB_BASE_URL:http://camunda-web-modeler-restapi/hub}
   camunda-domain: ${CAMUNDA_DOMAIN}
   # "8.9" (legacy: Web Modeler /modeler + Console) or "8.10" (Camunda Hub /hub); only steers links.
   camunda-line: ${CAMUNDA_LINE:8.10}
