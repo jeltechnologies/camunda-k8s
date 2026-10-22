@@ -62,7 +62,7 @@ Log in with the email and password you chose during install.
 ## Secrets
 
 Add connector secrets at `https://<your-domain>/keycunda/secrets` and click **Apply to cluster**.
-Reference them as `{{secrets.NAME}}`, or on 8.10 as `=camunda.secrets.NAME` in input mappings.
+Reference them as `=camunda.secrets.NAME` in input mappings.
 
 ## Custom connectors
 
