@@ -89,9 +89,8 @@ Drop connector JARs into `~/camunda-connectors/connectors`, then restart the con
 
 - The first script also installs the [c8ctl](https://github.com/camunda/c8ctl) CLI and the
   [Camunda AI skills](https://github.com/camunda/skills), so AI coding tools such as Claude Code can
-  build and operate Camunda processes on this box.
-- It also installs Java, Maven and Docker. Camunda doesn't need them, but they come in handy when
-  building demo portals.
+  build and operate Camunda processes on this box. It also installs Java, Maven and Docker. 
+  Camunda doesn't need them, but they come in handy when building demo portals.
 - The second script asks for your version, domain and password, then installs everything.
   Run it again at any time to upgrade: your data is kept, as long as you use the same password
   during installation. Once it's installed, restarting the whole virtual machine takes only about
