@@ -1,17 +1,21 @@
-# Camunda 8 Self Contained Installation
+# Run Camunda on a single Ubuntu node, running within 30 minutes.
 
-Install a complete Camunda 8 platform on a single Ubuntu box for experimenting, learning and demos.
+This repository contains the scripts for a self contained of Camunda, on a single Ubuntu box. This includes Kubernetes, databases and the complete Camunda platform.
+
+The is made for **experimenting, learning and demos**.
 
 **Not for production.** One box lacks the scale, high availability and license that real Camunda
-environments need. The bundled identity provider, **Keycunda**, is demo-grade too.
+environments need. The script also install a simplified Identity Provider, as alternative to Keycloak. 
+The shipped Identity Provider lacks the hardening and security that solutions as Keycloak and Microsoft Entra Id offer, 
+which are used in Camunda production environments.
 
 Looking for something lighter? [Camunda 8 Run](https://docs.camunda.io/docs/self-managed/quickstart/developer-quickstart/c8run/)
-is a simple local alternative, but it does not include Web Modeler or Optimize.
+is a simple local alternative, which runs on Mac and Windows, but lacks Hub and Optimize.
 
 ## Requirements
 
 - Ubuntu 26.04 (Server or Desktop), ideally in a VM (Proxmox, VirtualBox) so you can snapshot it
-- 8 GB memory (16 GB recommended), 4 vCPU, 32 GB disk (64 GB recommended)
+- 12 GB memory (16 GB recommended), 4 vCPU, 32 GB disk (64 GB recommended)
 - A **static IP and hostname**, set before you install. Changing either later means reinstalling
   (see [Uninstalling](#uninstalling)).
 
