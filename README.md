@@ -36,7 +36,7 @@ A fresh install takes 20–30 minutes: time for a coffee. Run it again at any ti
 data is kept, as long as you use the same password during installation. Once it's installed,
 restarting the whole virtual machine takes only about 5 minutes.
 
-If your domain points to a reverse proxy (Cloudflare, Pangolin, ...), answer `true` when asked.
+If your domain points to a reverse proxy (Cloudflare, Selfie Proxie, ...), answer `true` when asked.
 
 ## Open it
 
@@ -52,6 +52,16 @@ If your domain points to a reverse proxy (Cloudflare, Pangolin, ...), answer `tr
 Log in with the email and password you chose during install. The certificate is self-signed, so
 expect a browser warning. To reach the box from other machines, add its IP and domain to their
 hosts file.
+
+### Reaching Camunda Hub and Optimize
+
+- **Easiest:** install Camunda on Xubuntu, which ships with a desktop and a browser. Open the
+  browser inside the virtual machine and go to the URLs above. The browser will warn about the
+  self-signed certificate; you can safely ignore the warning and continue.
+- **From anywhere:** put a reverse proxy in front of the box (see the `true` answer above), so
+  Camunda is reachable from any browser. The proxy handles the certificate automatically, so
+  there are no warnings. Examples are [Selfie Proxie](https://github.com/jeltechnologies/selfieproxy) and
+  [Cloudflare](https://www.cloudflare.com).
 
 ## Secrets
 
