@@ -64,6 +64,7 @@
             <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">API clients</a>
             <span class="nav-divider"></span>
             <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
+            <span th:if="${hub}" class="nav-divider"></span>
             <a th:if="${hub}" href="/keycunda/catalog" th:classappend="${active == 'catalog'} ? 'active'">Catalog</a>
         </nav>
         <div class="right">

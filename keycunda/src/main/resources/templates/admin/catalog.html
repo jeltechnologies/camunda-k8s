@@ -26,10 +26,11 @@
             background: var(--blue-60);
             color: #ffffff;
         }
-        .status-line {
+        .status-list {
             color: #565656;
             font-size: 14px;
             margin: 0 0 1.25rem;
+            padding-left: 1.25rem;
         }
         .lead {
             max-width: 640px;
@@ -40,6 +41,11 @@
             align-items: center;
             gap: 1rem;
             margin: 1.25rem 0;
+        }
+        /* "display: flex" above would otherwise beat the hidden attribute (same specificity, author
+           styles win over the browser's own "[hidden] { display: none }"). */
+        .publish-row[hidden] {
+            display: none;
         }
         .advanced-only[hidden] {
             display: none;
@@ -170,14 +176,14 @@
             <p class="error" th:if="${hubError}" th:text="'Camunda Hub is not available yet: ' + ${hubError}"></p>
 
             <p class="lead">
+                The Camunda catalog is where to find reusable assets such as connectors and element templates.
                 Connector templates let you integrate with external systems straight from the modeler.
-                Publish them here to make them available in Camunda Hub.
             </p>
-            <p class="status-line" th:unless="${sourceError}">
-                <span th:text="${#lists.size(rows)}">0</span> connector templates in release
-                <code th:text="${release}"></code>,
-                <span id="published-count" th:text="${publishedCount}">0</span> already in the Catalog.
-            </p>
+            <p class="lead">Publish the standard connector templates here to make them available in Camunda Hub.</p>
+            <ul class="status-list">
+                <li th:unless="${sourceError}">Available standard connector templates: <span th:text="${#lists.size(rows)}">0</span>.</li>
+                <li th:unless="${hubError}">Your catalog currently contains <span id="published-count" th:text="${publishedCount}">0</span> connector templates.</li>
+            </ul>
 
             <div class="publish-row">
                 <button type="button" class="btn" id="publish-button"
