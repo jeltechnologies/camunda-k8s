@@ -3,6 +3,7 @@ package com.jeltechnologies.keycunda.catalog;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -83,7 +85,11 @@ public class ConnectorTemplateSource {
     }
 
     private Snapshot download() throws IOException {
+        // GitHub answers a release asset download with a 302 to its asset storage, and the JDK HttpClient
+        // does not follow redirects unless told to (without it the body is simply empty).
+        HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.ALWAYS).build();
         RestClient github = RestClient.builder()
+                .requestFactory(new JdkClientHttpRequestFactory(http))
                 .defaultHeader("User-Agent", "Keycunda")
                 .defaultHeader("Accept", "application/vnd.github+json")
                 .build();
