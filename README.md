@@ -66,7 +66,7 @@ Reference them as `=camunda.secrets.NAME` in input mappings.
 
 ## Custom connectors
 
-Drop connector JARs into `~/camunda-connectors` and re-run step 2.
+Drop connector JARs into `~/camunda-connectors/connectors`, then restart the connectors pod.
 
 ## Uninstalling
 
