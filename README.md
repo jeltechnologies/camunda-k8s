@@ -36,9 +36,17 @@ A fresh install takes 20–30 minutes: time for a coffee. Run it again at any ti
 data is kept, as long as you use the same password during installation. Once it's installed,
 restarting the whole virtual machine takes only about 5 minutes.
 
-If your domain points to a reverse proxy (Cloudflare, Selfie Proxie, ...), answer `true` when asked.
-
 ## Open it
+
+Camunda is accesses to the browser. There are 2 different approaches to access Camunda:
+
+- **Easiest:** install Camunda on Xubuntu, which ships with a desktop and a browser. Open the
+  browser inside the virtual machine and go to the URLs above. The browser will warn about the
+  self-signed certificate; you can safely ignore the warning and continue.
+- **From anywhere:** put a reverse proxy in front of the box (see the `true` answer above), so
+  Camunda is reachable from any browser. The proxy handles the certificate automatically, so
+  there are no warnings. Examples are [Selfie Proxie](https://www.selfieproxy.net/) and
+  [Cloudflare](https://www.cloudflare.com).
 
 | Component | URL |
 |---|---|
@@ -49,19 +57,7 @@ If your domain points to a reverse proxy (Cloudflare, Selfie Proxie, ...), answe
 | Keycunda (users, API clients, secrets) | `https://<your-domain>/keycunda` |
 | Zeebe gRPC | `grpc://zeebe.<your-domain>:26500` |
 
-Log in with the email and password you chose during install. The certificate is self-signed, so
-expect a browser warning. To reach the box from other machines, add its IP and domain to their
-hosts file.
-
-### Reaching Camunda Hub and Optimize
-
-- **Easiest:** install Camunda on Xubuntu, which ships with a desktop and a browser. Open the
-  browser inside the virtual machine and go to the URLs above. The browser will warn about the
-  self-signed certificate; you can safely ignore the warning and continue.
-- **From anywhere:** put a reverse proxy in front of the box (see the `true` answer above), so
-  Camunda is reachable from any browser. The proxy handles the certificate automatically, so
-  there are no warnings. Examples are [Selfie Proxie](https://www.selfieproxy.net/) and
-  [Cloudflare](https://www.cloudflare.com).
+Log in with the email and password you chose during install. 
 
 ## Secrets
 
