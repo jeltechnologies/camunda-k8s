@@ -15,16 +15,16 @@
 # component's `extraConfiguration` (Spring-imported, so it overrides the chart-generated
 # application.yaml) rather than a hand-written replacement `configuration` block.
 global:
+  # Chart 15.x has no `local` document store type (only aws/gcp/azure/inmemory), so a
+  # `global.documentStore.type.local` block is silently ignored and Camunda falls back to the
+  # in-memory store (documents then live in the Orchestration JVM's RAM and are lost on restart).
+  # The local store is therefore configured with plain env vars on orchestration.env below
+  # (DOCUMENT_STORE_LOCAL_*); the chart still renders DOCUMENT_DEFAULT_STORE_ID from activeStoreId.
   documentStore:
     activeStoreId: "local"
     type:
       inmemory:
         enabled: false
-      local:
-        enabled: true
-        storeId: "LOCAL"
-        class: "io.camunda.document.store.local.LocalDocumentStoreProvider"
-        basePath: "/camunda-docs"
 
   identity:
     # GENERIC = talk to any standards-compliant OIDC provider instead of the bundled Keycloak.
@@ -473,6 +473,14 @@ orchestration:
   env:
     - name: SPRINGDOC_SWAGGERUI_ENABLED
       value: "${SWAGGER_ENABLED}"
+    # Local-disk document store, backed by the camunda-docs PVC mounted at /camunda-docs
+    # (~/camunda-docs on the host). Class name taken from document-store-8.10.x.jar
+    # (io.camunda.document.store.localstorage), not the guessable "...store.local..." one.
+    # Connectors/Hub/Optimize reach documents through Orchestration's API, so only it needs these.
+    - name: DOCUMENT_STORE_LOCAL_CLASS
+      value: "io.camunda.document.store.localstorage.LocalStorageDocumentStoreProvider"
+    - name: DOCUMENT_STORE_LOCAL_PATH
+      value: "/camunda-docs"
     # 8.10-only: a new gateway-side "cluster-admin" API (io.camunda.authentication.clusteradmin -
     # confirmed by extracting camunda-authentication-8.10.0-alpha4.jar, no equivalent package
     # exists in the 8.9 chart line) gates /cluster/v2/** (including /cluster/v2/status, a richer
