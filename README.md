@@ -1,12 +1,12 @@
 # Run Camunda on a single Ubuntu node, running within 30 minutes.
 
-This repository contains the scripts for a self contained of Camunda, on a single Ubuntu box. This includes Kubernetes, databases and the complete Camunda platform.
+This repository contains the scripts for a self contained installation of Camunda on a single Ubuntu box. This includes Kubernetes, databases and the complete Camunda platform.
 
-The is made for **experimenting, learning and demos**.
+This is made for **experimenting, learning and demos**.
 
 **Not for production.** One box lacks the scale, high availability and license that real Camunda
-environments need. The script also install a simplified Identity Provider, as alternative to Keycloak. 
-The shipped Identity Provider lacks the hardening and security that solutions as Keycloak and Microsoft Entra Id offer, 
+environments need. The script also installs a simplified Identity Provider, as alternative to Keycloak.
+The shipped Identity Provider lacks the hardening and security that solutions such as Keycloak and Microsoft Entra Id offer,
 which are used in Camunda production environments.
 
 Looking for something lighter? [Camunda 8 Run](https://docs.camunda.io/docs/self-managed/quickstart/developer-quickstart/c8run/)
@@ -21,28 +21,29 @@ is a simple local alternative, which runs on Mac and Windows, but lacks Hub and 
 
 ## Install
 
+1. Install Kubernetes and other dependencies
+
 ```bash
 ./1-install-microk8s.sh
 sudo reboot
+```
 
+2. Install Camunda
+
+```bash
 ./2-install-camunda-microk8s.sh
 ```
 
-The first script also installs the [c8ctl](https://github.com/camunda/c8ctl) CLI and the
-[Camunda AI skills](https://github.com/camunda/skills), so AI coding tools such as Claude Code can
-build and operate Camunda processes on this box.
+A fresh install takes 20–30 minutes: time for a coffee.
 
-It also installs Java, Maven and Docker. Camunda doesn't need them, but they come in handy when
-building demo portals.
+3. Install connector templates
 
-The second script asks for your version, domain and password, then installs everything.
-A fresh install takes 20–30 minutes: time for a coffee. Run it again at any time to upgrade: your
-data is kept, as long as you use the same password during installation. Once it's installed,
-restarting the whole virtual machine takes only about 5 minutes.
+Log in at `https://<your-domain>` (see [Open it](#open-it)),
+open **Catalog** in the top menu and click **Publish all standard connector templates**. This will install all connector templates to the Catalog in Camunda Hub.
 
 ## Open it
 
-Camunda is accesses to the browser. There are 2 different approaches to access Camunda:
+Camunda is accessed through the browser. There are 2 different approaches to access Camunda:
 
 - **Easiest:** install Camunda on Xubuntu, which ships with a desktop and a browser. Open the
   browser in Xubuntu and go to the URLs below. The browser will warn about the
@@ -59,18 +60,18 @@ Camunda is accesses to the browser. There are 2 different approaches to access C
 | Optimize | `https://<your-domain>/optimize` |
 | Login, user and secrets management | `https://<your-domain>` |
 
-Log in with the email and password you chose during install. 
+Log in with the email and password you chose during install.
 
 ## Secrets
 
 Add connector secrets at `https://<your-domain>/keycunda/secrets` and click **Apply to cluster**.
 Reference them as `=camunda.secrets.NAME` in input mappings.
 
-## Catalog (8.10 and later)
+## Catalog
 
-Open `https://<your-domain>/keycunda/catalog` and click **Publish all standard connector templates**
-to make them available in the Catalog of Camunda Hub. **Advanced** lets you pick individual
-connector templates. Click again after a new connectors release to update them.
+Open **Catalog** in the top menu and click **Publish all standard connector templates** to make
+them available in Camunda Hub. Click again after a new release of the connector templates to
+update them.
 
 ## Custom connectors
 
@@ -86,5 +87,14 @@ Drop connector JARs into `~/camunda-connectors/connectors`, then restart the con
 
 ## Good to know
 
-- Run extra Docker containers with `network_mode: host`. Bridge networks do work, but will MicroK8s
+- The first script also installs the [c8ctl](https://github.com/camunda/c8ctl) CLI and the
+  [Camunda AI skills](https://github.com/camunda/skills), so AI coding tools such as Claude Code can
+  build and operate Camunda processes on this box.
+- It also installs Java, Maven and Docker. Camunda doesn't need them, but they come in handy when
+  building demo portals.
+- The second script asks for your version, domain and password, then installs everything.
+  Run it again at any time to upgrade: your data is kept, as long as you use the same password
+  during installation. Once it's installed, restarting the whole virtual machine takes only about
+  5 minutes.
+- Run extra Docker containers with `network_mode: host`. Bridge networks do work, but will cause MicroK8s
   to restart and briefly take down every pod when deploying changes.
