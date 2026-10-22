@@ -60,7 +60,7 @@ hosts file.
   self-signed certificate; you can safely ignore the warning and continue.
 - **From anywhere:** put a reverse proxy in front of the box (see the `true` answer above), so
   Camunda is reachable from any browser. The proxy handles the certificate automatically, so
-  there are no warnings. Examples are [Selfie Proxie](https://github.com/jeltechnologies/selfieproxy) and
+  there are no warnings. Examples are [Selfie Proxie](https://www.selfieproxy.net/) and
   [Cloudflare](https://www.cloudflare.com).
 
 ## Secrets
