@@ -1,4 +1,4 @@
-# Run Camunda on a single Ubuntu node, running within 30 minutes.
+# Install Camunda on Ubuntu - in 30 minutes
 
 This repository contains the scripts for a self contained installation of Camunda on a single Ubuntu box. This includes Kubernetes, databases and the complete Camunda platform.
 
