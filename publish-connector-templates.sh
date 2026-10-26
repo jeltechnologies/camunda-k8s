@@ -8,9 +8,19 @@ set -euo pipefail
 LOCAL_PORT=18080
 BASE="http://localhost:${LOCAL_PORT}/auth/admin/catalog"
 
-microk8s kubectl port-forward -n camunda svc/keycunda "${LOCAL_PORT}:80" >/dev/null 2>&1 &
-PF_PID=$!
-trap 'kill "${PF_PID}" 2>/dev/null || true' EXIT
+microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=300s >/dev/null 2>&1 || true
+
+# A port-forward is bound to one pod and exits when it goes away (e.g. a rollout), so (re)start it on demand.
+PF_PID=""
+trap '[[ -n "${PF_PID}" ]] && kill "${PF_PID}" 2>/dev/null || true' EXIT
+ensure_forward() {
+  if [[ -n "${PF_PID}" ]] && kill -0 "${PF_PID}" 2>/dev/null; then
+    return 0
+  fi
+  microk8s kubectl port-forward -n camunda deployment/keycunda "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
+  PF_PID=$!
+  sleep 2
+}
 
 # Credentials go through stdin (curl -K -), never onto a command line.
 api() {
@@ -28,6 +38,7 @@ hint() {
 
 PLAN=""
 for attempt in $(seq 1 30); do
+  ensure_forward
   PLAN="$(api POST /plan '{"mode":"all"}' 2>&1 || true)"
   [[ "${PLAN}" == *'"needsConfirmation"'* ]] && break
   echo "  waiting for the Catalog API (attempt ${attempt}/30): ${PLAN:0:160}"
@@ -36,8 +47,10 @@ done
 [[ "${PLAN}" == *'"needsConfirmation"'* ]] || hint "Keycunda's Catalog API did not give a plan (last answer: ${PLAN:-none})."
 [[ "${PLAN}" == *'"needsConfirmation":false'* ]] || hint "Publishing would replace or remove existing Catalog assets, so it was skipped."
 
+ensure_forward
 api POST /publish '{"mode":"all"}' >/dev/null || hint "Could not start publishing."
 for _ in $(seq 1 120); do
+  ensure_forward
   STATUS="$(api GET /publish-status.json 2>/dev/null || true)"
   case "${STATUS}" in
     *'"SUCCESS"'*) echo "${STATUS}"; exit 0 ;;
