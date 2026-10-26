@@ -258,7 +258,7 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
 9. `helm uninstall camunda || true`, delete the connectors PV/PVC, regenerate values, recreate
    host dirs + PVs, `helm install camunda camunda/camunda-platform --wait --timeout 20m`
 10. `./seed-identity-mapping-rules.sh`
-11. 8.10 line only: `./publish-connector-templates.sh` publishes the standard connector templates to Hub's Catalog by calling Keycunda's `/auth/admin/catalog/{plan,publish}` via a `kubectl port-forward`, authenticating with HTTP Basic as the first user (`DEMO_EMAIL` + in-memory `$PASSWORD`, passed to curl on stdin). Keycunda's `SecurityConfig` enables `httpBasic` and ignores CSRF only for requests with a `Basic` Authorization header. It skips (with a hint) when the plan needs confirmation, and never fails the install.
+11. 8.10 line only: `./publish-connector-templates.sh` publishes the standard connector templates to Hub's Catalog by calling Keycunda's `/auth/admin/catalog/{plan,publish}` from inside the pod (`kubectl exec` + the image's BusyBox `wget` against `localhost:8080`, no port-forward, nothing exposed on the host), authenticating with HTTP Basic as the first user (`DEMO_EMAIL` + in-memory `$PASSWORD`, passed to curl on stdin). Keycunda's `SecurityConfig` enables `httpBasic` and ignores CSRF only for requests with a `Basic` Authorization header. It skips (with a hint) when the plan needs confirmation, and never fails the install.
 
 Connector secrets are no longer applied by the install script at all — that's now entirely a
 post-install, admin-triggered action via Keycunda's Secrets Management page (see the "Secrets
