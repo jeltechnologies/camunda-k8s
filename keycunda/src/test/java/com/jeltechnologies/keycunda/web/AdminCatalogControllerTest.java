@@ -67,38 +67,6 @@ class AdminCatalogControllerTest {
     }
 
     @Test
-    void pageListsTheTemplatesWithTheirCatalogState() throws Exception {
-        when(publisher.publishedVersions()).thenReturn(Map.of("io.camunda.rest", 2));
-
-        mockMvc.perform(get("/admin/catalog"))
-                .andExpect(status().isOk())
-                .andExpect(view().name("admin/catalog"))
-                .andExpect(content().string(containsString("REST Outbound Connector")))
-                .andExpect(content().string(containsString("Version 2")))
-                .andExpect(content().string(containsString("Publish all standard connector templates")))
-                .andExpect(content().string(containsString("Publish selected connector templates")));
-    }
-
-    @Test
-    void pageStillRendersWhenHubIsNotReachable() throws Exception {
-        when(publisher.publishedVersions()).thenThrow(new IOException("connection refused"));
-
-        mockMvc.perform(get("/admin/catalog"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Camunda Hub is not available yet: connection refused")));
-    }
-
-    @Test
-    void pageShowsTheGitHubError() throws Exception {
-        when(source.snapshot()).thenThrow(new IOException("no internet"));
-        when(publisher.publishedVersions()).thenReturn(Map.of());
-
-        mockMvc.perform(get("/admin/catalog"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("no internet")));
-    }
-
-    @Test
     void planInAllModeCoversEveryTemplateAndReportsWhatChanges() throws Exception {
         CatalogAsset stale = new CatalogAsset("k", "io.camunda.old", "Old template", 1, false);
         when(publisher.plan(any())).thenReturn(new CatalogPublisher.Plan(

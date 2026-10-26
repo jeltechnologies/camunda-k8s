@@ -698,12 +698,14 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   background thread has no HTTP session bound to it, so touching a `@SessionScope` bean from there
   threw `IllegalStateException: Scope 'session' is not active for the current thread`) - that whole
   concern disappeared along with the working copy itself, since there's nothing left to resync.
-- **Catalog page (`/keycunda/catalog`, 8.10 line only): publishes the standard connector templates to
-  Camunda Hub's Catalog, ported from Caddy (`~/projects/camunda-tools/caddy`, `CatalogPublishService`/
-  `CatalogService`/`HubApiClient`).** Code is in `keycunda/.../catalog/` plus `web/AdminCatalogController`
-  and `admin/catalog.html`; the nav link and Ingress alias (`keycunda-catalog-alias-ingress`) follow the
-  Secrets pattern. UI terminology is "connector templates", never "connectors".
-  - **Source**: latest `camunda/connectors` GitHub release ZIP, fetched at page load/click time and
+- **Catalog publishing (8.10 line only): publishes the standard connector templates to Camunda Hub's
+  Catalog, ported from Caddy (`~/projects/camunda-tools/caddy`, `CatalogPublishService`/`CatalogService`/
+  `HubApiClient`).** Code is in `keycunda/.../catalog/` plus `web/AdminCatalogController`, a JSON API only:
+  there is **no Catalog page, nav link or Ingress alias** (they were removed once the installer started
+  publishing automatically - install flow step 11). The `/admin/catalog/{plan,publish,publish-status.json}`
+  endpoints stay, because `publish-connector-templates.sh` calls them. Wording is "connector templates",
+  never "connectors".
+  - **Source**: latest `camunda/connectors` GitHub release ZIP, fetched when a publish is planned/run and
     cached **in memory only** for 10 minutes (`ConnectorTemplateSource`; GitHub allows 60 unauthenticated
     calls/hour). Kept: valid element templates (object with `id`, int `version`, `appliesTo`,
     `properties`), not `[Deprecated]`, **not hybrid** (file name/id/name contains "hybrid"), `engines.camunda`
@@ -713,8 +715,8 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
     and `DELETE .../{assetKey}`; default base URL `http://camunda-web-modeler-restapi/hub` (in-cluster
     HTTP, no TLS/CA issue; env `HUB_BASE_URL`). Ingestion is **full-state**: anything published but absent from
     the request is unpublished, so `CatalogPublisher.computePlan` re-sends everything already published that
-    it still has content for and asks for confirmation (browser modal, via `POST /admin/catalog/plan`
-    first) before deleting deselected assets or unpublishing assets it has no content for.
+    it still has content for and reports via `POST /admin/catalog/plan` whether the publish would delete deselected assets or unpublish
+    assets it has no content for (`needsConfirmation`); the install script then skips instead of publishing.
   - **Auth**: Keycunda calls Hub as itself, not as the logged-in admin. `HubTokenProvider` creates an
     internal client `keycunda-catalog` (audience `web-modeler-public-api`, random secret, row in
     `oauth_clients`, hidden from `/admin/clients` and reserved in `AdminClientController`), calls
@@ -723,10 +725,9 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
     loopback token endpoint (`http://localhost:8080/auth/oauth2/token`; `iss` stays the public issuer).
     Spring 7's `RestClient` uses Jackson 3, so responses are read as `String` and parsed with the
     Jackson 2 `ObjectMapper` (a `JsonNode` body type fails at runtime).
-  - **UI**: Basic/Advanced toggle (remembered in `localStorage`). Basic = one "Publish all standard connector
-    templates" button; Advanced adds the filterable table with selection ("Publish selected ...").
-    Publishing runs on a single-thread executor with `CatalogJobStatus` polled through
-    `/admin/catalog/publish-status.json`, same pattern as Secrets.
+  - **Request modes**: `mode: all` publishes everything (what the install script sends); `mode: selection` with
+    `selectedIds` is kept from the old Advanced UI. Publishing runs on a single-thread executor with
+    `CatalogJobStatus` polled through `/admin/catalog/publish-status.json`.
   - **Not verified on a live cluster yet**: the internal Hub context path/base URL, that Hub accepts the
     keycunda-issued token over the in-cluster HTTP URL, and where the Hub UI shows the Catalog entries.
     Covered by unit tests only (`catalog/*Test`, `AdminCatalogControllerTest`, Hub stubbed with a JDK `HttpServer`).

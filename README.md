@@ -64,9 +64,8 @@ Reference them as `=camunda.secrets.NAME` in input mappings.
 
 ## Catalog
 
-The installer publishes the standard connector templates to the Catalog in Camunda Hub. To publish
-them again, open **Catalog** in the top menu and click **Publish all standard connector templates**. Click again after a new release of the connector templates to
-update them.
+The installer publishes the standard connector templates to the Catalog in Camunda Hub. Re-running
+the installer publishes them again, which picks up a new release of the connector templates.
 
 ## Custom connectors
 

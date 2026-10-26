@@ -99,17 +99,6 @@ public class CatalogPublisher {
         return new Result(plan.toSend().size(), replaced, deleted);
     }
 
-    /** The published (not unpublished) template ids with their latest version. */
-    public Map<String, Integer> publishedVersions() throws IOException {
-        Map<String, Integer> result = new LinkedHashMap<>();
-        for (CatalogAsset asset : hub.listAssets()) {
-            if (!asset.unpublished()) {
-                result.put(asset.resourceId(), asset.latestVersion());
-            }
-        }
-        return result;
-    }
-
     static Plan computePlan(List<CatalogAsset> assets, Map<String, ConnectorTemplate> local, Set<String> selectedIds,
             Set<String> displayedIds) {
         Map<String, CatalogAsset> byId = new LinkedHashMap<>();

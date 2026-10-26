@@ -23,7 +23,7 @@ api() {
 
 hint() {
   echo "WARNING: $1"
-  echo "         Publish them manually: open Catalog at https://${CAMUNDA_DOMAIN:-<your-domain>}/keycunda/catalog"
+  echo "         Re-run ./publish-connector-templates.sh (needs DEMO_EMAIL and PASSWORD) once Camunda Hub is up."
   exit 0
 }
 

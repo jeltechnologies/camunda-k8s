@@ -11,31 +11,27 @@ import java.util.concurrent.Executors;
 
 import com.jeltechnologies.keycunda.catalog.CatalogJobStatus;
 import com.jeltechnologies.keycunda.catalog.CatalogPublisher;
-import com.jeltechnologies.keycunda.catalog.ConnectorTemplate;
 import com.jeltechnologies.keycunda.catalog.ConnectorTemplateSource;
 
 import jakarta.annotation.PreDestroy;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
- * Admin UI for the Catalog: publishes the standard connector templates (from the latest
- * {@code camunda/connectors} release) to the Catalog of Camunda Hub, which only exists on the 8.10 line.
+ * JSON API for publishing the standard connector templates (from the latest {@code camunda/connectors}
+ * release) to the Catalog of Camunda Hub, which only exists on the 8.10 line. There is no page: the
+ * install script ({@code publish-connector-templates.sh}) calls it with HTTP Basic as the first admin.
  *
- * <p>Like the Secrets page, reads are always live (GitHub through a ten-minute in-memory ZIP cache, and
- * the Catalog straight from Hub) and nothing is stored here. The browser first asks for a
- * {@link #plan} - synchronous, so it can show a confirmation when the publish would remove or replace
- * Catalog assets - and then starts the {@link #publish} job, which runs on a single background thread
- * and is polled through {@link #publishStatusJson()}.
+ * <p>A {@link #plan} (synchronous) says whether the publish would remove or replace Catalog assets, and
+ * {@link #publish} then starts the job, which runs on a single background thread and is polled through
+ * {@link #publishStatusJson()}.
  */
 @Controller
 public class AdminCatalogController {
@@ -44,67 +40,21 @@ public class AdminCatalogController {
     public record PublishRequest(String mode, List<String> selectedIds) {
     }
 
-    /** One row of the connector template table. */
-    public record Row(String id, String name, String description, String documentationRef, int version,
-            Integer publishedVersion) {
-        public boolean published() {
-            return publishedVersion != null;
-        }
-    }
-
     private final ConnectorTemplateSource source;
     private final CatalogPublisher publisher;
     private final CatalogJobStatus jobStatus;
-    private final String camundaLine;
     // Single-threaded: publishes change shared Catalog state, so two clicks must not race each other.
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    public AdminCatalogController(ConnectorTemplateSource source, CatalogPublisher publisher, CatalogJobStatus jobStatus,
-            @Value("${keycunda.camunda-line:8.10}") String camundaLine) {
+    public AdminCatalogController(ConnectorTemplateSource source, CatalogPublisher publisher, CatalogJobStatus jobStatus) {
         this.source = source;
         this.publisher = publisher;
         this.jobStatus = jobStatus;
-        this.camundaLine = camundaLine;
     }
 
     @PreDestroy
     void shutdown() {
         executor.shutdownNow();
-    }
-
-    @GetMapping("/admin/catalog")
-    public String catalog(Model model) {
-        if ("8.9".equals(camundaLine)) {
-            return "redirect:/admin";
-        }
-        List<ConnectorTemplate> templates = List.of();
-        String release = "";
-        String sourceError = null;
-        try {
-            ConnectorTemplateSource.Snapshot snapshot = source.snapshot();
-            templates = snapshot.templates();
-            release = snapshot.release();
-        } catch (IOException e) {
-            sourceError = e.getMessage();
-        }
-        Map<String, Integer> publishedVersions = Map.of();
-        String hubError = null;
-        try {
-            publishedVersions = publisher.publishedVersions();
-        } catch (IOException e) {
-            hubError = e.getMessage();
-        }
-        Map<String, Integer> published = publishedVersions;
-        List<Row> rows = templates.stream()
-                .map(t -> new Row(t.id(), t.name(), t.description(), t.documentationRef(), t.version(),
-                        published.get(t.id())))
-                .toList();
-        model.addAttribute("rows", rows);
-        model.addAttribute("release", release);
-        model.addAttribute("publishedCount", rows.stream().filter(Row::published).count());
-        model.addAttribute("sourceError", sourceError);
-        model.addAttribute("hubError", hubError);
-        return "admin/catalog";
     }
 
     /** What publishing would do; the browser asks for a confirmation when anything is removed or replaced. */
