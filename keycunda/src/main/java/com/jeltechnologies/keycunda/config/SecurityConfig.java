@@ -7,11 +7,14 @@ import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import com.jeltechnologies.keycunda.web.RememberEmailAuthenticationSuccessHandler;
 
@@ -44,6 +47,28 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * HTTP Basic (email + password), for the Catalog endpoints only and only for requests that actually carry
+     * a Basic Authorization header: the install script publishes the connector templates this way, as the
+     * first admin. Browser requests to the same paths (session + CSRF) don't match and fall through to
+     * {@link #defaultSecurityFilterChain}. Such requests have no session, so CSRF doesn't apply to them.
+     */
+    @Bean
+    @Order(2)
+    public SecurityFilterChain catalogBasicAuthSecurityFilterChain(HttpSecurity http) throws Exception {
+        RequestMatcher catalogPaths = PathPatternRequestMatcher.withDefaults().matcher("/admin/catalog/**");
+        http.securityMatcher(request -> {
+            String authorization = request.getHeader("Authorization");
+            return authorization != null && authorization.regionMatches(true, 0, "Basic ", 0, 6)
+                    && catalogPaths.matches(request);
+        });
+        http.authorizeHttpRequests(authorize -> authorize.anyRequest().hasRole("ADMIN"));
+        http.httpBasic(Customizer.withDefaults());
+        http.csrf(csrf -> csrf.disable());
+        http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        return http.build();
+    }
+
     /** The login screen, the portal landing page (any logged-in user), and the admin-only
      * management screens (Users, Clients, Secrets, Catalog - ROLE_ADMIN only, see AppUserDetailsService for
      * where that role comes from). Order matters here: the specific admin-only patterns must be
@@ -51,7 +76,7 @@ public class SecurityConfig {
      * semantics - a ROLE_USER hitting /admin/users would otherwise fall through to the permissive
      * rule below it. */
     @Bean
-    @Order(2)
+    @Order(3)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/login", "/error", "/favicon.ico", "/css/**", "/images/**").permitAll()
@@ -61,13 +86,6 @@ public class SecurityConfig {
                 .anyRequest().authenticated());
         // Users authenticate with email + password, not a separate username - see
         // AppUserDetailsService for why the "username" parameter is bound to email.
-        // HTTP Basic (email + password) lets the install script publish the connector templates as the
-        // first admin; such requests carry no browser session, so CSRF does not apply to them.
-        http.httpBasic(Customizer.withDefaults());
-        http.csrf(csrf -> csrf.ignoringRequestMatchers(request -> {
-            String authorization = request.getHeader("Authorization");
-            return authorization != null && authorization.regionMatches(true, 0, "Basic ", 0, 6);
-        }));
         http.formLogin(form -> form.loginPage("/login").usernameParameter("email")
                 .successHandler(rememberEmailAuthenticationSuccessHandler).permitAll());
         return http.build();
