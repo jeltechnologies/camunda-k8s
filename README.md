@@ -36,11 +36,6 @@ sudo reboot
 
 A fresh install takes 20–30 minutes: time for a coffee.
 
-3. Install connector templates
-
-Log in at `https://<your-domain>` (see [Open it](#open-it)),
-open **Catalog** in the top menu and click **Publish all standard connector templates**. This will install all connector templates to the Catalog in Camunda Hub.
-
 ## Open it
 
 Camunda is accessed through the browser. There are 2 different approaches to access Camunda:
@@ -69,8 +64,8 @@ Reference them as `=camunda.secrets.NAME` in input mappings.
 
 ## Catalog
 
-Open **Catalog** in the top menu and click **Publish all standard connector templates** to make
-them available in Camunda Hub. Click again after a new release of the connector templates to
+The installer publishes the standard connector templates to the Catalog in Camunda Hub. To publish
+them again, open **Catalog** in the top menu and click **Publish all standard connector templates**. Click again after a new release of the connector templates to
 update them.
 
 ## Custom connectors

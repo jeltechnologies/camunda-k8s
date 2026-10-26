@@ -61,6 +61,13 @@ public class SecurityConfig {
                 .anyRequest().authenticated());
         // Users authenticate with email + password, not a separate username - see
         // AppUserDetailsService for why the "username" parameter is bound to email.
+        // HTTP Basic (email + password) lets the install script publish the connector templates as the
+        // first admin; such requests carry no browser session, so CSRF does not apply to them.
+        http.httpBasic(Customizer.withDefaults());
+        http.csrf(csrf -> csrf.ignoringRequestMatchers(request -> {
+            String authorization = request.getHeader("Authorization");
+            return authorization != null && authorization.regionMatches(true, 0, "Basic ", 0, 6);
+        }));
         http.formLogin(form -> form.loginPage("/login").usernameParameter("email")
                 .successHandler(rememberEmailAuthenticationSuccessHandler).permitAll());
         return http.build();

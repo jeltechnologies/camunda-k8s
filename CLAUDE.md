@@ -36,6 +36,7 @@ not present it as a production-hardened component.
 | `.github/workflows/build-keycunda.yml` | Builds/pushes its image to GHCR on push to `main` or a `keycunda-v*`/`v*` tag. |
 | `seed-identity-mapping-rules.sh` | Idempotently grants every demo user (via Identity's "AllUsers" mapping rule) baseline Web Modeler/Console/Optimize/Orchestration access — see "Identity's own authorization store needs its own bootstrap, twice over" in Architecture facts below. |
 | `grant-webmodeler-public-api-access.sh <client-id>` | Idempotently grants one admin-managed M2M client (created via keycunda's `/admin/clients`, not a fixed Camunda-component client) full CRUD access to Web Modeler's public API, via the same claim-matching mapping-rule mechanism as `seed-identity-mapping-rules.sh` — see the same "Identity's own authorization store..." note. |
+| `publish-connector-templates.sh` | Install step (8.10 only): publishes the standard connector templates to Hub's Catalog as the first user. See Install flow step 11. |
 | `tail-connector-logs.sh` | Convenience log tail for the connectors pod. |
 
 ## The templating model — most important thing to know
@@ -257,6 +258,7 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
 9. `helm uninstall camunda || true`, delete the connectors PV/PVC, regenerate values, recreate
    host dirs + PVs, `helm install camunda camunda/camunda-platform --wait --timeout 20m`
 10. `./seed-identity-mapping-rules.sh`
+11. 8.10 line only: `./publish-connector-templates.sh` publishes the standard connector templates to Hub's Catalog by calling Keycunda's `/auth/admin/catalog/{plan,publish}` via a `kubectl port-forward`, authenticating with HTTP Basic as the first user (`DEMO_EMAIL` + in-memory `$PASSWORD`, passed to curl on stdin). Keycunda's `SecurityConfig` enables `httpBasic` and ignores CSRF only for requests with a `Basic` Authorization header. It skips (with a hint) when the plan needs confirmation, and never fails the install.
 
 Connector secrets are no longer applied by the install script at all — that's now entirely a
 post-install, admin-triggered action via Keycunda's Secrets Management page (see the "Secrets

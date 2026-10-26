@@ -69,24 +69,26 @@ MATRIX_HTML=$(curl -sSL --max-time 10 --fail "${VERSION_MATRIX_URL}" 2>/dev/null
 
 if [[ -n "${MATRIX_HTML}" ]]; then
   # The page lists minors newest-first, each as an <h2> followed by a <table>/<tbody> of
-  # chart releases (newest release first within that table). Only the "Standard support until"
-  # minors are considered. Whether a release is alpha is decided by its chart version suffix
+  # chart releases (newest release first within that table). Stable/legacy come only from
+  # "Standard support until" minors; the alpha may also come from a minor headed "Alpha" (a new
+  # minor that has no support date yet). Whether a release is alpha is decided by its chart version suffix
   # (-alpha/-beta/-rc), not by the <h2> text: a minor's heading no longer says "Alpha" once it
   # has a support date, even while its newest release is still a pre-release. The first
   # pre-release row seen is the latest alpha; the first plain row is the latest stable.
   MATRIX_VARS=$(printf '%s\n' "${MATRIX_HTML}" | awk -v legacy_minor="${LEGACY_CAMUNDA_MINOR}" '
     function strip(s) { gsub(/<[^>]*>/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-    BEGIN { supported=0; in_tbody=0; in_tr=0; alpha_done=0; stable_done=0; legacy_done=0; is_legacy=0 }
+    BEGIN { supported=0; candidate=0; in_tbody=0; in_tr=0; alpha_done=0; stable_done=0; legacy_done=0; is_legacy=0 }
     {
       line=$0
       if (line ~ /<h2 /) {
         heading = strip(line)
         supported = (heading ~ /Standard support until/) ? 1 : 0
+        candidate = (supported || heading ~ /Alpha/) ? 1 : 0
         is_legacy = (index(heading, "Camunda " legacy_minor " ") == 1) ? 1 : 0
         in_tbody=0; in_tr=0
         next
       }
-      if (!supported) next
+      if (!candidate) next
       if (line ~ /<tbody>/) { in_tbody=1; next }
       if (line ~ /<\/tbody>/) { in_tbody=0; next }
       if (in_tbody && line ~ /<tr>/) { in_tr=1; tdcount=0; td1=""; td2=""; next }
@@ -99,7 +101,7 @@ if [[ -n "${MATRIX_HTML}" ]]; then
       if (in_tr && line ~ /<\/tr>/) {
         if (td1 ~ /-(alpha|beta|rc)/) {
           if (!alpha_done) { alpha_chart=td1; alpha_camunda=td2; alpha_done=1 }
-        } else {
+        } else if (supported) {
           if (!stable_done) { stable_chart=td1; stable_camunda=td2; stable_done=1 }
           if (is_legacy && !legacy_done) { legacy_chart=td1; legacy_camunda=td2; legacy_done=1 }
         }
@@ -139,8 +141,12 @@ case "${DEFAULT_VERSION_CHANNEL}" in
 esac
 
 echo "Select the version of Camunda you would like to install"
-if [[ -n "${MTX_ALPHA_CHART}" && -n "${MTX_ALPHA_CAMUNDA}" && -n "${MTX_STABLE_CHART}" && -n "${MTX_STABLE_CAMUNDA}" ]]; then
-  echo "  1) Latest alpha  : Camunda ${MTX_ALPHA_CAMUNDA}  (Helm chart ${MTX_ALPHA_CHART})"
+if [[ -n "${MTX_STABLE_CHART}" && -n "${MTX_STABLE_CAMUNDA}" ]]; then
+  if [[ -n "${MTX_ALPHA_CHART}" && -n "${MTX_ALPHA_CAMUNDA}" ]]; then
+    echo "  1) Latest alpha  : Camunda ${MTX_ALPHA_CAMUNDA}  (Helm chart ${MTX_ALPHA_CHART})"
+  else
+    echo "  1) Latest alpha  : not available - no pre-release found on ${VERSION_MATRIX_URL}"
+  fi
   echo "  2) Latest stable : Camunda ${MTX_STABLE_CAMUNDA}  (Helm chart ${MTX_STABLE_CHART})"
   if [[ -n "${MTX_LEGACY_CHART}" && -n "${MTX_LEGACY_CAMUNDA}" ]]; then
     echo "  3) Legacy        : Camunda ${MTX_LEGACY_CAMUNDA}  (Helm chart ${MTX_LEGACY_CHART}) - latest ${LEGACY_CAMUNDA_MINOR}, Console + Web Modeler instead of Camunda Hub"
@@ -158,6 +164,11 @@ fi
 
 if [[ "${version_choice}" == "3" && ( -z "${MTX_LEGACY_CHART}" || -z "${MTX_LEGACY_CAMUNDA}" ) ]]; then
   echo "No ${LEGACY_CAMUNDA_MINOR} release found - enter versions manually below."
+  version_choice=4
+fi
+
+if [[ "${version_choice}" == "1" && ( -z "${MTX_ALPHA_CHART}" || -z "${MTX_ALPHA_CAMUNDA}" ) ]]; then
+  echo "No alpha release found - enter versions manually below."
   version_choice=4
 fi
 

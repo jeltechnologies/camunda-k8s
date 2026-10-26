@@ -384,6 +384,13 @@ echo Seeding Identity mapping rule for baseline demo user access
 echo "=================================================================="
 ./seed-identity-mapping-rules.sh
 
+if [[ "${CAMUNDA_LINE}" == "8.10" ]]; then
+  echo "=================================================================="
+  echo "Publishing the standard connector templates to the Hub Catalog"
+  echo "=================================================================="
+  ./publish-connector-templates.sh
+fi
+
 echo ""
 echo "=================================================================="
 echo "Camunda started successfully!"
