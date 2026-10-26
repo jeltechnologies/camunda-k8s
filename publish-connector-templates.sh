@@ -12,12 +12,18 @@ microk8s kubectl rollout status deployment/keycunda -n camunda --timeout=300s >/
 
 # A port-forward is bound to one pod and exits when it goes away (e.g. a rollout), so (re)start it on demand.
 PF_PID=""
-trap '[[ -n "${PF_PID}" ]] && kill "${PF_PID}" 2>/dev/null || true' EXIT
+# microk8s kubectl is a chain of wrapper scripts, so kill the whole process group, not just the first PID.
+stop_forward() {
+  [[ -n "${PF_PID}" ]] && kill -- "-${PF_PID}" 2>/dev/null || true
+  PF_PID=""
+}
+trap stop_forward EXIT
 ensure_forward() {
   if [[ -n "${PF_PID}" ]] && kill -0 "${PF_PID}" 2>/dev/null; then
     return 0
   fi
-  microk8s kubectl port-forward -n camunda deployment/keycunda "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
+  stop_forward
+  setsid microk8s kubectl port-forward -n camunda deployment/keycunda "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
   PF_PID=$!
   sleep 2
 }
