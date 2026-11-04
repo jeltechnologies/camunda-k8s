@@ -44,7 +44,7 @@
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/console'">Console</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler/dashboard'">Dashboard</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/identity'">Identity</a>
-                <a href="/keycunda">Keycunda</a>
+                <a href="/keycunda">Identity Provider external to Camunda - for demos</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/modeler'">Modeler</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/orchestration'">Operate / Tasklist</a>
                 <a th:unless="${hub}" th:href="'https://' + ${camundaDomain} + '/optimize'">Optimize</a>
@@ -56,8 +56,8 @@
              /auth/admin/clients and /auth/admin/secrets respectively before the request ever
              reaches the app - see template-keycunda.yaml. -->
         <a class="logo" href="/keycunda">
-            <img th:src="@{/images/c-logo.png}" alt="Keycunda"/>
-            <span class="app-name">Keycunda</span>
+            <img th:src="@{/images/c-logo.png}" alt="Identity Provider external to Camunda - for demos"/>
+            <span class="app-name">Identity Provider external to Camunda - for demos</span>
         </a>
         <nav th:if="${isAdmin}">
             <a href="/keycunda/users" th:classappend="${active == 'users'} ? 'active'">Users</a>
