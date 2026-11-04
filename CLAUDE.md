@@ -581,10 +581,16 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   a BPMN's `{{secrets.NAME}}` reference is written (no prefix). There used to be a `notePrefixAdded()`
   info modal fired every time a key got prefixed; it's gone, since the prefix the user would never
   otherwise see is no longer surfaced at all. A static note under the table still explains the
-  prefix exists, for anyone exporting or debugging the raw Secret. **"View all"** (button in the
-  panel header, `#view-all` / `allShown`) toggles every row's `<details>` value disclosure open at
-  once; `renderTable()` re-applies `allShown` after each mutation so an add/edit/delete doesn't
-  collapse everything.
+  prefix exists, for anyone exporting or debugging the raw Secret. **Row editing**: the Value column shows a
+  `<details>` "View" disclosure plus an "Edit" link (the last column only has "Delete"). Edit turns that row's key
+  *and* value into inputs with Save/Cancel (`editingKey`); Save goes through `renameKey()`, which
+  applies the same validation as Add (key pattern, uppercase, `ensurePrefixed`, uniqueness) and
+  moves the value to the new key. **"View / edit all"** (button in the panel header, `#view-all` /
+  `allShown`) makes every row editable at once: no per-row buttons, value edits go into the
+  working set on each keystroke, a key rename is committed on `change` (blur) and reverts the field
+  with an error banner if invalid or taken. Rows aren't re-sorted during a rename in that mode, so
+  focus isn't lost (`row.dataset.key` tracks the current key). `renderTable()` re-applies
+  `allShown` after each mutation. Nothing reaches the cluster until "Apply to cluster".
 
   **The Export panel's "Camunda Self Managed"/"Camunda Software as a Service (Saas)" target
   selector exists because of this same asymmetry.** Self Managed exports keys as-is
