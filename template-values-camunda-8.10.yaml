@@ -223,6 +223,11 @@ optimize:
       value: "optimize-dev"
     - name: CAMUNDA_OPTIMIZE_ZEEBE_NAME
       value: "dev-zeebe"
+    # 8.10 changed the Self-Managed default of zeebe.includeObjectVariableValue from true to false
+    # (Optimize then neither flattens object variables nor stores their raw value). Kept at true
+    # so object variables stay usable in Optimize reports/filters. 8.9 default is already true.
+    - name: CAMUNDA_OPTIMIZE_ZEEBE_INCLUDE_OBJECT_VARIABLE
+      value: "true"
     - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
       value: "https://${CAMUNDA_DOMAIN}/auth"
   resources:
