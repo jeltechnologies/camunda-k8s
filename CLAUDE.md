@@ -504,11 +504,11 @@ PostgreSQL and Keycunda Deployment and their PVCs/state are `apply`-ed in place,
   treatment), so the address bar does flip to `/auth/...` once you submit a form rather than just
   click a nav link.
   **User-visible name vs. technical name.** "Keycunda" is the technical name only (code, image,
-  paths, k8s objects, this file). Everything a user sees is branded **"Identity Provider external
-  to Camunda - for demos"**: the `<title>` of every template (login + all `admin/*.html`), the
+  paths, k8s objects, this file). Everything a user sees is branded **"Camunda Demo - External
+  Identity Provider"**: the `<title>` of every template (login + all `admin/*.html`), the
   top-bar app name and logo alt text (`admin/fragments/nav.html`, `login.html`), the app-switcher
-  entry, and the landing page disclaimer in `admin/portal.html` ("This is the Identity Provider
-  external to Camunda - for demos ..."; the support paragraph says "This Identity Provider" / "it"
+  entry, and the landing page disclaimer in `admin/portal.html` ("This is the Camunda Demo - External
+  Identity Provider. ..."; the support paragraph says "This demo identity provider" / "it"
   rather than "Keycunda"). Don't reintroduce "Keycunda" or a plain "Camunda" title in UI text. The
   Camunda logo (`c-logo.png`) and `favicon.ico` are gone: the logo and favicon are now the
   Bootstrap Icons "people" icon, `static/images/people.svg` (fill hard-coded to `#161616`, since an
