@@ -161,8 +161,10 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
     `template-keycunda.yaml`) and leaves existing memberships untouched on edit; the `groups` claim is still emitted.
   - **Ticketing simulator login**: the demo ticketing simulator (separate repo, outside the cluster) logs its
     users in with a fixed **public PKCE client `ticketing-simulator`** (`OidcClientsConfig`), registered only when
-    `SIMULATOR_BASE_URL` (wizard question, empty = none) is set; redirect `<url>/login/oauth2/code/keycunda`, post-logout
-    `<url>/`. Its access tokens get audience `orchestration-api`, and it calls Orchestration's REST API with the
+    `SIMULATOR_BASE_URL` (wizard question, empty = none) is set; registered redirect `<url>/login/oauth2/code/keycunda`, post-logout `<url>/`, **but any `https` redirect/post-logout URI on the
+    allowed domain or its subdomains is accepted for this client** (`SimulatorRedirectPolicy`, wired in `SecurityConfig` as custom
+    authorization-code and logout validators; `http` only on localhost). The domain is `keycunda.simulator-allowed-domain` (env
+    `SIMULATOR_ALLOWED_DOMAIN`, not templated; blank = Camunda domain minus its first label). All other clients keep exact matching. Its access tokens get audience `orchestration-api`, and it calls Orchestration's REST API with the
     *user's* token, so a user's groups decide whether they may start the process (no shared client-credentials client).
   - Deprecated orchestration keys that *were* migrated live in `orchestration.extraConfiguration`
     (`demo-overrides.yaml`): `autoconfigure-camunda-exporter: false`, plus the OIDC

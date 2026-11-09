@@ -71,6 +71,9 @@ keycunda:
   # Public base URL of the ticketing simulator (e.g. https://ticket.example.com); blank = no
   # "ticketing-simulator" login client is registered (OidcClientsConfig).
   simulator-base-url: ${SIMULATOR_BASE_URL:}
+  # The simulator client may redirect (login and logout) to any https URL on this domain or its subdomains.
+  # Blank = the Camunda domain without its first label (camunda-26.example.com gives example.com).
+  simulator-allowed-domain: ${SIMULATOR_ALLOWED_DOMAIN:}
   demo-user:
     name: ${DEMO_NAME:Demo User}
     email: ${DEMO_EMAIL:demo@example.com}

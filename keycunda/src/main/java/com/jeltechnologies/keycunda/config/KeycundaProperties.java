@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  */
 @ConfigurationProperties(prefix = "keycunda")
 public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem,
-        String simulatorBaseUrl) {
+        String simulatorBaseUrl, String simulatorAllowedDomain) {
 
     public record DemoUser(String name, String email, String password) {}
 
@@ -28,6 +28,11 @@ public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Client
      */
     public boolean hasSimulator() {
         return simulatorBaseUrl != null && !simulatorBaseUrl.isBlank();
+    }
+
+    /** Redirect policy of the simulator client: https on this domain (see {@link SimulatorRedirectPolicy}). */
+    public SimulatorRedirectPolicy simulatorRedirectPolicy() {
+        return SimulatorRedirectPolicy.of(simulatorAllowedDomain, camundaDomain);
     }
 
     public String publicIssuer() {

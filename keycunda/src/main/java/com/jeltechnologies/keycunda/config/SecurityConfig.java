@@ -9,6 +9,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
+import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcLogoutAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcLogoutAuthenticationToken;
+import org.springframework.security.oauth2.server.authorization.oidc.authentication.OidcLogoutAuthenticationValidator;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -35,16 +40,57 @@ public class SecurityConfig {
      */
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, KeycundaProperties props) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
+        SimulatorRedirectPolicy simulatorPolicy = props.simulatorRedirectPolicy();
         http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher());
-        http.with(authorizationServerConfigurer, authorizationServer -> authorizationServer.oidc(Customizer.withDefaults()));
+        http.with(authorizationServerConfigurer, authorizationServer -> authorizationServer
+                // The ticketing simulator may use any https redirect on the allowed domain (not just its one
+                // registered URL); every other client keeps Spring's exact-match check.
+                .authorizationEndpoint(endpoint -> endpoint.authenticationProviders(providers -> providers.forEach(provider -> {
+                    if (provider instanceof OAuth2AuthorizationCodeRequestAuthenticationProvider codeProvider) {
+                        codeProvider.setAuthenticationValidator(context -> {
+                            boolean simulator = OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID
+                                    .equals(context.getRegisteredClient().getClientId());
+                            if (simulator && simulatorPolicy.allows(requestedRedirectUri(context))) {
+                                OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_SCOPE_VALIDATOR.accept(context);
+                            } else {
+                                OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_REDIRECT_URI_VALIDATOR
+                                        .andThen(OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_SCOPE_VALIDATOR)
+                                        .accept(context);
+                            }
+                        });
+                    }
+                })))
+                .oidc(oidc -> oidc.logoutEndpoint(logout -> logout.authenticationProviders(providers -> providers.forEach(provider -> {
+                    if (provider instanceof OidcLogoutAuthenticationProvider logoutProvider) {
+                        logoutProvider.setAuthenticationValidator(context -> {
+                            boolean simulator = OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID
+                                    .equals(context.getRegisteredClient().getClientId());
+                            OidcLogoutAuthenticationToken token = context.getAuthentication();
+                            if (!(simulator && simulatorPolicy.allows(token.getPostLogoutRedirectUri()))) {
+                                OidcLogoutAuthenticationValidator.DEFAULT_POST_LOGOUT_REDIRECT_URI_VALIDATOR.accept(context);
+                            }
+                        });
+                    }
+                })))));
         http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
         http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults()));
         http.exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                 new LoginUrlAuthenticationEntryPoint("/login"),
                 new MediaTypeRequestMatcher(MediaType.TEXT_HTML)));
         return http.build();
+    }
+
+    /**
+     * The redirect_uri the client asked for. Read from the authentication token, because this validator also runs
+     * in an early filter, before the authorization request exists on the context.
+     */
+    private static String requestedRedirectUri(
+            org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationContext context) {
+        org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationToken token =
+                context.getAuthentication();
+        return token.getRedirectUri();
     }
 
     /**
