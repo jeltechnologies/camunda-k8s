@@ -2,7 +2,13 @@ package com.jeltechnologies.keycunda.web;
 
 import java.util.UUID;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.jeltechnologies.keycunda.user.Groups;
 import com.jeltechnologies.keycunda.user.User;
+import com.jeltechnologies.keycunda.user.UserGroupRepository;
 import com.jeltechnologies.keycunda.user.UserRepository;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,30 +27,44 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class AdminUserController {
 
     private final UserRepository userRepository;
+    private final UserGroupRepository userGroupRepository;
     private final PasswordEncoder passwordEncoder;
+    private final boolean authorizationsEnabled;
 
-    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserController(UserRepository userRepository, UserGroupRepository userGroupRepository,
+            PasswordEncoder passwordEncoder,
+            @org.springframework.beans.factory.annotation.Value("${keycunda.authorizations-enabled:false}") boolean authorizationsEnabled) {
+        this.authorizationsEnabled = authorizationsEnabled;
         this.userRepository = userRepository;
+        this.userGroupRepository = userGroupRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @GetMapping("/admin/users")
     public String list(Model model) {
-        model.addAttribute("users", userRepository.findAll());
+        List<User> users = userRepository.findAll();
+        Map<java.util.UUID, List<String>> groupsByUser = new HashMap<>();
+        users.forEach(user -> groupsByUser.put(user.id(), userGroupRepository.findGroupNames(user.id())));
+        model.addAttribute("users", users);
+        model.addAttribute("groupsByUser", groupsByUser);
         return "admin/users";
     }
 
     @GetMapping("/admin/users/new")
-    public String newUserForm() {
+    public String newUserForm(Model model) {
+        model.addAttribute("knownGroups", Groups.ALL);
         return "admin/add-user";
     }
 
     @PostMapping("/admin/users")
     public String add(@RequestParam String name, @RequestParam String email,
             @RequestParam String password, @RequestParam(defaultValue = "false") boolean admin,
-            RedirectAttributes redirectAttributes) {
+            @RequestParam(required = false) List<String> groups, RedirectAttributes redirectAttributes) {
         try {
-            userRepository.insert(name, email, passwordEncoder.encode(password), admin);
+            User created = userRepository.insert(name, email, passwordEncoder.encode(password), admin);
+            if (authorizationsEnabled) {
+                userGroupRepository.setGroups(created.id(), groups);
+            }
         } catch (DataIntegrityViolationException e) {
             redirectAttributes.addFlashAttribute("error", "A user with email \"" + email + "\" already exists.");
             return "redirect:/admin/users/new";
@@ -58,6 +78,8 @@ public class AdminUserController {
         return userRepository.findById(id)
                 .map(user -> {
                     model.addAttribute("user", user);
+                    model.addAttribute("knownGroups", Groups.ALL);
+                    model.addAttribute("userGroups", userGroupRepository.findGroupNames(user.id()));
                     return "admin/edit-user";
                 })
                 .orElseGet(() -> {
@@ -68,7 +90,8 @@ public class AdminUserController {
 
     @PostMapping("/admin/users/{id}/edit")
     public String edit(@PathVariable UUID id, @RequestParam String name, @RequestParam String email,
-            @RequestParam(required = false) String newPassword, RedirectAttributes redirectAttributes) {
+            @RequestParam(required = false) String newPassword,
+            @RequestParam(required = false) List<String> groups, RedirectAttributes redirectAttributes) {
         User user = userRepository.findById(id).orElse(null);
         if (user == null) {
             redirectAttributes.addFlashAttribute("error", "User not found.");
@@ -81,6 +104,15 @@ public class AdminUserController {
         }
         if (StringUtils.hasText(newPassword)) {
             userRepository.updatePassword(id, passwordEncoder.encode(newPassword));
+        }
+        // The default admin always stays in "admins" (the form shows it checked and disabled).
+        // With authorizations disabled the form has no group checkboxes, so existing memberships stay as is.
+        if (authorizationsEnabled) {
+            List<String> newGroups = new java.util.ArrayList<>(groups == null ? List.of() : groups);
+            if (user.defaultAdmin() && !newGroups.contains(Groups.ADMINS)) {
+                newGroups.add(Groups.ADMINS);
+            }
+            userGroupRepository.setGroups(id, newGroups);
         }
         if (user.defaultAdmin()) {
             userRepository.updateName(id, name);

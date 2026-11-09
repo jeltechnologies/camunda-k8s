@@ -85,6 +85,10 @@ spec:
               value: "${CAMUNDA_DOMAIN}"
             - name: CAMUNDA_LINE
               value: "${CAMUNDA_LINE}"
+            - name: AUTHORIZATIONS_ENABLED
+              value: "${AUTHORIZATIONS_ENABLED}"
+            - name: SIMULATOR_BASE_URL
+              value: "${SIMULATOR_BASE_URL}"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://camunda-postgresql:5432/keycunda"
             - name: SPRING_DATASOURCE_USERNAME

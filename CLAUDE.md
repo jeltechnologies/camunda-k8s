@@ -71,9 +71,9 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PG_VERSION}` (passwords come from `camunda-credentials` via `secretKeyRef`, never templated)
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${DEMO_NAME} ${DEMO_EMAIL}`
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${SIMULATOR_BASE_URL} ${DEMO_NAME} ${DEMO_EMAIL}`
 - volumes: `${HOME}`
-- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}` —
+- camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${AUTHORIZATIONS_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}` —
   shared by whichever of `template-values-camunda-8.9.yaml` / `template-values-camunda-8.10.yaml` gets
   picked (see below), so a new variable needs step 3 done in both files if it's not version-specific.
 
@@ -137,13 +137,33 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
 - **Aligned with chart 15.x defaults**: the 8.10 template sets only values that differ from
   `helm show values camunda/camunda-platform --version 15.0.0`. It uses no unused keys (chart 15.x
   has no `global.identity.auth.orchestration/connectors` client keys - those clients are
-  configured under `orchestration.security`/`connectors.security`) and no deprecated keys, with one
-  intentional exception:
-  - `orchestration.security.authorizations.enabled: false` (Camunda's default is enabled). The
-    chart's suggested migration to `orchestration.extraConfiguration` would leave Hub's generated
-    `default-cluster.authorizations.enabled` at `true`, because the chart copies only the Helm
-    value there. Hub's frontend reads that flag after each deploy to fetch the user's authorized
-    components and show "grant authorizations in Admin" hints, so the mismatch would be visible.
+  configured under `orchestration.security`/`connectors.security`) and no deprecated keys:
+  - **Authorizations are a wizard question** (`AUTHORIZATIONS_ENABLED`, default `false`). In the 8.10
+    template it is set via `orchestration.extraConfiguration` (`camunda.security.authorizations.enabled`),
+    not the deprecated `orchestration.security.authorizations.enabled` Helm key. Cosmetic side
+    effect: the chart copies only the deprecated Helm key into Hub's generated `default-cluster`, so
+    Hub always reports authorizations as enabled and may show "grant authorizations in Admin" hints
+    even when Orchestration has them off. The 8.9 template still uses the Helm key (three spots).
+  - **Groups and role-based access (8.10 template)**: Keycunda has three fixed groups
+    (`user/Groups.java`: `admins`, `developers`, `task-users`), assigned to users as checkboxes on the
+    Users add/edit pages (table `user_groups`, many-to-many; the default admin is always in `admins`) and
+    stamped into every *user* token as a `groups` claim (a plain `ArrayList`, like the audience claim). The
+    8.10 template sets `camunda.security.authentication.oidc.groups-claim: groups` and
+    `camunda.security.initialization.authorizations` (ownerType `GROUP`) in `orchestration.extraConfiguration`
+    (not the deprecated `orchestration.security.authentication.oidc.groupsClaim` /
+    `initialization.authorizations` Helm keys): `admins` = default role `admin`; `developers` = Operate + Tasklist
+    and any process/decision/resource; `task-users` = Tasklist and `agentic-workflow-orchestration` only
+    (`CREATE_PROCESS_INSTANCE` + user-task permissions). Verified on the live cluster: rows appear in the
+    orchestration DB `authorizations` table with owner type GROUP, even though the groups themselves are not
+    in Orchestration's own store. Adding a group = `Groups.java` + the Helm authorizations. Users without any
+    group get nothing once authorizations are enabled. **With authorizations disabled Keycunda hides the group
+    UI** (Groups column and checkboxes; `keycunda.authorizations-enabled`, env `AUTHORIZATIONS_ENABLED` from
+    `template-keycunda.yaml`) and leaves existing memberships untouched on edit; the `groups` claim is still emitted.
+  - **Ticketing simulator login**: the demo ticketing simulator (separate repo, outside the cluster) logs its
+    users in with a fixed **public PKCE client `ticketing-simulator`** (`OidcClientsConfig`), registered only when
+    `SIMULATOR_BASE_URL` (wizard question, empty = none) is set; redirect `<url>/login/oauth2/code/keycunda`, post-logout
+    `<url>/`. Its access tokens get audience `orchestration-api`, and it calls Orchestration's REST API with the
+    *user's* token, so a user's groups decide whether they may start the process (no shared client-credentials client).
   - Deprecated orchestration keys that *were* migrated live in `orchestration.extraConfiguration`
     (`demo-overrides.yaml`): `autoconfigure-camunda-exporter: false`, plus the OIDC
     `redirect-uri` and Operate/Tasklist `redirectRootUrl`. Without them the chart derives all of

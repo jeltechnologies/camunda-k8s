@@ -38,13 +38,14 @@
             <p class="error" th:if="${error}" th:text="${error}"></p>
             <table>
                 <thead>
-                    <tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
+                    <tr><th>Name</th><th>Email</th><th>Role</th><th th:if="${authorizationsEnabled}">Groups</th><th></th></tr>
                 </thead>
                 <tbody>
                     <tr th:each="user : ${users}">
                         <td th:text="${user.name}"></td>
                         <td th:text="${user.email}"></td>
                         <td th:text="${user.admin} ? 'Admin' : 'User'"></td>
+                        <td th:if="${authorizationsEnabled}" th:text="${#strings.listJoin(groupsByUser[user.id], ', ')}"></td>
                         <td><a class="edit-link" th:href="@{/admin/users/{id}/edit(id=${user.id})}">Edit</a></td>
                     </tr>
                 </tbody>

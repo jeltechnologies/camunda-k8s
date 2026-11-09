@@ -15,6 +15,7 @@ import com.jeltechnologies.keycunda.client.Client;
 import com.jeltechnologies.keycunda.client.ClientRepository;
 import com.jeltechnologies.keycunda.config.AuthorizationServerConfig;
 import com.jeltechnologies.keycunda.config.KeycundaProperties;
+import com.jeltechnologies.keycunda.config.OidcClientsConfig;
 import com.jeltechnologies.keycunda.identity.HubApiAccessGrantor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +45,7 @@ public class AdminClientController {
     // client would silently never be reachable. Reject it up front with a clear error instead.
     private static final Set<String> RESERVED_CLIENT_IDS =
             Set.of("camunda-identity", "orchestration", "optimize", "web-modeler", "console", "connectors",
-                    HubTokenProvider.CLIENT_ID);
+                    OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID, HubTokenProvider.CLIENT_ID);
 
     private static final Pattern CLIENT_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]{1,255}");
 

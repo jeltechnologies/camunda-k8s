@@ -240,7 +240,7 @@ webModeler:
         version: "${CAMUNDA_APP_VERSION}"
         authentication: "BEARER_TOKEN"
         authorizations:
-          enabled: false
+          enabled: ${AUTHORIZATIONS_ENABLED}
         url:
           grpc: "grpc://camunda-zeebe-gateway.camunda.svc.cluster.local:26500"
           rest: "http://camunda-zeebe-gateway.camunda.svc.cluster.local:8080/orchestration"
@@ -319,7 +319,7 @@ webModeler:
           clusters:
             - authentication: BEARER_TOKEN
               authorizations:
-                enabled: false
+                enabled: ${AUTHORIZATIONS_ENABLED}
               id: default-cluster
               name: camunda-zeebe
               url:
@@ -424,7 +424,7 @@ orchestration:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-orchestration-client-token"
     authorizations:
-      enabled: false
+      enabled: ${AUTHORIZATIONS_ENABLED}
     # Camunda's own RBAC keys initial-admin assignment off orchestration.security.authentication
     # .usernameClaim (default: preferred_username). Our identity provider puts the user's email
     # there (see AuthorizationServerConfig's token customizer) - "demo"/"demo@demo.com" from the

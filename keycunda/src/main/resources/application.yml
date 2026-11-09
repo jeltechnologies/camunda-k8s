@@ -61,10 +61,16 @@ keycunda:
   camunda-domain: ${CAMUNDA_DOMAIN}
   # "8.9" (legacy: Web Modeler /modeler + Console) or "8.10" (Camunda Hub /hub); only steers links.
   camunda-line: ${CAMUNDA_LINE:8.10}
+  # Whether Camunda enforces authorizations (the install wizard's AUTHORIZATIONS_ENABLED). When false the
+  # group UI (Users page) is hidden, since groups then have no effect.
+  authorizations-enabled: ${AUTHORIZATIONS_ENABLED:false}
   # PEM-encoded PKCS8 RSA private key, shared across replicas and stable across restarts, so
   # already-issued tokens keep validating. If unset (local dev only), a fresh ephemeral key is
   # generated at startup - fine for one instance, wrong for anything with more than one replica.
   jwt-signing-key-pem: ${KEYCUNDA_JWT_SIGNING_KEY_PEM:}
+  # Public base URL of the ticketing simulator (e.g. https://ticket.example.com); blank = no
+  # "ticketing-simulator" login client is registered (OidcClientsConfig).
+  simulator-base-url: ${SIMULATOR_BASE_URL:}
   demo-user:
     name: ${DEMO_NAME:Demo User}
     email: ${DEMO_EMAIL:demo@example.com}

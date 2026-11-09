@@ -20,6 +20,16 @@
             color: #565656;
             margin-top: 0.3rem;
         }
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.6rem;
+        }
+        .checkbox-row label {
+            margin: 0;
+            font-weight: 400;
+        }
         .button-row {
             display: flex;
             gap: 0.6rem;
@@ -60,6 +70,15 @@
                 <label for="newPassword">New password</label>
                 <input type="password" id="newPassword" name="newPassword"
                        placeholder="leave blank to keep current password"/>
+
+                <label th:if="${authorizationsEnabled}">Groups</label>
+                <div class="checkbox-row" th:if="${authorizationsEnabled}" th:each="group : ${knownGroups}">
+                    <input type="checkbox" name="groups" th:id="${'group-' + group}" th:value="${group}"
+                           th:checked="${userGroups.contains(group)}"
+                           th:disabled="${user.defaultAdmin and group == 'admins'}"/>
+                    <label th:for="${'group-' + group}" th:text="${group}"></label>
+                </div>
+                <p class="note" th:if="${authorizationsEnabled}">A user can be in several groups. The default admin always stays in "admins".</p>
 
                 <div class="button-row">
                     <button type="submit">OK</button>

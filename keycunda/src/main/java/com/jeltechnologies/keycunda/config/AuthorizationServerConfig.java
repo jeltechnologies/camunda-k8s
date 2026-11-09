@@ -33,6 +33,7 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
 import com.jeltechnologies.keycunda.client.ClientRepository;
+import com.jeltechnologies.keycunda.user.UserGroupRepository;
 import com.jeltechnologies.keycunda.user.UserRepository;
 
 @Configuration
@@ -40,12 +41,14 @@ public class AuthorizationServerConfig {
 
     private final KeycundaProperties keycundaProperties;
     private final UserRepository userRepository;
+    private final UserGroupRepository userGroupRepository;
     private final ClientRepository clientRepository;
 
     public AuthorizationServerConfig(KeycundaProperties keycundaProperties,
-            UserRepository userRepository, ClientRepository clientRepository) {
+            UserRepository userRepository, UserGroupRepository userGroupRepository, ClientRepository clientRepository) {
         this.keycundaProperties = keycundaProperties;
         this.userRepository = userRepository;
+        this.userGroupRepository = userGroupRepository;
         this.clientRepository = clientRepository;
     }
 
@@ -147,6 +150,11 @@ public class AuthorizationServerConfig {
                     context.getClaims().claim("demo_user", "true");
                     userRepository.findByEmail(principalName)
                             .ifPresent(user -> context.getClaims().claim("name", user.name()));
+                    // Group names (user_groups), read by Orchestration via groups-claim to apply the
+                    // group authorizations from the Helm values. A plain ArrayList on purpose, see
+                    // audiencesFor() on why List.of(...) can't go through the JDBC token store.
+                    context.getClaims().claim("groups",
+                            new java.util.ArrayList<>(userGroupRepository.findGroupNamesByEmail(principalName)));
                 } else {
                     // M2M equivalent of "demo_user" above: an explicit, unambiguous claim so a
                     // single Identity mapping rule can grant every client_credentials client (not
@@ -179,6 +187,9 @@ public class AuthorizationServerConfig {
             case "web-modeler" -> new java.util.ArrayList<>(java.util.List.of(
                     clients.webModeler().clientApiAudience(), clients.webModeler().publicApiAudience()));
             case "console" -> new java.util.ArrayList<>(java.util.List.of(CONSOLE_AUDIENCE));
+            // The simulator calls Orchestration's REST API with its users' tokens.
+            case OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID ->
+                    new java.util.ArrayList<>(java.util.List.of(clients.orchestration().audience()));
             default -> dynamicClientAudiences(clientId);
         };
     }

@@ -25,6 +25,11 @@
             margin: 0;
             font-weight: 400;
         }
+        .note {
+            font-size: 13px;
+            color: #565656;
+            margin-top: 0.3rem;
+        }
         .button-row {
             display: flex;
             gap: 0.6rem;
@@ -64,6 +69,15 @@
                     <input type="checkbox" id="admin" name="admin" value="true"/>
                     <label for="admin">Admin</label>
                 </div>
+
+
+                <label th:if="${authorizationsEnabled}">Groups</label>
+                <div class="checkbox-row" th:if="${authorizationsEnabled}" th:each="group : ${knownGroups}">
+                    <input type="checkbox" name="groups" th:id="${'group-' + group}" th:value="${group}"/>
+                    <label th:for="${'group-' + group}" th:text="${group}"></label>
+                </div>
+                <p class="note" th:if="${authorizationsEnabled}">A user can be in several groups. Groups decide what the user may do in Camunda
+                    (Operate, Tasklist, starting processes).</p>
 
                 <div class="button-row">
                     <button type="submit">OK</button>

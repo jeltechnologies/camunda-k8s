@@ -26,11 +26,20 @@ public class GlobalModelAttributes {
 
     private final KeycundaProperties keycundaProperties;
     private final String camundaLine;
+    private final boolean authorizationsEnabled;
 
     public GlobalModelAttributes(KeycundaProperties keycundaProperties,
-            @org.springframework.beans.factory.annotation.Value("${keycunda.camunda-line:8.10}") String camundaLine) {
+            @org.springframework.beans.factory.annotation.Value("${keycunda.camunda-line:8.10}") String camundaLine,
+            @org.springframework.beans.factory.annotation.Value("${keycunda.authorizations-enabled:false}") boolean authorizationsEnabled) {
         this.keycundaProperties = keycundaProperties;
         this.camundaLine = camundaLine;
+        this.authorizationsEnabled = authorizationsEnabled;
+    }
+
+    /** True when Camunda enforces authorizations; the views only show groups then (they do nothing otherwise). */
+    @ModelAttribute("authorizationsEnabled")
+    public boolean authorizationsEnabled() {
+        return authorizationsEnabled;
     }
 
     /** True on the 8.10 line (Camunda Hub at /hub); false for legacy 8.9 (Web Modeler /modeler + Console). */

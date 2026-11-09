@@ -1,6 +1,8 @@
 package com.jeltechnologies.keycunda.bootstrap;
 
 import com.jeltechnologies.keycunda.config.KeycundaProperties;
+import com.jeltechnologies.keycunda.user.Groups;
+import com.jeltechnologies.keycunda.user.UserGroupRepository;
 import com.jeltechnologies.keycunda.user.UserRepository;
 
 import org.slf4j.Logger;
@@ -22,11 +24,13 @@ public class DemoUserSeeder implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(DemoUserSeeder.class);
 
     private final UserRepository userRepository;
+    private final UserGroupRepository userGroupRepository;
     private final PasswordEncoder passwordEncoder;
     private final KeycundaProperties keycundaProperties;
 
-    public DemoUserSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder, KeycundaProperties keycundaProperties) {
+    public DemoUserSeeder(UserRepository userRepository, UserGroupRepository userGroupRepository, PasswordEncoder passwordEncoder, KeycundaProperties keycundaProperties) {
         this.userRepository = userRepository;
+        this.userGroupRepository = userGroupRepository;
         this.passwordEncoder = passwordEncoder;
         this.keycundaProperties = keycundaProperties;
     }
@@ -37,6 +41,7 @@ public class DemoUserSeeder implements ApplicationRunner {
         if (userRepository.count() == 0) {
             userRepository.insertDefaultAdmin(demoUser.name(), demoUser.email(),
                     passwordEncoder.encode(demoUser.password()));
+            ensureDefaultAdminInAdminsGroup(demoUser.email());
             log.info("Seeded first admin user \"{}\" <{}>", demoUser.name(), demoUser.email());
             return;
         }
@@ -44,5 +49,12 @@ public class DemoUserSeeder implements ApplicationRunner {
         // had its demo user created before is_default_admin existed needs this row flagged too, and
         // insertDefaultAdmin() above only ever runs once.
         userRepository.markAsDefaultAdmin(demoUser.email());
+        ensureDefaultAdminInAdminsGroup(demoUser.email());
+    }
+
+    /** The protected default admin always belongs to the "admins" group (also on databases that predate groups). */
+    private void ensureDefaultAdminInAdminsGroup(String email) {
+        userRepository.findByEmail(email)
+                .ifPresent(user -> userGroupRepository.addGroup(user.id(), Groups.ADMINS));
     }
 }

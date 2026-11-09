@@ -9,6 +9,16 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+-- Group memberships of human users (many-to-many: a user can be in several groups). The set of
+-- group names is fixed in code (user/Groups.java) and mirrored in the Helm values' authorizations
+-- (template-values-camunda-8.10.yaml); only the membership lives here. Stamped into user tokens as
+-- the `groups` claim, which Orchestration reads via camunda.security.authentication.oidc.groups-claim.
+CREATE TABLE IF NOT EXISTS user_groups (
+    user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    group_name VARCHAR(100) NOT NULL,
+    PRIMARY KEY (user_id, group_name)
+);
+
 -- User-managed OAuth2 client-credentials ("M2M") clients - see client/Client.java. Distinct from
 -- the fixed, code-defined Camunda-component clients in config/OidcClientsConfig.java, which stay
 -- in-memory on purpose and are never stored here.

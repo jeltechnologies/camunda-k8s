@@ -8,7 +8,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * secrets/audiences (the client IDs themselves are fixed, see {@link OidcClientsConfig}).
  */
 @ConfigurationProperties(prefix = "keycunda")
-public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem) {
+public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Clients clients, String jwtSigningKeyPem,
+        String simulatorBaseUrl) {
 
     public record DemoUser(String name, String email, String password) {}
 
@@ -19,6 +20,15 @@ public record KeycundaProperties(String camundaDomain, DemoUser demoUser, Client
 
     /** web-modeler is a public (PKCE) client on Keycunda - it has no secret, only audiences. */
     public record WebModelerAudiences(String clientApiAudience, String publicApiAudience) {}
+
+    /**
+     * Public base URL of the ticketing simulator (for example https://ticket.example.com), or blank for
+     * none. When set, the fixed public OIDC client "ticketing-simulator" is registered with this URL as
+     * its redirect/post-logout base.
+     */
+    public boolean hasSimulator() {
+        return simulatorBaseUrl != null && !simulatorBaseUrl.isBlank();
+    }
 
     public String publicIssuer() {
         return "https://" + camundaDomain + "/auth";

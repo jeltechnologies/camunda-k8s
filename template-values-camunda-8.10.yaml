@@ -9,10 +9,9 @@
 # sure - these are easy to lose track of across a copy-paste.
 #
 # Aligned with chart 15.x defaults: only values that differ from `helm show values
-# camunda/camunda-platform --version 15.0.0` are set, no deprecated keys are used except
-# orchestration.security.authorizations.enabled (kept on purpose - see the comment there), and
-# settings the chart has no Helm key for go through each
-# component's `extraConfiguration` (Spring-imported, so it overrides the chart-generated
+# camunda/camunda-platform --version 15.0.0` are set, no deprecated keys are used, and
+# settings the chart has no Helm key for (incl. camunda.security.authorizations.enabled) go
+# through each component's `extraConfiguration` (Spring-imported, so it overrides the chart-generated
 # application.yaml) rather than a hand-written replacement `configuration` block.
 global:
   # Chart 15.x has no `local` document store type (only aws/gcp/azure/inmemory), so a
@@ -407,17 +406,13 @@ orchestration:
         secret:
           existingSecret: "camunda-credentials"
           existingSecretKey: "identity-orchestration-client-token"
-    # Deliberately disabled (Camunda's default is enabled) so every keycunda user can use
-    # Operate/Tasklist without per-user role grants. The ONE deprecated key this template still
-    # uses on purpose (chart 15.x prints a DEPRECATION warning for it): moving it to
-    # orchestration.extraConfiguration, as the warning suggests, would disable authorizations in
-    # Orchestration itself, but the chart also copies this Helm value - and only this one - into
-    # Hub's generated default-cluster (`authorizations.enabled`), which Hub's frontend uses after
-    # every deploy to fetch the user's authorized components and show "grant authorizations in
-    # Admin" hints. Migrated, Hub would claim authorizations are on while Orchestration has them
-    # off. Revisit when chart 16 removes the key.
-    authorizations:
-      enabled: false
+    # `authorizations.enabled` is deliberately NOT set here: chart 15.x deprecates this Helm key
+    # (removed in chart v17). It is set in orchestration.extraConfiguration below
+    # (camunda.security.authorizations.enabled: ${AUTHORIZATIONS_ENABLED}, asked by the install
+    # wizard, default false = every keycunda user can use Operate/Tasklist without role grants).
+    # Known cosmetic side effect: Hub's generated default-cluster only copies the deprecated Helm
+    # key, so Hub always reports authorizations as enabled (chart default) and may show "grant
+    # authorizations in Admin" hints even when this is false.
     # Camunda's own RBAC keys initial-admin assignment off orchestration.security.authentication
     # .usernameClaim (default: preferred_username). Our identity provider puts the user's email
     # there (see AuthorizationServerConfig's token customizer) - "demo"/"demo@demo.com" from the
@@ -569,9 +564,95 @@ orchestration:
       content: |
         camunda:
           security:
+            authorizations:
+              enabled: ${AUTHORIZATIONS_ENABLED}
             authentication:
               oidc:
+                # Keycunda stamps the user's group names (admins/developers/task-users) into a `groups`
+                # claim; Orchestration matches the authorizations below against them. The deprecated
+                # Helm key orchestration.security.authentication.oidc.groupsClaim is not used.
+                groups-claim: groups
                 redirect-uri: "https://${CAMUNDA_DOMAIN}/orchestration/sso-callback"
+            # Group-based access (role-based access demo). The group IDs are the names in keycunda's
+            # user/Groups.java; members are assigned there, permissions are defined here. Applied by
+            # Orchestration at startup (Identity-as-code). Only matters while authorizations are enabled.
+            initialization:
+              default-roles:
+                admin:
+                  groups:
+                    - admins
+              authorizations:
+                # developers: Operate + Tasklist, deploy and run any process/decision.
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: COMPONENT
+                  resourceId: operate
+                  permissions: [ACCESS]
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: COMPONENT
+                  resourceId: tasklist
+                  permissions: [ACCESS]
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: PROCESS_DEFINITION
+                  resourceId: "*"
+                  permissions:
+                    - READ_PROCESS_DEFINITION
+                    - READ_PROCESS_INSTANCE
+                    - CREATE_PROCESS_INSTANCE
+                    - CANCEL_PROCESS_INSTANCE
+                    - MODIFY_PROCESS_INSTANCE
+                    - READ_USER_TASK
+                    - UPDATE_USER_TASK
+                    - CLAIM_USER_TASK
+                    - COMPLETE_USER_TASK
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: DECISION_DEFINITION
+                  resourceId: "*"
+                  permissions:
+                    - READ_DECISION_DEFINITION
+                    - READ_DECISION_INSTANCE
+                    - CREATE_DECISION_INSTANCE
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: RESOURCE
+                  resourceId: "*"
+                  permissions: [CREATE, READ]
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: MESSAGE
+                  resourceId: "*"
+                  permissions: [CREATE, READ]
+                - ownerType: GROUP
+                  ownerId: developers
+                  resourceType: DOCUMENT
+                  resourceId: "*"
+                  permissions: [CREATE, READ]
+                # task-users: Tasklist only; may start the ticket process (the ticketing simulator calls the
+                # REST API with the user's own token) and work its user tasks, nothing else.
+                - ownerType: GROUP
+                  ownerId: task-users
+                  resourceType: COMPONENT
+                  resourceId: tasklist
+                  permissions: [ACCESS]
+                - ownerType: GROUP
+                  ownerId: task-users
+                  resourceType: PROCESS_DEFINITION
+                  resourceId: agentic-workflow-orchestration
+                  permissions:
+                    - READ_PROCESS_DEFINITION
+                    - CREATE_PROCESS_INSTANCE
+                    - READ_USER_TASK
+                    - UPDATE_USER_TASK
+                    - CLAIM_USER_TASK
+                    - COMPLETE_USER_TASK
+                - ownerType: GROUP
+                  ownerId: task-users
+                  resourceType: DOCUMENT
+                  resourceId: "*"
+                  permissions: [CREATE, READ]
           data:
             secondary-storage:
               autoconfigure-camunda-exporter: false

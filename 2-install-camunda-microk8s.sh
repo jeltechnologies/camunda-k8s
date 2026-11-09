@@ -318,7 +318,7 @@ echo "Installing Keycunda (${KEYCUNDA_IMAGE}): RBAC, Deployment, Service and ing
 echo "=================================================================="
 # One manifest: the ServiceAccount/Role/RoleBinding for Secrets Management's "Apply to cluster",
 # the Deployment + Service, and the Ingress objects (/auth plus the /keycunda/* aliases).
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${SIMULATOR_BASE_URL} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 # The image tag is normally ":latest", so re-applying an unchanged manifest does not roll the
@@ -351,7 +351,7 @@ echo "Using Helm values template: ${CAMUNDA_VALUES_TEMPLATE}"
 # Throwaway basic-auth password for Orchestration's initial user (unused with OIDC login).
 ORCHESTRATION_INIT_PASSWORD="$(openssl rand -base64 24)"
 export ORCHESTRATION_INIT_PASSWORD
-envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}' \
+envsubst '${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${AUTHORIZATIONS_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}' \
   < "${CAMUNDA_VALUES_TEMPLATE}" > values-camunda.yaml
 
 echo "=================================================================="
