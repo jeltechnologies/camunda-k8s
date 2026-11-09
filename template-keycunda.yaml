@@ -87,8 +87,6 @@ spec:
               value: "${CAMUNDA_LINE}"
             - name: AUTHORIZATIONS_ENABLED
               value: "${AUTHORIZATIONS_ENABLED}"
-            - name: SIMULATOR_BASE_URL
-              value: "${SIMULATOR_BASE_URL}"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:postgresql://camunda-postgresql:5432/keycunda"
             - name: SPRING_DATASOURCE_USERNAME
@@ -326,6 +324,38 @@ spec:
       http:
         paths:
           - path: /keycunda/clients(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: keycunda
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycunda-login-clients-alias-ingress
+  namespace: camunda
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /auth/admin/login-clients$1
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - ${CAMUNDA_DOMAIN}
+      secretName: tls-secret-${CAMUNDA_DOMAIN}
+  rules:
+    - host: ${CAMUNDA_DOMAIN}
+      http:
+        paths:
+          - path: /keycunda/login-clients(/.*)?$
             pathType: ImplementationSpecific
             backend:
               service:

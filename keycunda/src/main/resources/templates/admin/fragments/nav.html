@@ -62,6 +62,8 @@
         <nav th:if="${isAdmin}">
             <a href="/keycunda/users" th:classappend="${active == 'users'} ? 'active'">Users</a>
             <a href="/keycunda/clients" th:classappend="${active == 'clients'} ? 'active'">API clients</a>
+            <!-- Login clients only matter when Camunda authorizations are enabled (GlobalModelAttributes). -->
+            <a th:if="${authorizationsEnabled}" href="/keycunda/login-clients" th:classappend="${active == 'login-clients'} ? 'active'">Login clients</a>
             <span class="nav-divider"></span>
             <a href="/keycunda/secrets" th:classappend="${active == 'secrets'} ? 'active'">Secrets</a>
         </nav>

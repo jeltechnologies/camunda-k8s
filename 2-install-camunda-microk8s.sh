@@ -318,7 +318,7 @@ echo "Installing Keycunda (${KEYCUNDA_IMAGE}): RBAC, Deployment, Service and ing
 echo "=================================================================="
 # One manifest: the ServiceAccount/Role/RoleBinding for Secrets Management's "Apply to cluster",
 # the Deployment + Service, and the Ingress objects (/auth plus the /keycunda/* aliases).
-envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${SIMULATOR_BASE_URL} ${DEMO_NAME} ${DEMO_EMAIL}' \
+envsubst '${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${DEMO_NAME} ${DEMO_EMAIL}' \
   < template-keycunda.yaml | microk8s kubectl apply -f -
 
 # The image tag is normally ":latest", so re-applying an unchanged manifest does not roll the

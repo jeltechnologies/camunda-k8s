@@ -13,9 +13,9 @@ import java.util.regex.Pattern;
 import com.jeltechnologies.keycunda.catalog.HubTokenProvider;
 import com.jeltechnologies.keycunda.client.Client;
 import com.jeltechnologies.keycunda.client.ClientRepository;
+import com.jeltechnologies.keycunda.login.LoginClientRepository;
 import com.jeltechnologies.keycunda.config.AuthorizationServerConfig;
 import com.jeltechnologies.keycunda.config.KeycundaProperties;
-import com.jeltechnologies.keycunda.config.OidcClientsConfig;
 import com.jeltechnologies.keycunda.identity.HubApiAccessGrantor;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -43,11 +43,11 @@ public class AdminClientController {
     // Client IDs the fixed repository already owns (see OidcClientsConfig) - the composite
     // repository always resolves these to the fixed client first, so a same-named admin-managed
     // client would silently never be reachable. Reject it up front with a clear error instead.
-    private static final Set<String> RESERVED_CLIENT_IDS =
+    static final Set<String> RESERVED_CLIENT_IDS =
             Set.of("camunda-identity", "orchestration", "optimize", "web-modeler", "console", "connectors",
-                    OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID, HubTokenProvider.CLIENT_ID);
+                    HubTokenProvider.CLIENT_ID);
 
-    private static final Pattern CLIENT_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]{1,255}");
+    static final Pattern CLIENT_ID_PATTERN = Pattern.compile("[a-zA-Z0-9._-]{1,255}");
 
     // A client secret can now be set to an admin-chosen value (not just the generated one), so it
     // needs its own validation: no whitespace (it goes into an Authorization header / token request
@@ -62,10 +62,12 @@ public class AdminClientController {
     private final KeycundaProperties keycundaProperties;
     private final HubApiAccessGrantor hubApiAccessGrantor;
     private final String camundaLine;
+    private final LoginClientRepository loginClientRepository;
 
     public AdminClientController(ClientRepository clientRepository, PasswordEncoder passwordEncoder,
             KeycundaProperties keycundaProperties, HubApiAccessGrantor hubApiAccessGrantor,
-            @Value("${keycunda.camunda-line:8.10}") String camundaLine) {
+            @Value("${keycunda.camunda-line:8.10}") String camundaLine, LoginClientRepository loginClientRepository) {
+        this.loginClientRepository = loginClientRepository;
         this.clientRepository = clientRepository;
         this.passwordEncoder = passwordEncoder;
         this.keycundaProperties = keycundaProperties;
@@ -105,6 +107,10 @@ public class AdminClientController {
         if (RESERVED_CLIENT_IDS.contains(clientId) || !CLIENT_ID_PATTERN.matcher(clientId).matches()) {
             redirectAttributes.addFlashAttribute("error",
                     "Client ID \"" + clientId + "\" is reserved or invalid. Use letters, digits, \".\", \"_\" or \"-\".");
+            return "redirect:/admin/clients/new";
+        }
+        if (loginClientRepository.findByClientId(clientId).isPresent()) {
+            redirectAttributes.addFlashAttribute("error", "Client ID \"" + clientId + "\" is already used by a login client.");
             return "redirect:/admin/clients/new";
         }
         if (!SECRET_PATTERN.matcher(secret == null ? "" : secret).matches()) {
@@ -234,7 +240,7 @@ public class AdminClientController {
      * now Hub's "internal" and public API. The 8.10 list therefore drops Console and relabels those
      * two; 8.9 installs keep the old list unchanged.
      */
-    private Map<String, String> knownAudiences() {
+    Map<String, String> knownAudiences() {
         KeycundaProperties.Clients clients = keycundaProperties.clients();
         // TreeMap, not LinkedHashMap: keeps the checkboxes sorted alphabetically by label.
         Map<String, String> options = new java.util.TreeMap<>();
@@ -253,7 +259,7 @@ public class AdminClientController {
     }
 
     /** Combines the checked known-audience values with whatever's typed into the custom field. */
-    private static String combineAudiences(List<String> knownAudiences, String customAudience) {
+    static String combineAudiences(List<String> knownAudiences, String customAudience) {
         Set<String> all = new LinkedHashSet<>();
         if (knownAudiences != null) {
             all.addAll(knownAudiences);
@@ -269,7 +275,7 @@ public class AdminClientController {
     }
 
     /** Which of the known-audience checkboxes should come back checked for an already-stored value. */
-    private static Set<String> selectedKnownAudiences(String storedAudience, Map<String, String> knownAudiences) {
+    static Set<String> selectedKnownAudiences(String storedAudience, Map<String, String> knownAudiences) {
         if (storedAudience == null || storedAudience.isBlank()) {
             return Set.of();
         }
@@ -284,7 +290,7 @@ public class AdminClientController {
     }
 
     /** Whatever's left of a stored audience value once the known checkboxes' values are removed. */
-    private static String customAudiencePart(String storedAudience, Map<String, String> knownAudiences) {
+    static String customAudiencePart(String storedAudience, Map<String, String> knownAudiences) {
         if (storedAudience == null || storedAudience.isBlank()) {
             return "";
         }

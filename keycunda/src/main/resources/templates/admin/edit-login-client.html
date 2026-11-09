@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Camunda Demo - External Identity Provider</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/images/people.svg}"/>
+    <link rel="stylesheet" th:href="@{/css/camunda.css}"/>
+    <style>
+        .form-panel { max-width: 560px; }
+        .form-panel label { margin-top: 1rem; }
+        .form-panel label:first-of-type { margin-top: 0; }
+        .note { font-size: 13px; color: #565656; margin-top: 0.3rem; }
+        .checkbox-row { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; }
+        .checkbox-row label { margin: 0; font-weight: 400; }
+        textarea { width: 100%; min-height: 6rem; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; }
+        .button-row { display: flex; gap: 0.6rem; margin-top: 1.5rem; }
+        .btn-cancel { padding: 0.55rem 1rem; background: #ffffff; color: var(--gray-100); border: 1px solid var(--gray-20);
+            text-decoration: none; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; }
+    </style>
+</head>
+<body>
+    <div th:replace="~{admin/fragments/nav :: topbar('login-clients')}"></div>
+    <div class="content">
+        <div class="panel form-panel">
+            <h1>Edit login client</h1>
+            <p class="error" th:if="${error}" th:text="${error}"></p>
+            <form method="post" th:action="@{/admin/login-clients/{id}/edit(id=${client.id})}">
+                <label for="clientId">Client ID</label>
+                <input type="text" id="clientId" name="clientId" th:value="${client.clientId}" required="required"
+                       pattern="[a-zA-Z0-9._-]+"/>
+                <p class="note">Letters, digits, ".", "_" or "-". If you rename it, update the app's configuration too, and users
+                    logged in with the old ID have to log in again.</p>
+
+                <label for="redirectUris">Redirect URIs</label>
+                <textarea id="redirectUris" name="redirectUris" required="required" th:text="${client.redirectUris}"></textarea>
+                <p class="note">
+                    One allowed redirect URI per line, where the app sends users back after login and logout. Must be
+                    <code>https</code> (<code>http</code> only on localhost). <code>*</code> matches any text, so
+                    <code>https://ticket.example.com/*</code> allows any path and <code>https://*.example.com/*</code>
+                    any subdomain; the host may only use <code>*</code> as its first label.
+                    The app's callback is usually <code>https://&lt;app&gt;/login/oauth2/code/&lt;registration-id&gt;</code>.
+                </p>
+
+                <label>Audience</label>
+                <p class="note" style="margin-top: 0;">The resource server(s) this client's access tokens are valid for.</p>
+                <div class="checkbox-row" th:each="entry : ${knownAudiences}">
+                    <input type="checkbox" th:id="${'aud-' + entry.value}" name="knownAudiences"
+                           th:value="${entry.value}" th:checked="${selectedAudiences.contains(entry.value)}"/>
+                    <label th:for="${'aud-' + entry.value}" th:text="${entry.key + ' (' + entry.value + ')'}"></label>
+                </div>
+
+                <label for="customAudience">Custom audience(s)</label>
+                <input type="text" id="customAudience" name="customAudience" th:value="${customAudience}"/>
+                <p class="note">Space/comma-separated, for an audience not listed above.</p>
+
+                <div class="button-row">
+                    <button type="submit">OK</button>
+                    <button type="submit" class="danger" th:formaction="@{/admin/login-clients/{id}/delete(id=${client.id})}">Remove</button>
+                    <a class="btn-cancel" th:href="@{/admin/login-clients}">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

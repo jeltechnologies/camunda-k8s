@@ -17,7 +17,6 @@ DEFAULT_GITLAB_URL=https://my-gitlab/api/v4
 DEFAULT_BEHIND_REVERSE_PROXY=false
 DEFAULT_SWAGGER_ENABLED=false
 DEFAULT_AUTHORIZATIONS_ENABLED=false
-DEFAULT_SIMULATOR_BASE_URL=
 
 if [[ -f ./install-env.sh ]]; then
   source ./install-env.sh
@@ -54,7 +53,6 @@ if [[ -f ./install-env.sh ]]; then
   DEFAULT_BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY:-false}"
   DEFAULT_SWAGGER_ENABLED="${SWAGGER_ENABLED:-false}"
   DEFAULT_AUTHORIZATIONS_ENABLED="${AUTHORIZATIONS_ENABLED:-false}"
-  DEFAULT_SIMULATOR_BASE_URL="${SIMULATOR_BASE_URL:-}"
 fi
 
 # Hardcoded constants, not remembered from a previous install-env.sh - set after the reuse
@@ -306,18 +304,6 @@ while true; do
   echo "Please answer 'true' or 'false'."
 done
 
-echo ""
-echo "=========================================================================================================="
-echo " Optional: Ticketing simulator login"
-echo " The demo ticketing simulator (separate app) logs its users in with this identity provider. Enter its"
-echo " public base URL, e.g. https://ticket.example.com, so the login client can be registered with the right"
-echo " redirect URI. Leave empty (default) when you do not use the simulator."
-echo "=========================================================================================================="
-echo ""
-
-read -p "Ticketing simulator base URL (default: ${DEFAULT_SIMULATOR_BASE_URL:-none}): " input_simulator_base_url
-SIMULATOR_BASE_URL=${input_simulator_base_url:-$DEFAULT_SIMULATOR_BASE_URL}
-SIMULATOR_BASE_URL="${SIMULATOR_BASE_URL%/}"
 
 cat > install-env.sh <<ENVEOF
 #!/usr/bin/env bash
@@ -338,7 +324,6 @@ export GITLAB_URL="${GITLAB_URL}"
 export BEHIND_REVERSE_PROXY="${BEHIND_REVERSE_PROXY}"
 export SWAGGER_ENABLED="${SWAGGER_ENABLED}"
 export AUTHORIZATIONS_ENABLED="${AUTHORIZATIONS_ENABLED}"
-export SIMULATOR_BASE_URL="${SIMULATOR_BASE_URL}"
 ENVEOF
 
 echo ""

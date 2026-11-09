@@ -73,10 +73,10 @@
 
                 <label th:if="${authorizationsEnabled}">Groups</label>
                 <div class="checkbox-row" th:if="${authorizationsEnabled}" th:each="group : ${knownGroups}">
-                    <input type="checkbox" name="groups" th:id="${'group-' + group}" th:value="${group}"/>
+                    <input type="checkbox" name="groups" th:id="${'group-' + group}" th:value="${group}" checked="checked"/>
                     <label th:for="${'group-' + group}" th:text="${group}"></label>
                 </div>
-                <p class="note" th:if="${authorizationsEnabled}">A user can be in several groups. Groups decide what the user may do in Camunda
+                <p class="note" th:if="${authorizationsEnabled}">A user can be in several groups; all are pre-checked, uncheck the ones this user should not have. Groups decide what the user may do in Camunda
                     (Operate, Tasklist, starting processes).</p>
 
                 <div class="button-row">

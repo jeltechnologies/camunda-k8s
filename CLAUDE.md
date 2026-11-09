@@ -71,7 +71,7 @@ through literally into the manifest and will silently break the deploy. To add a
 Current allow-lists in `2-install-camunda-microk8s.sh`:
 - elasticsearch: `${ES_VERSION}`
 - postgresql: `${PG_VERSION}` (passwords come from `camunda-credentials` via `secretKeyRef`, never templated)
-- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${SIMULATOR_BASE_URL} ${DEMO_NAME} ${DEMO_EMAIL}`
+- keycunda: `${KEYCUNDA_IMAGE} ${CAMUNDA_DOMAIN} ${CAMUNDA_LINE} ${AUTHORIZATIONS_ENABLED} ${DEMO_NAME} ${DEMO_EMAIL}`
 - volumes: `${HOME}`
 - camunda values: `${CAMUNDA_DOMAIN} ${ZEEBE_DOMAIN} ${CAMUNDA_APP_VERSION} ${OLLAMA_ENABLED} ${OLLAMA_MODEL} ${OLLAMA_URL} ${GITLAB_URL} ${SWAGGER_ENABLED} ${AUTHORIZATIONS_ENABLED} ${DEMO_EMAIL} ${DEMO_NAME} ${ORCHESTRATION_INIT_PASSWORD}` —
   shared by whichever of `template-values-camunda-8.9.yaml` / `template-values-camunda-8.10.yaml` gets
@@ -146,7 +146,7 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
     even when Orchestration has them off. The 8.9 template still uses the Helm key (three spots).
   - **Groups and role-based access (8.10 template)**: Keycunda has three fixed groups
     (`user/Groups.java`: `admins`, `developers`, `task-users`), assigned to users as checkboxes on the
-    Users add/edit pages (table `user_groups`, many-to-many; the default admin is always in `admins`) and
+    Users add/edit pages (all groups are pre-checked on the add page) (table `user_groups`, many-to-many; the default admin is always in `admins`) and
     stamped into every *user* token as a `groups` claim (a plain `ArrayList`, like the audience claim). The
     8.10 template sets `camunda.security.authentication.oidc.groups-claim: groups` and
     `camunda.security.initialization.authorizations` (ownerType `GROUP`) in `orchestration.extraConfiguration`
@@ -159,13 +159,21 @@ Known differences today, in `template-values-camunda-8.10.yaml` (plus one in key
     group get nothing once authorizations are enabled. **With authorizations disabled Keycunda hides the group
     UI** (Groups column and checkboxes; `keycunda.authorizations-enabled`, env `AUTHORIZATIONS_ENABLED` from
     `template-keycunda.yaml`) and leaves existing memberships untouched on edit; the `groups` claim is still emitted.
-  - **Ticketing simulator login**: the demo ticketing simulator (separate repo, outside the cluster) logs its
-    users in with a fixed **public PKCE client `ticketing-simulator`** (`OidcClientsConfig`), registered only when
-    `SIMULATOR_BASE_URL` (wizard question, empty = none) is set; registered redirect `<url>/login/oauth2/code/keycunda`, post-logout `<url>/`, **but any `https` redirect/post-logout URI on the
-    allowed domain or its subdomains is accepted for this client** (`SimulatorRedirectPolicy`, wired in `SecurityConfig` as custom
-    authorization-code and logout validators; `http` only on localhost). The domain is `keycunda.simulator-allowed-domain` (env
-    `SIMULATOR_ALLOWED_DOMAIN`, not templated; blank = Camunda domain minus its first label). All other clients keep exact matching. Its access tokens get audience `orchestration-api`, and it calls Orchestration's REST API with the
-    *user's* token, so a user's groups decide whether they may start the process (no shared client-credentials client).
+  - **Login clients (admin UI, only relevant with authorizations enabled)**: web apps outside the stack (for example the
+    demo ticketing simulator, client ID e.g. `ticketing-simulator`) log users in through Keycunda and call Camunda with the
+    *user's* token, so the user's groups decide what the app may do for them. They are managed at `/admin/login-clients`
+    (alias `/keycunda/login-clients`, own Ingress in `template-keycunda.yaml`; nav link only when `authorizationsEnabled`;
+    existing clients keep working when it is off) in table `oauth_login_clients` (`login/` package,
+    `web/AdminLoginClientController`). Each is a **public PKCE authorization-code client** (no secret) with its own
+    audience(s) (checkboxes like API clients, Orchestration pre-checked) and **redirect URI patterns**, one per line
+    (`login/RedirectPatterns`): `https` only (`http` only on localhost), `*` matches any text, and in the host `*` is only
+    allowed as the first label (`https://*.example.com/*`, never `https://*`). Spring's redirect check is exact-match, so
+    `SecurityConfig` installs custom authorization-code and logout validators that consult the patterns, which
+    `CompositeRegisteredClientRepository` carries in the client settings (`RedirectPatterns.SETTING`); the registered URIs
+    are placeholders. Clients without patterns (fixed and API clients) keep exact matching. IDs are unique across fixed,
+    API and login clients (checked in both controllers); a login client's ID can be renamed (checked the same way; a rename
+    needs the app reconfigured and logs its users out). The old fixed `ticketing-simulator` client, its
+    `SIMULATOR_*` variables and the allowed-domain policy are gone: create the client in the UI instead.
   - Deprecated orchestration keys that *were* migrated live in `orchestration.extraConfiguration`
     (`demo-overrides.yaml`): `autoconfigure-camunda-exporter: false`, plus the OIDC
     `redirect-uri` and Operate/Tasklist `redirectRootUrl`. Without them the chart derives all of

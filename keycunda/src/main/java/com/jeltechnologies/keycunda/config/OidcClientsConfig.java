@@ -69,26 +69,8 @@ public class OidcClientsConfig {
         // logs a human in, so no authorization_code/redirect URI is needed at all.
         RegisteredClient connectors = m2mClient("connectors", clients.connectors().secret(), passwordEncoder);
 
-        java.util.List<RegisteredClient> all = new java.util.ArrayList<>(java.util.List.of(
-                camundaIdentity, orchestration, optimize, webModeler, console, connectors));
-        if (props.hasSimulator()) {
-            all.add(ticketingSimulatorClient(props.simulatorBaseUrl()));
-        }
-        return new InMemoryRegisteredClientRepository(all);
-    }
-
-    /** Client ID of the ticketing simulator's login client (see {@link #ticketingSimulatorClient}). */
-    public static final String TICKETING_SIMULATOR_CLIENT_ID = "ticketing-simulator";
-
-    /**
-     * The ticketing simulator (a separate demo app outside the cluster) logs its users in here and calls
-     * Orchestration's REST API with the user's own access token, so a user's groups decide whether they may
-     * start the ticket process. Public client with PKCE like web-modeler (no secret to distribute); the
-     * simulator's Spring registration id is "keycunda", hence the redirect path.
-     */
-    private RegisteredClient ticketingSimulatorClient(String baseUrl) {
-        String base = baseUrl.trim().replaceAll("/+$", "");
-        return publicClient(TICKETING_SIMULATOR_CLIENT_ID, base + "/login/oauth2/code/keycunda", base + "/");
+        return new InMemoryRegisteredClientRepository(
+                camundaIdentity, orchestration, optimize, webModeler, console, connectors);
     }
 
     private RegisteredClient confidentialClient(String clientId, String secret, PasswordEncoder passwordEncoder,

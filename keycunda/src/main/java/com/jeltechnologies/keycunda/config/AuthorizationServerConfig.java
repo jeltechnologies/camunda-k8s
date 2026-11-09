@@ -33,6 +33,8 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
 import com.jeltechnologies.keycunda.client.ClientRepository;
+import com.jeltechnologies.keycunda.login.LoginClient;
+import com.jeltechnologies.keycunda.login.LoginClientRepository;
 import com.jeltechnologies.keycunda.user.UserGroupRepository;
 import com.jeltechnologies.keycunda.user.UserRepository;
 
@@ -43,13 +45,16 @@ public class AuthorizationServerConfig {
     private final UserRepository userRepository;
     private final UserGroupRepository userGroupRepository;
     private final ClientRepository clientRepository;
+    private final LoginClientRepository loginClientRepository;
 
     public AuthorizationServerConfig(KeycundaProperties keycundaProperties,
-            UserRepository userRepository, UserGroupRepository userGroupRepository, ClientRepository clientRepository) {
+            UserRepository userRepository, UserGroupRepository userGroupRepository, ClientRepository clientRepository,
+            LoginClientRepository loginClientRepository) {
         this.keycundaProperties = keycundaProperties;
         this.userRepository = userRepository;
         this.userGroupRepository = userGroupRepository;
         this.clientRepository = clientRepository;
+        this.loginClientRepository = loginClientRepository;
     }
 
     @Bean
@@ -187,9 +192,6 @@ public class AuthorizationServerConfig {
             case "web-modeler" -> new java.util.ArrayList<>(java.util.List.of(
                     clients.webModeler().clientApiAudience(), clients.webModeler().publicApiAudience()));
             case "console" -> new java.util.ArrayList<>(java.util.List.of(CONSOLE_AUDIENCE));
-            // The simulator calls Orchestration's REST API with its users' tokens.
-            case OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID ->
-                    new java.util.ArrayList<>(java.util.List.of(clients.orchestration().audience()));
             default -> dynamicClientAudiences(clientId);
         };
     }
@@ -205,7 +207,7 @@ public class AuthorizationServerConfig {
     private java.util.List<String> dynamicClientAudiences(String clientId) {
         String audience = clientRepository.findByClientId(clientId)
                 .map(com.jeltechnologies.keycunda.client.Client::audience)
-                .orElse(null);
+                .orElseGet(() -> loginClientRepository.findByClientId(clientId).map(LoginClient::audience).orElse(null));
         if (audience == null || audience.isBlank()) {
             return new java.util.ArrayList<>(java.util.List.of(clientId));
         }

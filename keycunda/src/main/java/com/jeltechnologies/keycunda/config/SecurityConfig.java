@@ -8,6 +8,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import com.jeltechnologies.keycunda.login.RedirectPatterns;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
@@ -40,19 +41,17 @@ public class SecurityConfig {
      */
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, KeycundaProperties props) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer();
-        SimulatorRedirectPolicy simulatorPolicy = props.simulatorRedirectPolicy();
         http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher());
         http.with(authorizationServerConfigurer, authorizationServer -> authorizationServer
-                // The ticketing simulator may use any https redirect on the allowed domain (not just its one
-                // registered URL); every other client keeps Spring's exact-match check.
+                // Login clients (admin-managed, see login/RedirectPatterns) are checked against their redirect URI
+                // patterns; every other client keeps Spring's exact-match check.
                 .authorizationEndpoint(endpoint -> endpoint.authenticationProviders(providers -> providers.forEach(provider -> {
                     if (provider instanceof OAuth2AuthorizationCodeRequestAuthenticationProvider codeProvider) {
                         codeProvider.setAuthenticationValidator(context -> {
-                            boolean simulator = OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID
-                                    .equals(context.getRegisteredClient().getClientId());
-                            if (simulator && simulatorPolicy.allows(requestedRedirectUri(context))) {
+                            if (RedirectPatterns.anyMatches(RedirectPatterns.of(context.getRegisteredClient()),
+                                    requestedRedirectUri(context))) {
                                 OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_SCOPE_VALIDATOR.accept(context);
                             } else {
                                 OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_REDIRECT_URI_VALIDATOR
@@ -65,10 +64,9 @@ public class SecurityConfig {
                 .oidc(oidc -> oidc.logoutEndpoint(logout -> logout.authenticationProviders(providers -> providers.forEach(provider -> {
                     if (provider instanceof OidcLogoutAuthenticationProvider logoutProvider) {
                         logoutProvider.setAuthenticationValidator(context -> {
-                            boolean simulator = OidcClientsConfig.TICKETING_SIMULATOR_CLIENT_ID
-                                    .equals(context.getRegisteredClient().getClientId());
                             OidcLogoutAuthenticationToken token = context.getAuthentication();
-                            if (!(simulator && simulatorPolicy.allows(token.getPostLogoutRedirectUri()))) {
+                            if (!RedirectPatterns.anyMatches(RedirectPatterns.of(context.getRegisteredClient()),
+                                    token.getPostLogoutRedirectUri())) {
                                 OidcLogoutAuthenticationValidator.DEFAULT_POST_LOGOUT_REDIRECT_URI_VALIDATOR.accept(context);
                             }
                         });
@@ -126,7 +124,7 @@ public class SecurityConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/login", "/error", "/favicon.ico", "/css/**", "/images/**").permitAll()
-                .requestMatchers("/admin/users/**", "/admin/clients/**", "/admin/secrets/**",
+                .requestMatchers("/admin/users/**", "/admin/clients/**", "/admin/login-clients/**", "/admin/secrets/**",
                         "/admin/catalog/**").hasRole("ADMIN")
                 .requestMatchers("/admin/**").authenticated()
                 .anyRequest().authenticated());

@@ -1,15 +1,21 @@
 package com.jeltechnologies.keycunda.client;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.stereotype.Component;
 
 import com.jeltechnologies.keycunda.config.OidcClientsConfig;
+import com.jeltechnologies.keycunda.login.LoginClient;
+import com.jeltechnologies.keycunda.login.LoginClientRepository;
+import com.jeltechnologies.keycunda.login.RedirectPatterns;
 
 /**
  * The {@link RegisteredClientRepository} the rest of the app actually sees: the fixed, code-defined
@@ -29,12 +35,14 @@ public class CompositeRegisteredClientRepository implements RegisteredClientRepo
 
     private final RegisteredClientRepository fixedClients;
     private final ClientRepository clientRepository;
+    private final LoginClientRepository loginClientRepository;
 
     public CompositeRegisteredClientRepository(
             @Qualifier("fixedRegisteredClientRepository") RegisteredClientRepository fixedClients,
-            ClientRepository clientRepository) {
+            ClientRepository clientRepository, LoginClientRepository loginClientRepository) {
         this.fixedClients = fixedClients;
         this.clientRepository = clientRepository;
+        this.loginClientRepository = loginClientRepository;
     }
 
     /**
@@ -64,7 +72,36 @@ public class CompositeRegisteredClientRepository implements RegisteredClientRepo
     // Admin-managed clients are registered with RegisteredClient.withId(clientId) below, the same
     // convention OidcClientsConfig uses for the fixed set, so findById and findByClientId agree.
     private RegisteredClient findDynamic(String clientId) {
-        return clientRepository.findByClientId(clientId).map(this::toRegisteredClient).orElse(null);
+        RegisteredClient api = clientRepository.findByClientId(clientId).map(this::toRegisteredClient).orElse(null);
+        return api != null ? api : loginClientRepository.findByClientId(clientId).map(this::toLoginRegisteredClient).orElse(null);
+    }
+
+    /**
+     * A login client: public (no secret), authorization code + PKCE, scopes like the fixed browser clients. The
+     * redirect URIs are patterns (see {@link RedirectPatterns}), kept in the client settings for the validators in
+     * SecurityConfig; the registered URIs are placeholders, since Spring requires at least one valid URI.
+     */
+    private RegisteredClient toLoginRegisteredClient(LoginClient client) {
+        List<String> patterns = client.redirectPatterns();
+        List<String> placeholders = patterns.stream().map(RedirectPatterns::placeholder).toList();
+        return RegisteredClient.withId(client.clientId())
+                .clientId(client.clientId())
+                .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+                .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                .redirectUris(uris -> uris.addAll(placeholders))
+                .postLogoutRedirectUris(uris -> uris.addAll(placeholders))
+                .scope(OidcScopes.OPENID)
+                .scope(OidcScopes.PROFILE)
+                .scope(OidcScopes.EMAIL)
+                .scope("offline_access")
+                .clientSettings(ClientSettings.builder()
+                        .requireAuthorizationConsent(false)
+                        .requireProofKey(true)
+                        .setting(RedirectPatterns.SETTING, patterns)
+                        .build())
+                .tokenSettings(OidcClientsConfig.m2mTokenSettings())
+                .build();
     }
 
     private RegisteredClient toRegisteredClient(Client client) {

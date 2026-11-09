@@ -49,5 +49,19 @@ CREATE TABLE IF NOT EXISTS oauth_clients (
 ALTER TABLE oauth_clients ADD COLUMN IF NOT EXISTS secret VARCHAR(255);
 ALTER TABLE oauth_clients ADD COLUMN IF NOT EXISTS audience VARCHAR(500);
 
+-- User-managed "login clients": web apps outside the stack (for example the demo ticketing simulator) that log
+-- users in with the authorization code flow + PKCE (public clients, no secret). Only relevant when Camunda
+-- authorizations are enabled, see login/LoginClient.java. "redirect_uris" holds one allowed redirect URI
+-- pattern per line ('*' matches any text, see login/RedirectPatterns.java); "audience" is stamped into the access
+-- tokens like for the API clients above.
+CREATE TABLE IF NOT EXISTS oauth_login_clients (
+    id UUID PRIMARY KEY,
+    client_id VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    audience VARCHAR(500),
+    redirect_uris TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 -- No table for Secrets Management: Kubernetes is the source of truth there, not this database and
 -- not an HTTP session either - see secret/Secret.java and web/AdminSecretController.java.

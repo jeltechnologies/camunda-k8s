@@ -95,6 +95,15 @@ class UserGroupsTest {
     }
 
     @Test
+    void addFormHasEveryGroupPreChecked() throws Exception {
+        String html = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/admin/users/new"))
+                .andReturn().getResponse().getContentAsString();
+        for (String group : Groups.ALL) {
+            assertThat(html).containsPattern("id=\"group-" + group + "\"[^>]*checked");
+        }
+    }
+
+    @Test
     void defaultAdminCannotBeRemovedFromAdminsByTheEditForm() throws Exception {
         User admin = userRepository.findByEmail("demo@example.com").orElseThrow();
         mockMvc.perform(post("/admin/users/{id}/edit", admin.id()).with(csrf())
